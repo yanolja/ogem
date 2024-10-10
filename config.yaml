@@ -1,0 +1,355 @@
+retry_interval: 1m
+ping_interval: 1h
+providers:
+  openai:
+    regions:
+      openai:
+        models:
+          - name: "gpt-4o"
+            rate_key: "gpt-4o"
+            rpm: 10_000
+            tpm: 30_000_000
+          - name: "gpt-4o-2024-05-13"
+            rate_key: "gpt-4o"
+            rpm: 10_000
+            tpm: 30_000_000
+          - name: "gpt-4o-2024-08-06"
+            rate_key: "gpt-4o"
+            rpm: 10_000
+            tpm: 30_000_000
+          - name: "gpt-4o-mini"
+            rate_key: "gpt-4o-mini"
+            rpm: 30_000
+            tpm: 150_000_000
+          - name: "gpt-4o-mini-2024-07-18"
+            rate_key: "gpt-4o-mini"
+            rpm: 30_000
+            tpm: 150_000_000
+          - name: "gpt-4-turbo"
+            rate_key: "gpt-4-turbo"
+            rpm: 10_000
+            tpm: 2_000_000
+          - name: "gpt-4-turbo-2024-04-09"
+            rate_key: "gpt-4-turbo"
+            rpm: 10_000
+            tpm: 2_000_000
+          - name: "gpt-4-turbo-preview"
+            rate_key: "gpt-4-turbo"
+            rpm: 10_000
+            tpm: 2_000_000
+          - name: "gpt-4-0125-preview"
+            rate_key: "gpt-4-turbo"
+            rpm: 10_000
+            tpm: 2_000_000
+          - name: "gpt-4-1106-preview"
+            rate_key: "gpt-4-turbo"
+            rpm: 10_000
+            tpm: 2_000_000
+          - name: "gpt-4"
+            rate_key: "gpt-4"
+            rpm: 10_000
+            tpm: 1_000_000
+          - name: "gpt-4-0613"
+            rate_key: "gpt-4"
+            rpm: 10_000
+            tpm: 1_000_000
+          - name: "gpt-3.5-turbo"
+            rate_key: "gpt-3.5-turbo"
+            rpm: 10_000
+            tpm: 50_000_000
+          - name: "gpt-3.5-turbo-0126"
+            rate_key: "gpt-3.5-turbo"
+            rpm: 10_000
+            tpm: 50_000_000
+          - name: "gpt-3.5-turbo-1106"
+            rate_key: "gpt-3.5-turbo"
+            rpm: 10_000
+            tpm: 50_000_000
+          - name: "gpt-4o-batch"
+            rate_key: "gpt-4o-batch"
+            rpm: 1_000_000
+            tpm: 10_000_000_000
+          - name: "gpt-4o-2024-05-13-batch"
+            rate_key: "gpt-4o-batch"
+            rpm: 1_000_000
+            tpm: 10_000_000_000
+          - name: "gpt-4o-2024-08-06-batch"
+            rate_key: "gpt-4o-batch"
+            rpm: 1_000_000
+            tpm: 10_000_000_000
+          - name: "gpt-4o-mini-batch"
+            rate_key: "gpt-4o-mini-batch"
+            rpm: 1_000_000
+            tpm: 15_000_000_000
+          - name: "gpt-4o-mini-2024-07-18-batch"
+            rate_key: "gpt-4o-mini-batch"
+            rpm: 1_000_000
+            tpm: 15_000_000_000
+          - name: "gpt-4-turbo-batch"
+            rate_key: "gpt-4-turbo-batch"
+            rpm: 1_000_000
+            tpm: 300_000_000
+          - name: "gpt-4-turbo-2024-04-09-batch"
+            rate_key: "gpt-4-turbo-batch"
+            rpm: 1_000_000
+            tpm: 300_000_000
+          - name: "gpt-4-turbo-preview-batch"
+            rate_key: "gpt-4-turbo-batch"
+            rpm: 1_000_000
+            tpm: 300_000_000
+          - name: "gpt-4-0125-preview-batch"
+            rate_key: "gpt-4-batch"
+            rpm: 1_000_000
+            tpm: 150_000_000
+          - name: "gpt-4-1106-preview-batch"
+            rate_key: "gpt-4-batch"
+            rpm: 1_000_000
+            tpm: 150_000_000
+          - name: "gpt-4-batch"
+            rate_key: "gpt-4-batch"
+            rpm: 1_000_000
+            tpm: 150_000_000
+          - name: "gpt-4-0613-batch"
+            rate_key: "gpt-4-batch"
+            rpm: 1_000_000
+            tpm: 150_000_000
+          - name: "gpt-3.5-turbo-batch"
+            rate_key: "gpt-3.5-turbo-batch"
+            rpm: 1_000_000
+            tpm: 5_000_000_000
+          - name: "gpt-3.5-turbo-0126-batch"
+            rate_key: "gpt-3.5-turbo-batch"
+            rpm: 1_000_000
+            tpm: 5_000_000_000
+          - name: "gpt-3.5-turbo-1106-batch"
+            rate_key: "gpt-3.5-turbo-batch"
+            rpm: 1_000_000
+            tpm: 5_000_000_000
+  vertex:
+    regions:
+      default:
+        models:
+          - name: "gemini-1.5-flash-001"
+            rate_key: "gemini-1.5-flash"
+            rpm: 200
+            tpm: 4_000_000
+          - name: "gemini-1.5-flash-002"
+            rate_key: "gemini-1.5-flash"
+            rpm: 200
+            tpm: 4_000_000
+          - name: "gemini-1.5-flash"
+            rate_key: "gemini-1.5-flash"
+            rpm: 200
+            tpm: 4_000_000
+          - name: "gemini-1.5-pro-001"
+            rate_key: "gemini-1.5-pro"
+            rpm: 60
+            tpm: 4_000_000
+          - name: "gemini-1.5-pro-002"
+            rate_key: "gemini-1.5-pro"
+            rpm: 60
+            tpm: 4_000_000
+          - name: "gemini-1.5-pro"
+            rate_key: "gemini-1.5-pro"
+            rpm: 60
+            tpm: 4_000_000
+          - name: "gemini-1.0-pro-001"
+            rate_key: "gemini-1.0-pro"
+            rpm: 300
+            tpm: 4_000_000
+          - name: "gemini-1.0-pro"
+            rate_key: "gemini-1.0-pro"
+            rpm: 300
+            tpm: 4_000_000
+      northamerica-northeast1:
+      southamerica-east1:
+      us-central1:
+      us-east1:
+      us-east4:
+      us-east5:
+      us-south1:
+      us-west1:
+      us-west4:
+      asia-east1:
+      asia-east2:
+      asia-northeast1:
+      asia-northeast3:
+      asia-south1:
+      asia-southeast1:
+      europe-central2:
+      europe-north1:
+      europe-southwest1:
+      europe-west1:
+      europe-west2:
+      europe-west3:
+      europe-west4:
+      europe-west6:
+      europe-west8:
+      europe-west9:
+      me-central1:
+      me-central2:
+      me-west1:
+  studio:
+    regions:
+      default:
+        studio:
+          - name: "gemini-1.5-flash-latest"
+            other_names:
+              - "gemini-1.5-flash"
+            rate_key: "gemini-1.5-flash"
+            rpm: 2_000
+            tpm: 4_000_000
+          - name: "gemini-1.5-flash-001"
+            rate_key: "gemini-1.5-flash"
+            rpm: 2_000
+            tpm: 4_000_000
+          - name: "gemini-1.5-flash-002"
+            rate_key: "gemini-1.5-flash"
+            rpm: 2_000
+            tpm: 4_000_000
+          - name: "gemini-1.5-flash-8b"
+            rate_key: "gemini-1.5-flash-8b"
+            rpm: 2_000
+            tpm: 4_000_000
+          - name: "gemini-1.5-flash-exp-0827"
+            rate_key: "gemini-1.5-flash-free"
+            rpm: 15
+            tpm: 1_000_000
+          - name: "gemini-1.5-flash-8b-exp-0827"
+            rate_key: "gemini-1.5-flash-8b-free"
+            rpm: 15
+            tpm: 1_000_000
+          - name: "gemini-1.5-flash-8b-exp-0924"
+            rate_key: "gemini-1.5-flash-8b-free"
+            rpm: 15
+            tpm: 1_000_000
+          - name: "gemini-1.5-pro-latest"
+            other_names:
+              - "gemini-1.5-pro"
+            rate_key: "gemini-1.5-pro"
+            rpm: 1_000
+            tpm: 4_000_000
+          - name: "gemini-1.5-pro-001"
+            rate_key: "gemini-1.5-pro"
+            rpm: 1_000
+            tpm: 4_000_000
+          - name: "gemini-1.5-pro-002"
+            rate_key: "gemini-1.5-pro"
+            rpm: 1_000
+            tpm: 4_000_000
+          - name: "gemini-1.5-pro-exp-0827"
+            rate_key: "gemini-1.5-pro-free"
+            rpm: 2
+            tpm: 32_000
+          - name: "gemini-1.0-pro-latest"
+            other_names:
+              - "gemini-1.0-pro"
+            rate_key: "gemini-1.0-pro"
+            rpm: 360
+            tpm: 120_000
+          - name: "gemini-1.0-pro-001"
+            rate_key: "gemini-1.0-pro"
+            rpm: 360
+            tpm: 120_000
+  claude:
+    regions:
+      claude:
+        models:
+          - name: "claude-3-5-sonnet"
+            other_names:
+              - "claude-3-5-sonnet@20240620"
+              - "claude-3-5-sonnet-20240620"
+            rate_key: "claude-3-5-sonnet"
+            rpm: 1_000
+            tpm: 80_000
+          - name: "claude-3-opus"
+            other_names:
+              - "claude-3-opus@20240229"
+              - "claude-3-opus-20240229"
+            rate_key: "claude-3-opus"
+            rpm: 1_000
+            tpm: 40_000
+          - name: "claude-3-sonnet"
+            other_names:
+              - "claude-3-sonnet@20240229"
+              - "claude-3-sonnet-20240229"
+            rate_key: "claude-3-sonnet"
+            rpm: 1_000
+            tpm: 80_000
+          - name: "claude-3-haiku"
+            other_names:
+              - "claude-3-haiku@20240307"
+              - "claude-3-haiku-20240307"
+            rate_key: "claude-3-haiku"
+            rpm: 1_000
+            tpm: 100_000
+  vclaude:
+    regions:
+      # All regions must support the claude-3-haiku model because it is used for ping tests.
+      default:
+        models:
+          - name: "claude-3-haiku"
+            other_names:
+              - "claude-3-haiku@20240307"
+              - "claude-3-haiku-20240307"
+            rate_key: "claude-3-haiku"
+            rpm: 1_000
+            tpm: 100_000
+      asia-southeast1:
+        models:
+          - name: "claude-3-5-sonnet"
+            other_names:
+              - "claude-3-5-sonnet@20240620"
+              - "claude-3-5-sonnet-20240620"
+            rate_key: "claude-3-5-sonnet"
+            rpm: 1_000
+            tpm: 80_000
+          - name: "claude-3-sonnet"
+            other_names:
+              - "claude-3-sonnet@20240229"
+              - "claude-3-sonnet-20240229"
+            rate_key: "claude-3-sonnet"
+            rpm: 1_000
+            tpm: 80_000
+      europe-west1:
+        models:
+          - name: "claude-3-5-sonnet"
+            other_names:
+              - "claude-3-5-sonnet@20240620"
+              - "claude-3-5-sonnet-20240620"
+            rate_key: "claude-3-5-sonnet"
+            rpm: 1_000
+            tpm: 80_000
+      europe-west4:
+      us-central1:
+        models:
+          - name: "claude-3-sonnet"
+            other_names:
+              - "claude-3-sonnet@20240229"
+              - "claude-3-sonnet-20240229"
+            rate_key: "claude-3-sonnet"
+            rpm: 1_000
+            tpm: 80_000
+      us-east5:
+        models:
+          - name: "claude-3-5-sonnet"
+            other_names:
+              - "claude-3-5-sonnet@20240620"
+              - "claude-3-5-sonnet-20240620"
+            rate_key: "claude-3-5-sonnet"
+            rpm: 1_000
+            tpm: 80_000
+          - name: "claude-3-opus"
+            other_names:
+              - "claude-3-opus@20240229"
+              - "claude-3-opus-20240229"
+            rate_key: "claude-3-opus"
+            rpm: 1_000
+            tpm: 40_000
+          - name: "claude-3-sonnet"
+            other_names:
+              - "claude-3-sonnet@20240229"
+              - "claude-3-sonnet-20240229"
+            rate_key: "claude-3-sonnet"
+            rpm: 1_000
+            tpm: 80_000
