@@ -13,6 +13,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/valkey-io/valkey-go v1.0.49
 	github.com/valkey-io/valkey-go/mock v1.0.49
+	go.uber.org/mock v0.4.0
 	go.uber.org/zap v1.27.0
 	google.golang.org/api v0.196.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -46,7 +47,6 @@ require (
 	go.opentelemetry.io/otel v1.29.0 // indirect
 	go.opentelemetry.io/otel/metric v1.29.0 // indirect
 	go.opentelemetry.io/otel/trace v1.29.0 // indirect
-	go.uber.org/mock v0.4.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/crypto v0.27.0 // indirect
 	golang.org/x/net v0.29.0 // indirect
