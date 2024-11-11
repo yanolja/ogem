@@ -28,7 +28,7 @@ import (
 	"github.com/yanolja/ogem/provider/studio"
 	"github.com/yanolja/ogem/provider/vclaude"
 	"github.com/yanolja/ogem/provider/vertex"
-	"github.com/yanolja/ogem/rate"
+	"github.com/yanolja/ogem/state"
 	"github.com/yanolja/ogem/utils"
 	"github.com/yanolja/ogem/utils/array"
 	"github.com/yanolja/ogem/utils/copy"
@@ -100,11 +100,11 @@ type ModelProxy struct {
 	// Mutex to synchronize access to the endpoints and endpointStatus.
 	mutex sync.RWMutex
 
-	// Valkey client to access the Valkey service. Used for caching and rate limiting.
-	valkeyClient valkey.Client
+	// State manager for rate limiting and caching
+	stateManager state.Manager 
 
-	// Limiter to limit the number of requests per minute.
-	limiter *rate.Limiter
+	// Cleanup function from memory manager if using in-memory state
+	cleanup func()
 
 	// Interval to retry when no available endpoints are found.
 	retryInterval time.Duration
@@ -136,7 +136,7 @@ func newEndpoint(provider string, region string, config *Config) (provider.AiEnd
 	}
 }
 
-func NewProxyServer(valkeyClient valkey.Client, config Config, logger *zap.SugaredLogger) (*ModelProxy, error) {
+func NewProxyServer(stateManager state.Manager, cleanup func(), config Config, logger *zap.SugaredLogger) (*ModelProxy, error) {
 	retryInterval, err := time.ParseDuration(config.RetryInterval)
 	if err != nil {
 		return nil, fmt.Errorf("invalid retry interval: %v", err)
@@ -172,8 +172,8 @@ func NewProxyServer(valkeyClient valkey.Client, config Config, logger *zap.Sugar
 	return &ModelProxy{
 		endpoints:      endpoints,
 		endpointStatus: endpointStatus,
-		valkeyClient:   valkeyClient,
-		limiter:        rate.NewLimiter(valkeyClient, logger),
+		stateManager:   stateManager,
+		cleanup:        cleanup,
 		retryInterval:  retryInterval,
 		pingInterval:   pingInterval,
 		config:         config,
@@ -286,8 +286,13 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 				return nil, RequestTimeoutError{fmt.Errorf("request canceled")}
 			}
 
-			accepted, waiting, err := s.limiter.CanProceed(
-				ctx, endpoint.endpoint.Provider(), endpoint.endpoint.Region(), modelOrAlias, requestInterval(endpoint.modelStatus))
+			accepted, waiting, err := s.stateManager.Allow(
+				ctx, 
+				endpoint.endpoint.Provider(), 
+				endpoint.endpoint.Region(), 
+				modelOrAlias, 
+				requestInterval(endpoint.modelStatus),
+			)
 			if err != nil {
 				s.logger.Warnw("Failed to check rate limit", "error", err, "provider", endpoint.endpoint.Provider(), "region", endpoint.endpoint.Region(), "model", modelOrAlias)
 				return nil, InternalServerError{fmt.Errorf("rate limit check failed")}
@@ -310,7 +315,7 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 					strings.Contains(loweredError, "exceeded") ||
 					strings.Contains(loweredError, "throughput") ||
 					strings.Contains(loweredError, "exhausted") {
-					s.limiter.DisableEndpointTemporarily(ctx, endpoint.endpoint.Provider(), endpoint.endpoint.Region(), modelOrAlias, 1*time.Minute)
+					s.stateManager.Disable(ctx, endpoint.endpoint.Provider(), endpoint.endpoint.Region(), modelOrAlias, 1*time.Minute)
 					continue
 				}
 				s.logger.Warnw("Failed to generate completion", "error", err, "request", openAiRequest, "response", openAiResponse)
@@ -466,21 +471,16 @@ func (s *ModelProxy) cachedResponse(ctx context.Context, request *openai.ChatCom
 	}
 	s.logger.Infow("Checking cache", "key", cacheKey)
 
-	valkeyResponse := s.valkeyClient.Do(ctx, s.valkeyClient.B().Get().Key(cacheKey).Build())
-	if err := valkeyResponse.Error(); err != nil {
-		if valkey.IsValkeyNil(err) {
-			return nil, nil
-		}
+	data, err := s.stateManager.LoadCache(ctx, cacheKey)
+	if err != nil {
 		return nil, err
 	}
-
-	jsonBytes, err := valkeyResponse.AsBytes()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get cached response: %v", err)
+	if data == nil {
+		return nil, nil
 	}
 
 	var cachedResponse openai.ChatCompletionResponse
-	if err := json.Unmarshal(jsonBytes, &cachedResponse); err != nil {
+	if err := json.Unmarshal(data, &cachedResponse); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal cached response: %v", err)
 	}
 	return &cachedResponse, nil
@@ -497,14 +497,14 @@ func (s *ModelProxy) storeResponseInCache(ctx context.Context, request *openai.C
 		return fmt.Errorf("failed to marshal response for caching: %v", err)
 	}
 
-	return s.valkeyClient.Do(
-		ctx, s.valkeyClient.B().Set().Key(cacheKey).Value(string(jsonBytes)).Build(),
-	).Error()
+	return s.stateManager.SaveCache(ctx, cacheKey, jsonBytes, 24*time.Hour)
 }
 
 func (s *ModelProxy) shutdown() {
 	s.logger.Info("Shutting down ModelProxy")
-	s.valkeyClient.Close()
+	if s.cleanup != nil {
+		s.cleanup()
+	}
 	for _, endpoint := range s.endpoints {
 		if err := endpoint.Shutdown(); err != nil {
 			s.logger.Warnw("Failed to shutdown endpoint", "error", err)
@@ -531,12 +531,6 @@ func requestInterval(modelStatus *ogem.SupportedModel) time.Duration {
 }
 
 func loadConfig(path string) (*Config, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open config file: %v", err)
-	}
-	defer file.Close()
-
 	// Setting default values.
 	config := Config{
 		ValkeyEndpoint: "localhost:6379",
@@ -576,6 +570,12 @@ func loadConfig(path string) (*Config, error) {
 		},
 	}
 
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open config file: %v", err)
+	}
+	defer file.Close()
+
 	// Overrides config with the given YAML file.
 	decoder := yaml.NewDecoder(file)
 	if err := decoder.Decode(&config); err != nil {
@@ -597,6 +597,22 @@ func loadConfig(path string) (*Config, error) {
 	return &config, nil
 }
 
+func setupStateManager(valkeyEndpoint string) (state.Manager, func(), error) {
+	if valkeyEndpoint == "" {
+		// Maximum memory usage of 2GB.
+		memoryManager, cleanup := state.NewMemoryManager(2 * 1024 * 1024 * 1024)
+		return memoryManager, cleanup, nil
+	}
+
+	valkeyClient, err := valkey.NewClient(valkey.ClientOption{
+		InitAddress: []string{valkeyEndpoint},
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create Valkey client: %v", err)
+	}
+	return state.NewValkeyManager(valkeyClient), nil, nil
+}
+
 func main() {
 	logger := utils.Must(zap.NewProduction())
 	defer logger.Sync()
@@ -609,17 +625,14 @@ func main() {
 		sugar.Fatalw("Failed to load config", "error", err)
 	}
 
-	valkeyClient, err := valkey.NewClient(valkey.ClientOption{
-		InitAddress: []string{config.ValkeyEndpoint},
-	})
+	stateManager, cleanup, err := setupStateManager(config.ValkeyEndpoint)
 	if err != nil {
-		sugar.Fatalw("Failed to create Valkey client", "error", err)
+		sugar.Fatalw("Failed to setup state manager", "error", err)
 	}
-	defer valkeyClient.Close()
 
 	sugar.Infow("Loaded config", "config", config)
 
-	proxy, err := NewProxyServer(valkeyClient, *config, sugar)
+	proxy, err := NewProxyServer(stateManager, cleanup, *config, sugar)
 	if err != nil {
 		sugar.Fatalw("Failed to create proxy server", "error", err)
 	}

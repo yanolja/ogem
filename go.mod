@@ -5,12 +5,14 @@ go 1.22.2
 require (
 	cloud.google.com/go/vertexai v0.13.1
 	github.com/anthropics/anthropic-sdk-go v0.1.0-alpha.1
+	github.com/benbjohnson/clock v1.3.5
 	github.com/goccy/go-json v0.10.3
 	github.com/google/generative-ai-go v0.18.0
 	github.com/google/uuid v1.6.0
 	github.com/rs/cors v1.11.1
 	github.com/stretchr/testify v1.9.0
-	github.com/valkey-io/valkey-go v1.0.46
+	github.com/valkey-io/valkey-go v1.0.49
+	github.com/valkey-io/valkey-go/mock v1.0.49
 	go.uber.org/zap v1.27.0
 	google.golang.org/api v0.196.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -44,6 +46,7 @@ require (
 	go.opentelemetry.io/otel v1.29.0 // indirect
 	go.opentelemetry.io/otel/metric v1.29.0 // indirect
 	go.opentelemetry.io/otel/trace v1.29.0 // indirect
+	go.uber.org/mock v0.4.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/crypto v0.27.0 // indirect
 	golang.org/x/net v0.29.0 // indirect
