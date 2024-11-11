@@ -1,2 +1,2 @@
-REPO_BASE_URL=https://github.com/yanolja
+REPO_BASE_URL=ssh://github.com/yanolja
 MAIN_BRANCH=main
