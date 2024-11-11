@@ -36,7 +36,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
   }'
 ```
 
-1. If you run Ogem as a single instance, you do not have to use Valkey.
+3. If you run Ogem as a single instance, you do not have to use Valkey.
 
 1. If you run Ogem as a cluster, you need to set up Valkey and provide the endpoint to the `VALKEY_ENDPOINT` environment variable. Check [https://valkey.io/](https://valkey.io/) for details.
 
