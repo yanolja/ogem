@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/yanolja/ogem/openai"
+	"github.com/yanolja/ogem/utils/orderedmap"
 )
 
 type AiEndpoint interface {
@@ -28,7 +29,7 @@ func ToGeminiRole(role string) string {
 	return lowered
 }
 
-func ToGeminiResponseMimeType(openAiRequest *openai.ChatCompletionRequest) (string, *openai.OrderedJson, error) {
+func ToGeminiResponseMimeType(openAiRequest *openai.ChatCompletionRequest) (string, *orderedmap.Map, error) {
 	format := openAiRequest.ResponseFormat
 	if format == nil {
 		return "text/plain", nil, nil

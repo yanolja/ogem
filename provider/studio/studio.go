@@ -13,6 +13,7 @@ import (
 	"github.com/yanolja/ogem/provider"
 	"github.com/yanolja/ogem/utils"
 	"github.com/yanolja/ogem/utils/array"
+	"github.com/yanolja/ogem/utils/orderedmap"
 )
 
 // A unique identifier for the Gemini Studio provider
@@ -406,7 +407,7 @@ func toGeminiToolConfigFromFunctions(functionCall *openai.LegacyFunctionChoice) 
 	}, nil
 }
 
-func toGeminiSchema(schema *openai.OrderedJson) (*genai.Schema, error) {
+func toGeminiSchema(schema *orderedmap.Map) (*genai.Schema, error) {
 	if schema == nil {
 		return nil, nil
 	}
@@ -414,7 +415,7 @@ func toGeminiSchema(schema *openai.OrderedJson) (*genai.Schema, error) {
 	return toGeminiSchemaObject(schema, definitions)
 }
 
-func toGeminiSchemaObject(schema *openai.OrderedJson, definitions map[string]*openai.OrderedJson) (*genai.Schema, error) {
+func toGeminiSchemaObject(schema *orderedmap.Map, definitions map[string]*orderedmap.Map) (*genai.Schema, error) {
 	geminiSchema := &genai.Schema{}
 	for _, entry := range schema.Entries() {
 		switch strings.ToLower(entry.Key) {
@@ -443,16 +444,16 @@ func toGeminiSchemaObject(schema *openai.OrderedJson, definitions map[string]*op
 				geminiSchema.Enum[i] = enumValue.(string)
 			}
 		case "items":
-			arraySchema, err := toGeminiSchemaObject(entry.Value.(*openai.OrderedJson), definitions)
+			arraySchema, err := toGeminiSchemaObject(entry.Value.(*orderedmap.Map), definitions)
 			if err != nil {
 				return nil, err
 			}
 			geminiSchema.Items = arraySchema
 		case "properties":
 			properties := make(map[string]*genai.Schema)
-			orderedProperties := entry.Value.(*openai.OrderedJson)
+			orderedProperties := entry.Value.(*orderedmap.Map)
 			for _, propEntry := range orderedProperties.Entries() {
-				propValue := propEntry.Value.(*openai.OrderedJson)
+				propValue := propEntry.Value.(*orderedmap.Map)
 				propSchema, err := toGeminiSchemaObject(propValue, definitions)
 				if err != nil {
 					return nil, err
@@ -474,26 +475,26 @@ func toGeminiSchemaObject(schema *openai.OrderedJson, definitions map[string]*op
 	return geminiSchema, nil
 }
 
-func extractDefinitions(schema *openai.OrderedJson) map[string]*openai.OrderedJson {
-	definitions := make(map[string]*openai.OrderedJson)
+func extractDefinitions(schema *orderedmap.Map) map[string]*orderedmap.Map {
+	definitions := make(map[string]*orderedmap.Map)
 	defs, exists := schema.Get("$defs")
 	if !exists {
 		return definitions
 	}
-	defsMap, ok := defs.(*openai.OrderedJson)
+	defsMap, ok := defs.(*orderedmap.Map)
 	if !ok {
 		return definitions
 	}
 
 	for _, entry := range defsMap.Entries() {
-		if defSchema, ok := entry.Value.(*openai.OrderedJson); ok {
+		if defSchema, ok := entry.Value.(*orderedmap.Map); ok {
 			definitions[entry.Key] = defSchema
 		}
 	}
 	return definitions
 }
 
-func resolveRef(ref string, definitions map[string]*openai.OrderedJson) (*openai.OrderedJson, error) {
+func resolveRef(ref string, definitions map[string]*orderedmap.Map) (*orderedmap.Map, error) {
 	parts := strings.Split(strings.TrimPrefix(ref, "#/$defs/"), "/")
 	if len(parts) != 1 {
 		return nil, fmt.Errorf("invalid $ref: %s", ref)
