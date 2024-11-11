@@ -5,12 +5,15 @@ go 1.22.2
 require (
 	cloud.google.com/go/vertexai v0.13.1
 	github.com/anthropics/anthropic-sdk-go v0.1.0-alpha.1
+	github.com/benbjohnson/clock v1.3.5
 	github.com/goccy/go-json v0.10.3
 	github.com/google/generative-ai-go v0.18.0
 	github.com/google/uuid v1.6.0
 	github.com/rs/cors v1.11.1
 	github.com/stretchr/testify v1.9.0
-	github.com/valkey-io/valkey-go v1.0.46
+	github.com/valkey-io/valkey-go v1.0.49
+	github.com/valkey-io/valkey-go/mock v1.0.49
+	go.uber.org/mock v0.4.0
 	go.uber.org/zap v1.27.0
 	google.golang.org/api v0.196.0
 	gopkg.in/yaml.v3 v3.0.1
