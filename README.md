@@ -2,24 +2,13 @@
 
 Ogem is a proxy that allows seamless access to the latest models from OpenAI, Google AI Studio, and Vertex AI using a unified OpenAI-compatible API. You can interact with various models using a single, unified interface.
 
-Ogem consists of two main components:
-
-1. **Pulse Server**: Monitors the status and latency of different AI providers.
-2. **Proxy Server**: Handles incoming requests and routes them to the appropriate AI provider.
-
 ## Running Ogem locally
 
 Follow these steps to set up and run Ogem on your machine.
 
-1. Ensure you have `Valkey` running locally. Check [https://valkey.io/](https://valkey.io/) for details.
+1. Update the `config.yaml` file with the models that you want to use.
 
-2. For the first run or to update provider status, start the Pulse server by running this command from the repository root:
-
-   ```bash
-   go run ./pulse
-   ```
-
-3. Start the proxy server by running this command from the repository root:
+1. Start the proxy server by running this command from the repository root:
 
    ```bash
    OPEN_GEMINI_API_KEY=<your_gemini_api_key> \
@@ -27,7 +16,6 @@ Follow these steps to set up and run Ogem on your machine.
    GOOGLE_CLOUD_PROJECT=<your_google_cloud_project_id> \
    OPENAI_API_KEY=<your_openai_api_key> \
    CLAUDE_API_KEY=<your_claude_api_key> \
-   VALKEY_ENDPOINT=<your_valkey_endpoint> \
    go run main.go
    ```
 
@@ -47,6 +35,10 @@ curl -X POST http://localhost:8080/v1/chat/completions \
     ]
   }'
 ```
+
+1. If you run Ogem as a single instance, you do not have to use Valkey.
+
+1. If you run Ogem as a cluster, you need to set up Valkey and provide the endpoint to the `VALKEY_ENDPOINT` environment variable. Check [https://valkey.io/](https://valkey.io/) for details.
 
 ## License
 
