@@ -7,7 +7,7 @@ import (
 	"github.com/google/generative-ai-go/genai"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/yanolja/ogem/openai"
+	"github.com/yanolja/ogem/utils/orderedmap"
 )
 
 func TestToGeminiSchema(t *testing.T) {
@@ -128,7 +128,7 @@ func TestToGeminiSchema(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var schema openai.OrderedJson
+			var schema orderedmap.Map
 			err := json.Unmarshal([]byte(tt.input), &schema)
 			assert.NoError(t, err, "Failed to unmarshal input JSON")
 
@@ -254,7 +254,7 @@ func TestToGeminiSchema_WithRef(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var schema openai.OrderedJson
+			var schema orderedmap.Map
 			err := json.Unmarshal([]byte(tt.input), &schema)
 			assert.NoError(t, err, "Failed to unmarshal input JSON")
 
