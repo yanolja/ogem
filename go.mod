@@ -4,7 +4,7 @@ go 1.22.2
 
 require (
 	cloud.google.com/go/vertexai v0.13.2
-	github.com/anthropics/anthropic-sdk-go v0.1.0-alpha.1
+	github.com/anthropics/anthropic-sdk-go v0.2.0-alpha.4
 	github.com/benbjohnson/clock v1.3.5
 	github.com/goccy/go-json v0.10.3
 	github.com/google/generative-ai-go v0.18.0
