@@ -9,7 +9,8 @@ def replace_content(content):
   content = content.replace('''package studio''', '''package vertex''')
   content = content.replace('''"github.com/google/generative-ai-go/genai"''',
                             '''"cloud.google.com/go/vertexai/genai"''')
-  content = content.replace('''"google.golang.org/api/option"''', '''''')
+  content = content.replace('''
+	"google.golang.org/api/option"''', '''''')
   content = content.replace(
       '''
 

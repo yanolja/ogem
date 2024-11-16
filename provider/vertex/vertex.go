@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"cloud.google.com/go/vertexai/genai"
-	
 
 	"github.com/yanolja/ogem/openai"
 	"github.com/yanolja/ogem/provider"
