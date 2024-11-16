@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
 	valkeymock "github.com/valkey-io/valkey-go/mock"
+	"go.uber.org/mock/gomock"
 )
 
 func TestValkeyManager(t *testing.T) {

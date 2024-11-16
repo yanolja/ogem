@@ -304,7 +304,7 @@ func TestMemoryManager(t *testing.T) {
 		mockClock := clock.NewMock()
 		// Enough to hold 3 entries (4 bytes key + 5 bytes value + overhead) but
 		// not enough to hold 4 entries.
-		maxBytes := int64((cacheEntryOverhead + 4 + 5) * 4 - 1)
+		maxBytes := int64((cacheEntryOverhead+4+5)*4 - 1)
 		manager, cleanup := newMemoryManagerWithClock(maxBytes, mockClock)
 		defer cleanup()
 
@@ -322,7 +322,7 @@ func TestMemoryManager(t *testing.T) {
 		for _, key := range keys {
 			err := manager.SaveCache(ctx, key, []byte("value"), time.Hour)
 			assert.NoError(t, err)
-			
+
 			// Access each entry according to its count
 			for i := 0; i < accessCounts[key]; i++ {
 				_, err := manager.LoadCache(ctx, key)
@@ -355,7 +355,7 @@ func TestMemoryManager(t *testing.T) {
 		t.Run("Zero duration", func(t *testing.T) {
 			err := manager.SaveCache(ctx, "key", []byte("value"), 0)
 			assert.NoError(t, err)
-			
+
 			// Should be immediately expired
 			mockClock.Add(1 * time.Nanosecond)
 			manager.cleanup()
@@ -365,7 +365,7 @@ func TestMemoryManager(t *testing.T) {
 		t.Run("Negative duration", func(t *testing.T) {
 			err := manager.SaveCache(ctx, "key", []byte("value"), -time.Hour)
 			assert.NoError(t, err)
-			
+
 			// Should be immediately expired
 			mockClock.Add(1 * time.Nanosecond)
 			manager.cleanup()
@@ -375,7 +375,7 @@ func TestMemoryManager(t *testing.T) {
 		t.Run("Empty key", func(t *testing.T) {
 			err := manager.SaveCache(ctx, "", []byte("value"), time.Hour)
 			assert.NoError(t, err)
-			
+
 			loaded, err := manager.LoadCache(ctx, "")
 			assert.NoError(t, err)
 			assert.NotNil(t, loaded)
@@ -384,7 +384,7 @@ func TestMemoryManager(t *testing.T) {
 		t.Run("Nil value", func(t *testing.T) {
 			err := manager.SaveCache(ctx, "key", nil, time.Hour)
 			assert.NoError(t, err)
-			
+
 			loaded, err := manager.LoadCache(ctx, "key")
 			assert.NoError(t, err)
 			assert.Empty(t, loaded)
@@ -394,7 +394,7 @@ func TestMemoryManager(t *testing.T) {
 			largeValue := bytes.Repeat([]byte("x"), 1024*1024) // 1MB
 			err := manager.SaveCache(ctx, "key", largeValue, time.Hour)
 			assert.NoError(t, err)
-			
+
 			loaded, err := manager.LoadCache(ctx, "key")
 			assert.NoError(t, err)
 			assert.Equal(t, largeValue, loaded)

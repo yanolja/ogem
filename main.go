@@ -101,7 +101,7 @@ type ModelProxy struct {
 	mutex sync.RWMutex
 
 	// State manager for rate limiting and caching
-	stateManager state.Manager 
+	stateManager state.Manager
 
 	// Cleanup function from memory manager if using in-memory state
 	cleanup func()
@@ -287,10 +287,10 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 			}
 
 			accepted, waiting, err := s.stateManager.Allow(
-				ctx, 
-				endpoint.endpoint.Provider(), 
-				endpoint.endpoint.Region(), 
-				modelOrAlias, 
+				ctx,
+				endpoint.endpoint.Provider(),
+				endpoint.endpoint.Region(),
+				modelOrAlias,
 				requestInterval(endpoint.modelStatus),
 			)
 			if err != nil {

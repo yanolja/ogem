@@ -7,7 +7,7 @@ import (
 
 type Manager interface {
 	// Checks if the model in the region of the provider is allowed to be used.
-	// If not, returns false and the duration to wait before retrying.	
+	// If not, returns false and the duration to wait before retrying.
 	Allow(ctx context.Context, provider string, region string, model string, interval time.Duration) (bool, time.Duration, error)
 
 	// Disables the model in the region of the provider for a given duration.
