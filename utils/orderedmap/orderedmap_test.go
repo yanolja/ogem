@@ -79,7 +79,7 @@ func TestOrderedMap(t *testing.T) {
 			assert.NoError(t, err)
 
 			assert.Equal(t, m.Keys(), m2.Keys())
-			
+
 			// Check values individually
 			v1, _ := m2.Get("a")
 			assert.Equal(t, float64(1), v1)
@@ -105,7 +105,7 @@ func TestOrderedMap(t *testing.T) {
 			assert.NoError(t, err)
 
 			assert.Equal(t, m.Keys(), m2.Keys())
-			
+
 			// Check nested map
 			nestedResult, exists := m2.Get("a")
 			assert.True(t, exists)
@@ -142,7 +142,7 @@ func TestOrderedMap(t *testing.T) {
 
 			// Check structure
 			assert.Equal(t, []string{"type", "properties", "required"}, m.Keys())
-			
+
 			// Check nested properties
 			props, exists := m.Get("properties")
 			assert.True(t, exists)

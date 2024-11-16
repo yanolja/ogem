@@ -35,11 +35,11 @@ type cacheEntry struct {
 
 type MemoryManager struct {
 	// Key (provider:region:model) -> disabled_until (unix nanoseconds)
-	state    map[string]int64
-	stateMu  sync.RWMutex
+	state   map[string]int64
+	stateMu sync.RWMutex
 
 	// Any string key -> cache entry
-	cache    map[string]*cacheEntry
+	cache map[string]*cacheEntry
 
 	// Priority queue for cache entries, ordered by a combination of read count
 	// and last read time
@@ -209,7 +209,7 @@ func (m *MemoryManager) evictCache(sizeInBytes int64) error {
 }
 
 func cacheSize(key string, value []byte) int64 {
-	return cacheEntryOverhead + int64(len([]byte(key)) + len(value))
+	return cacheEntryOverhead + int64(len([]byte(key))+len(value))
 }
 
 func (m *MemoryManager) cleanup() {

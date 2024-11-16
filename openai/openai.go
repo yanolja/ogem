@@ -154,10 +154,10 @@ func (fc *LegacyFunctionChoice) UnmarshalJSON(data []byte) error {
 }
 
 type FunctionTool struct {
-	Name        string       `json:"name"`
-	Description *string      `json:"description,omitempty"`
+	Name        string          `json:"name"`
+	Description *string         `json:"description,omitempty"`
 	Parameters  *orderedmap.Map `json:"parameters,omitempty"`
-	Strict      *bool        `json:"strict,omitempty"`
+	Strict      *bool           `json:"strict,omitempty"`
 }
 
 type Message struct {
