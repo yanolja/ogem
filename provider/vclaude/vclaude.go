@@ -300,19 +300,19 @@ func toClaudeToolParams(openaiTools []openai.Tool) ([]anthropic.ToolParam, error
 	return claudeTools, nil
 }
 
-func toClaudeToolChoice(toolChoice *openai.ToolChoice) (anthropic.MessageNewParamsToolChoiceUnion, error) {
+func toClaudeToolChoice(toolChoice *openai.ToolChoice) (anthropic.ToolChoiceUnionParam, error) {
 	if toolChoice == nil {
 		return nil, nil
 	}
 	if toolChoice.Value != nil {
 		switch *toolChoice.Value {
 		case "auto":
-			return anthropic.MessageNewParamsToolChoiceToolChoiceAuto{
-				Type: anthropic.F(anthropic.MessageNewParamsToolChoiceToolChoiceAutoTypeAuto),
+			return anthropic.ToolChoiceAutoParam{
+				Type: anthropic.F(anthropic.ToolChoiceAutoTypeAuto),
 			}, nil
 		case "required":
-			return anthropic.MessageNewParamsToolChoiceToolChoiceAny{
-				Type: anthropic.F(anthropic.MessageNewParamsToolChoiceToolChoiceAnyTypeAny),
+			return anthropic.ToolChoiceAnyParam{
+				Type: anthropic.F(anthropic.ToolChoiceAnyTypeAny),
 			}, nil
 		case "none":
 			return nil, fmt.Errorf("Claude does not support 'none' tool choice")
@@ -324,8 +324,8 @@ func toClaudeToolChoice(toolChoice *openai.ToolChoice) (anthropic.MessageNewPara
 	if toolChoice.Struct.Type != "function" {
 		return nil, fmt.Errorf("unsupported tool type: %s", toolChoice.Struct.Type)
 	}
-	return anthropic.MessageNewParamsToolChoice{
-		Type: anthropic.F(anthropic.MessageNewParamsToolChoiceTypeTool),
+	return anthropic.ToolChoiceParam{
+		Type: anthropic.F(anthropic.ToolChoiceTypeTool),
 		Name: anthropic.F(toolChoice.Struct.Function.Name),
 	}, nil
 }
