@@ -1,44 +1,203 @@
 # Ogem
 
-Ogem is a proxy that allows seamless access to the latest models from OpenAI, Google AI Studio, and Vertex AI using a unified OpenAI-compatible API. You can interact with various models using a single, unified interface.
+Ogem is a proxy server that provides unified access to various AI language models through a consistent OpenAI-compatible API interface. It supports multiple providers including OpenAI, Google's Gemini (both Studio and Vertex AI), and Anthropic's Claude models.
 
-## Running Ogem locally
+## Features
 
-Follow these steps to set up and run Ogem on your machine.
+- OpenAI API-compatible interface
+- Automatic fallback between different models
+- Smart routing based on latency
+- Rate limiting and quota management
+- Response caching for deterministic requests
+- Built-in batch processing support
+- Regional endpoint selection
+- Automatic model version mapping
+- Function/tool calling support
+- Support for multiple response formats
 
-1. Update the `config.yaml` file with the models that you want to use.
+## Supported Providers
 
-1. Start the proxy server by running this command from the repository root:
+- OpenAI
+  - Support for both standard and batch endpoints
+- Google Gemini
+  - Available through both Studio API and Vertex AI
+- Anthropic Claude
+  - Available through both direct API and Vertex AI
 
-   ```bash
-   OPEN_GEMINI_API_KEY=<your_gemini_api_key> \
-   GENAI_STUDIO_API_KEY=<your_genai_studio_api_key> \
-   GOOGLE_CLOUD_PROJECT=<your_google_cloud_project_id> \
-   OPENAI_API_KEY=<your_openai_api_key> \
-   CLAUDE_API_KEY=<your_claude_api_key> \
-   go run main.go
-   ```
-
-   Replace placeholders with your actual API keys and values.
-
-Once Ogem is running locally, you can send requests to it, as shown in the example below:
+## Installation
 
 ```bash
-curl -X POST http://localhost:8080/v1/chat/completions \
+go get github.com/yanolja/ogem
+```
+
+## Configuration
+
+Create a `config.yaml` file with your settings:
+
+```yaml
+valkey_endpoint: "localhost:6379"  # Optional Redis-compatible endpoint for state management
+api_key: "your-ogem-api-key"      # API key for accessing Ogem
+google_cloud_project: "your-gcp-project-id"  # Required for Vertex AI
+genai_studio_api_key: "your-studio-api-key"  # Required for Gemini Studio
+openai_api_key: "your-openai-api-key"        # Required for OpenAI
+claude_api_key: "your-claude-api-key"        # Required for Claude
+
+# Configure retry intervals
+retry_interval: "1m"
+ping_interval: "1h"
+
+# Configure providers and their rate limits
+providers:
+  openai:
+    regions:
+      openai:
+        models:
+          - name: "gpt-4"
+            rate_key: "gpt-4"
+            rpm: 10000
+            tpm: 1000000
+  vertex:
+    regions:
+      us-central1:
+        models:
+          - name: "gemini-1.5-pro"
+            rate_key: "gemini-1.5-pro"
+            rpm: 60
+            tpm: 4000000
+```
+
+## Running the Server
+
+Start the server with:
+
+```bash
+go run cmd/main.go
+```
+
+Or use environment variables:
+
+```bash
+export VALKEY_ENDPOINT=localhost:6379
+export OPEN_GEMINI_API_KEY=your-ogem-api-key
+export GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+export GENAI_STUDIO_API_KEY=your-studio-api-key
+export OPENAI_API_KEY=your-openai-api-key
+export CLAUDE_API_KEY=your-claude-api-key
+export PORT=8080
+
+go run cmd/main.go
+```
+
+## Usage
+
+Send requests to the server using the OpenAI API format:
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer OGEM_API_KEY" \
+  -H "Authorization: Bearer $OGEM_API_KEY" \
   -d '{
     "model": "gemini-1.5-flash",
     "messages": [
-      {"role": "system", "content": "You are a helpful assistant."},
-      {"role": "user", "content": "Hello, how are you?"}
-    ]
+      {
+        "role": "user",
+        "content": "Hello! How can you help me today?"
+      }
+    ],
+    "temperature": 0.7
   }'
 ```
 
-3. If you run Ogem as a single instance, you do not have to use Valkey.
+### Model Selection
 
-1. If you run Ogem as a cluster, you need to set up Valkey and provide the endpoint to the `VALKEY_ENDPOINT` environment variable. Check [https://valkey.io/](https://valkey.io/) for details.
+You can specify models in three formats:
+
+1. Model name only (uses default routing):
+   ```json
+   {
+     "model": "gpt-4"
+   }
+   ```
+
+2. Provider and model:
+   ```json
+   {
+     "model": "vertex/gemini-1.5-pro"
+   }
+   ```
+
+3. Provider, region, and model:
+   ```json
+   {
+     "model": "vertex/us-central1/gemini-1.5-pro"
+   }
+   ```
+
+### Fallback Support
+
+You can specify multiple models for automatic fallback:
+
+```json
+{
+  "model": "gpt-4,claude-3-opus,gemini-1.5-pro"
+}
+```
+
+The system will try each model in order until it gets a successful response.
+
+### Batch Processing
+
+Append `-batch` to any model name to use batch processing:
+
+```json
+{
+  "model": "gpt-4-batch"
+}
+```
+
+Batch requests are automatically grouped and processed together for better efficiency.
+
+## Environment Variables
+
+- `VALKEY_ENDPOINT`: Redis-compatible endpoint for state management
+- `OPEN_GEMINI_API_KEY`: API key for accessing Ogem
+- `GOOGLE_CLOUD_PROJECT`: GCP project ID for Vertex AI
+- `GENAI_STUDIO_API_KEY`: API key for Gemini Studio
+- `OPENAI_API_KEY`: API key for OpenAI
+- `CLAUDE_API_KEY`: API key for Claude
+- `RETRY_INTERVAL`: Duration to wait before retrying when no endpoints are available
+- `PING_INTERVAL`: Interval for checking endpoint health
+- `PORT`: Server port (default: 8080)
+
+## Error Handling
+
+The server returns standard HTTP status codes:
+
+- 400: Bad Request (invalid parameters)
+- 401: Unauthorized (invalid API key)
+- 429: Too Many Requests (rate limit exceeded)
+- 500: Internal Server Error
+- 503: Service Unavailable (no available endpoints)
+
+## Development
+
+Requirements:
+- Go 1.21+
+- Redis (optional, for distributed state management)
+
+Building from source:
+
+```bash
+git clone https://github.com/yanolja/ogem.git
+cd ogem
+go build ./cmd/main.go
+```
+
+Running tests:
+
+```bash
+go test ./...
+```
 
 ## License
 
