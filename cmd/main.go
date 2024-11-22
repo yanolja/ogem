@@ -20,7 +20,10 @@ import (
 	"github.com/goccy/go-json"
 	"github.com/rs/cors"
 	"github.com/valkey-io/valkey-go"
-	ogem "github.com/yanolja/ogem/api"
+	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
+
+	"github.com/yanolja/ogem"
 	"github.com/yanolja/ogem/openai"
 	"github.com/yanolja/ogem/provider"
 	"github.com/yanolja/ogem/provider/claude"
@@ -33,8 +36,6 @@ import (
 	"github.com/yanolja/ogem/utils/array"
 	"github.com/yanolja/ogem/utils/copy"
 	"github.com/yanolja/ogem/utils/env"
-	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 )
 
 type (
