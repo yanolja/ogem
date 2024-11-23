@@ -27,6 +27,7 @@ import (
 	"github.com/yanolja/ogem/state"
 	"github.com/yanolja/ogem/utils/array"
 	"github.com/yanolja/ogem/utils/copy"
+	"github.com/yanolja/ogem/utils/env"
 )
 
 type (
@@ -114,17 +115,38 @@ type ModelProxy struct {
 func newEndpoint(provider string, region string, config *Config) (provider.AiEndpoint, error) {
 	switch provider {
 	case "claude":
+		if region != "claude" {
+			return nil, fmt.Errorf("region is not supported for claude provider")
+		}
 		return claude.NewEndpoint(config.ClaudeApiKey)
 	case "vclaude":
 		return vclaude.NewEndpoint(config.GoogleCloudProject, region)
 	case "vertex":
 		return vertex.NewEndpoint(config.GoogleCloudProject, region)
 	case "studio":
+		if region != "studio" {
+			return nil, fmt.Errorf("region is not supported for studio provider")
+		}
 		return studio.NewEndpoint(config.GenaiStudioApiKey)
 	case "openai":
-		return openaiProvider.NewEndpoint(config.OpenAiApiKey), nil
+		if region != "openai" {
+			return nil, fmt.Errorf("region is not supported for openai provider")
+		}
+		return openaiProvider.NewEndpoint("openai", "openai", "https://api.openai.com/v1", config.OpenAiApiKey)
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", provider)
+	}
+}
+
+func newCustomEndpoint(providerName string, protocol string, endpoint string, apiKeyEnv string, region string) (provider.AiEndpoint, error) {
+	switch protocol {
+	case "openai":
+		if region != providerName {
+			return nil, fmt.Errorf("region is not supported for custom openai provider; region field must match provider name")
+		}
+		return openaiProvider.NewEndpoint(providerName, region, endpoint, env.RequiredStringVariable(apiKeyEnv))
+	default:
+		return nil, fmt.Errorf("unsupported protocol: %s, only openai is supported", protocol)
 	}
 }
 
@@ -146,15 +168,27 @@ func NewProxyServer(stateManager state.Manager, cleanup func(), config Config, l
 
 	endpoints := []provider.AiEndpoint{}
 	endpointStatus.ForEach(func(
-		provider string,
-		_ ogem.ProviderStatus,
+		providerName string,
+		providerData ogem.ProviderStatus,
 		region string,
 		_ ogem.RegionStatus,
 		models []*ogem.SupportedModel,
 	) bool {
-		endpoint, err := newEndpoint(provider, region, &config)
+		var endpoint provider.AiEndpoint
+		var err error
+		if providerData.Endpoint == "" {
+			endpoint, err = newEndpoint(providerName, region, &config)
+		} else {
+			endpoint, err = newCustomEndpoint(
+				providerName,
+				providerData.Protocol,
+				providerData.Endpoint,
+				providerData.ApiKeyEnv,
+				region,
+			)
+		}
 		if err != nil {
-			logger.Warnw("Failed to create endpoint", "provider", provider, "region", region, "error", err)
+			logger.Warnw("Failed to create endpoint", "provider", providerName, "region", region, "error", err)
 			return false
 		}
 		endpoints = append(endpoints, endpoint)
@@ -224,6 +258,11 @@ func (s *ModelProxy) HandleChatCompletions(httpResponse http.ResponseWriter, htt
 
 func (s *ModelProxy) HandleAuthentication(handler http.HandlerFunc) http.HandlerFunc {
 	return func(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+		if s.config.OgemApiKey == "" {
+			handler(httpResponse, httpRequest)
+			return
+		}
+
 		headerSplit := strings.Split(httpRequest.Header.Get("Authorization"), " ")
 		if len(headerSplit) != 2 ||
 			strings.ToLower(headerSplit[0]) != "bearer" ||
@@ -451,7 +490,7 @@ func (s *ModelProxy) endpoint(provider string, region string) (provider.AiEndpoi
 			return endpoint, nil
 		}
 	}
-	return newEndpoint(provider, region, &s.config)
+	return nil, fmt.Errorf("endpoint not found for provider: %s, region: %s", provider, region)
 }
 
 func (s *ModelProxy) pingAllEndpoints(ctx context.Context) {
