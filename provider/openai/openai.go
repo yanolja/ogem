@@ -73,7 +73,7 @@ func NewEndpoint(apiKey string) *Endpoint {
 }
 
 func (p *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
-	if batchModel, found := strings.CutSuffix(openaiRequest.Model, "-batch"); found {
+	if batchModel, found := strings.CutSuffix(openaiRequest.Model, "@batch"); found {
 		openaiRequest.Model = batchModel
 		return p.GenerateBatchChatCompletion(ctx, openaiRequest)
 	}
