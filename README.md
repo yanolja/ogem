@@ -66,15 +66,7 @@ providers:
             tpm: 4000000
 ```
 
-## Running the Server
-
-Start the server with:
-
-```bash
-go run cmd/main.go
-```
-
-Or use environment variables:
+## Running Locally
 
 ```bash
 export VALKEY_ENDPOINT=localhost:6379
@@ -86,6 +78,51 @@ export CLAUDE_API_KEY=your-claude-api-key
 export PORT=8080
 
 go run cmd/main.go
+```
+
+## Docker
+
+### Running with Docker
+
+Pull and run the latest version:
+```bash
+docker pull ynext/ogem:latest
+docker run -p 8080:8080 ynext/ogem:latest
+```
+
+Or use a specific version:
+```bash
+docker pull ynext/ogem:0.0.1
+docker run -p 8080:8080 ynext/ogem:0.0.1
+```
+
+### Building Docker Image
+
+The image supports both AMD64 (Intel/AMD) and ARM64 architectures.
+
+Build locally:
+```bash
+# Build for your local architecture
+docker build -t ogem:latest .
+
+# Test locally
+docker run -p 8080:8080 ogem:latest
+```
+
+Build and push multi-architecture images to Docker Hub:
+```bash
+# Set up buildx
+docker buildx create --name mybuilder --use
+
+# Build and push with version tag
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -t ynext/ogem:0.0.1 \
+  -t ynext/ogem:latest \
+  --push .
+
+# Verify architectures
+docker buildx imagetools inspect ynext/ogem:latest
 ```
 
 ## Usage
@@ -182,7 +219,8 @@ The server returns standard HTTP status codes:
 ## Development
 
 Requirements:
-- Go 1.21+
+- Go 1.22+
+- Docker (optional, for containerization)
 - Redis (optional, for distributed state management)
 
 Building from source:
