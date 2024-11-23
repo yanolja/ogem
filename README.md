@@ -119,7 +119,7 @@ For custom endpoints, you can specify the base URL, protocol, and API key enviro
 providers:
   custom:  # Choose any name for the custom provider
     base_url: https://api.example.com/v1
-    protocol: openai
+    protocol: openai  # Only openai protocol is supported for custom endpoints
     api_key_env: EXAMPLE_API_KEY
     regions:
       custom:  # This region name must match the provider name
@@ -140,6 +140,7 @@ providers:
 ```
 
 For the API key, it is not allowed to specify any in the config.yaml file. Instead, you should set it as an environment variable and set the variable name in the `api_key_env` field.
+Currently, only OpenAI protocol is supported for custom endpoints.
 
 ### Using Finetuned Models
 
