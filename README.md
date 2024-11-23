@@ -44,26 +44,153 @@ Configuration can be provided through a local file or remote URL using the `CONF
 
 Example config.yaml:
 ```yaml
+# Amount of time to wait before retrying the request when there are no available endpoints due to rate limiting.
 retry_interval: "1m"
+# How frequently to check the health of the providers. If you don't want to check the health, set it to 0.
 ping_interval: "1h"
 providers:
   openai:
     regions:
+      # For providers that does not support multiple regions, you can use the provider name as the region name.
       openai:
         models:
           - name: "gpt-4"
             rate_key: "gpt-4"
-            rpm: 10000
-            tpm: 1000000
+            rpm: 10_000
+            tpm: 1_000_000
   vertex:
     regions:
+      default:
+        # Models listed under `default` serve as a template and will be automatically copied to all regions.
+        # However, `default` itself is not a valid region - you must define at least one actual region
+        # (like 'us-central1') for the provider to work.
+        #
+        # Example:
+        # default:
+        #   models: [model-a, model-b]  # These will be copied to all regions
+        # us-central1:                  # This is a real region
+        #   models: [model-c]           # Final models: model-a, model-b, model-c
+        models:
+          - name: "gemini-1.5-flash"
+            rate_key: "gemini-1.5-flash"
+            rpm: 200
+            tpm: 4_000_000
       us-central1:
         models:
           - name: "gemini-1.5-pro"
             rate_key: "gemini-1.5-pro"
             rpm: 60
-            tpm: 4000000
+            tpm: 4_000_000
 ```
+
+## Providers and Models
+
+Ogem supports multiple AI providers through different integration methods:
+
+- **openai**: Direct integration with OpenAI's API
+  - Supports: GPT-4, GPT-3.5, and other OpenAI models
+  - Requires: OPENAI_API_KEY
+
+- **studio**: Google's Gemini API (via AI Studio)
+  - Supports: Gemini 1.5 Pro, Gemini 1.5 Flash
+  - Requires: GENAI_STUDIO_API_KEY
+
+- **vertex**: Google Cloud's Vertex AI platform
+  - Supports: Gemini models, custom/finetuned models
+  - Requires: GOOGLE_CLOUD_PROJECT and GCP authentication
+
+- **claude**: Direct integration with Anthropic's Claude API
+  - Supports: Claude 3 Opus, Sonnet, Haiku
+  - Requires: CLAUDE_API_KEY
+
+- **vclaude**: Claude models via Vertex AI
+  - Supports: Claude models deployed on GCP
+  - Requires: GOOGLE_CLOUD_PROJECT and GCP authentication
+
+### Using Finetuned Models
+
+For custom or finetuned models on Vertex AI, you can map the full endpoint path to a friendly name:
+
+```yaml
+models:
+  - name: "projects/1234567890123/locations/us-central1/endpoints/45678901234567890123"
+    other_names:
+      - "finetuned-flash"    # This becomes the model name you use in API calls
+    rate_key: "gemini-1.5-flash"
+    rpm: 200    # Requests per minute limit
+    tpm: 4_000_000    # Tokens per minute limit
+```
+
+You can then use `finetuned-flash` in your API calls instead of the full endpoint path.
+
+## Rate Limiting and Quotas
+
+Each model configuration includes rate limiting parameters:
+
+- `rpm`: Requests Per Minute limit
+- `tpm`: Tokens Per Minute limit (total tokens including both input and output)
+
+Example configuration:
+```yaml
+models:
+  - name: "gemini-1.5-pro"
+    rate_key: "gemini-1.5-pro"
+    rpm: 60      # Maximum 60 requests per minute
+    tpm: 4000000 # Maximum 4 million tokens per minute
+```
+
+## State Management with Valkey (Redis-compatible)
+
+Ogem can use Valkey for distributed state management, which is recommended for multi-instance deployments:
+
+- **Purpose**: Manages rate limiting, quotas, and request caching across multiple Ogem instances
+- **Configuration**: Set via `VALKEY_ENDPOINT` environment variable
+- **Format**: `localhost:6379`
+- **Optional**: If not configured, Ogem will use in-memory storage (suitable for single-instance deployments)
+
+Example configuration:
+```bash
+export VALKEY_ENDPOINT="localhost:6379"
+```
+
+The reasons why we use Valkey instead of Redis are:
+- Redis is not open source anymore so that it's not suitable for self-hosted deployments (https://github.com/redis/redis/pull/13157)
+- Valkey is Redis-compatible so that you can migrate to Valkey easily
+
+## Batch Processing
+
+Batch processing is a cost-optimization feature that uses OpenAI's batch API to reduce costs. Here's how it works:
+
+### How It Works
+1. When you send a request with a `-batch` suffix (e.g., `gpt-4-batch`):
+   - Your request joins a batch queue
+   - Batches are processed every 10 seconds or when 50,000 requests accumulate
+   - The request waits for the batch to complete
+
+2. Response Behavior:
+   - The request blocks until the batch is completed
+   - If the batch completes within your request timeout: You get results
+   - If timeout occurs: You can retry with the same request
+   - Each identical request gets the same `request_id` internally, preventing duplicate processing
+
+### Usage Example
+```json
+{
+  "model": "gpt-4-batch",  // Add -batch suffix
+  "messages": [
+    [{"role": "user", "content": "Hello! How can you help me today?"}]
+  ]
+}
+```
+
+### Benefits
+- Up to 50% cost reduction using OpenAI's batch API pricing
+- Automatic request batching and management
+- Identical requests are deduplicated
+
+### Limitations
+- Currently only supported for OpenAI models
+- Cannot expect different results for identical requests even if you set the temperature to 0
 
 ## Environment Variables
 

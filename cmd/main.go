@@ -24,44 +24,15 @@ import (
 	"github.com/yanolja/ogem/utils/env"
 )
 
-func loadConfig(path string) (*server.Config, error) {
+func loadConfig(path string, logger *zap.SugaredLogger) (*server.Config, error) {
 	// Setting default values
 	config := server.Config{
-		ValkeyEndpoint: "localhost:6379",
+		ValkeyEndpoint: "",
 		OgemApiKey:     "",
 		RetryInterval:  "1m",
 		PingInterval:   "1h",
 		Port:           8080,
-		Providers: ogem.ProvidersStatus{
-			"openai": &ogem.ProviderStatus{
-				Regions: map[string]*ogem.RegionStatus{
-					"default": {
-						Models: []*ogem.SupportedModel{
-							{
-								Name:                 "gpt-4o-mini",
-								RateKey:              "gpt-4o-mini",
-								MaxRequestsPerMinute: 500,
-								MaxTokensPerMinute:   200_000,
-							},
-						},
-					},
-				},
-			},
-			"studio": &ogem.ProviderStatus{
-				Regions: map[string]*ogem.RegionStatus{
-					"default": {
-						Models: []*ogem.SupportedModel{
-							{
-								Name:                 "gemini-1.5-flash",
-								RateKey:              "gemini-1.5-flash",
-								MaxRequestsPerMinute: 500,
-								MaxTokensPerMinute:   200_000,
-							},
-						},
-					},
-				},
-			},
-		},
+		Providers:      ogem.ProvidersStatus{},
 	}
 
 	// Checks if config is specified via environment variable.
@@ -70,8 +41,10 @@ func loadConfig(path string) (*server.Config, error) {
 	configData, err := func(configSource string, configToken string) ([]byte, error) {
 		// Handle URL or local path
 		if strings.HasPrefix(configSource, "http://") || strings.HasPrefix(configSource, "https://") {
+			logger.Infow("Fetching remote config", "url", configSource)
 			return fetchRemoteConfig(configSource, configToken)
 		}
+		logger.Infow("Loading local config", "path", configSource)
 		return os.ReadFile(configSource)
 	}(configSource, configToken)
 
@@ -149,7 +122,7 @@ func main() {
 
 	configPath := flag.String("config", "config.yaml", "path to config file")
 	flag.Parse()
-	config, err := loadConfig(*configPath)
+	config, err := loadConfig(*configPath, sugar)
 	if err != nil {
 		sugar.Fatalw("Failed to load config", "error", err)
 	}
