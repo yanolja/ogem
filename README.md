@@ -1,52 +1,51 @@
 # Ogem
 
-Ogem is a proxy server that provides unified access to various AI language models through a consistent OpenAI-compatible API interface. It supports multiple providers including OpenAI, Google's Gemini (both Studio and Vertex AI), and Anthropic's Claude models.
+Ogem is a unified proxy server that provides access to multiple AI language models through an OpenAI-compatible API interface. It supports OpenAI, Google's Gemini (both Studio and Vertex AI), and Anthropic's Claude models.
 
 ## Features
 
 - OpenAI API-compatible interface
-- Automatic fallback between different models
+- Support for multiple AI providers:
+  - OpenAI (e.g., GPT-4, GPT-3.5)
+  - Google Gemini (e.g., 1.5 Flash, Pro)
+  - Anthropic Claude (e.g., 3.5 Opus, Sonnet, Haiku)
 - Smart routing based on latency
 - Rate limiting and quota management
 - Response caching for deterministic requests
-- Built-in batch processing support
+- Batch processing support
 - Regional endpoint selection
-- Automatic model version mapping
-- Function/tool calling support
-- Support for multiple response formats
+- Multi-provider fallback support
 
-## Supported Providers
+## Quick Start
 
-- OpenAI
-  - Support for both standard and batch endpoints
-- Google Gemini
-  - Available through both Studio API and Vertex AI
-- Anthropic Claude
-  - Available through both direct API and Vertex AI
-
-## Installation
+### Using Docker
 
 ```bash
-go get github.com/yanolja/ogem
+# Pull and run the latest version
+docker pull ynext/ogem:latest
+docker run -p 8080:8080 \
+  -e OPEN_GEMINI_API_KEY="your-api-key" \
+  -e CONFIG_SOURCE="path-or-url-to-config" \
+  ynext/ogem:latest
+
+# Or use a specific version
+docker pull ynext/ogem:0.0.1
+```
+
+### Building from Source
+
+```bash
+go run cmd/main.go
 ```
 
 ## Configuration
 
-Create a `config.yaml` file with your settings:
+Configuration can be provided through a local file or remote URL using the `CONFIG_SOURCE` environment variable.
 
+Example config.yaml:
 ```yaml
-valkey_endpoint: "localhost:6379"  # Optional Redis-compatible endpoint for state management
-api_key: "your-ogem-api-key"      # API key for accessing Ogem
-google_cloud_project: "your-gcp-project-id"  # Required for Vertex AI
-genai_studio_api_key: "your-studio-api-key"  # Required for Gemini Studio
-openai_api_key: "your-openai-api-key"        # Required for OpenAI
-claude_api_key: "your-claude-api-key"        # Required for Claude
-
-# Configure retry intervals
 retry_interval: "1m"
 ping_interval: "1h"
-
-# Configure providers and their rate limits
 providers:
   openai:
     regions:
@@ -66,68 +65,28 @@ providers:
             tpm: 4000000
 ```
 
-## Running Locally
+## Environment Variables
 
-```bash
-export VALKEY_ENDPOINT=localhost:6379
-export OPEN_GEMINI_API_KEY=your-ogem-api-key
-export GOOGLE_CLOUD_PROJECT=your-gcp-project-id
-export GENAI_STUDIO_API_KEY=your-studio-api-key
-export OPENAI_API_KEY=your-openai-api-key
-export CLAUDE_API_KEY=your-claude-api-key
-export PORT=8080
+### Core Settings
+- `CONFIG_SOURCE`: Path or URL to config file (default: "config.yaml")
+- `CONFIG_TOKEN`: Bearer token for authenticated config URL (optional)
+- `PORT`: Server port (default: 8080)
 
-go run cmd/main.go
-```
+### API Keys
+- `OPEN_GEMINI_API_KEY`: API key for accessing Ogem
+- `OPENAI_API_KEY`: OpenAI API key
+- `CLAUDE_API_KEY`: Anthropic Claude API key
+- `GENAI_STUDIO_API_KEY`: Google Gemini Studio API key
+- `GOOGLE_CLOUD_PROJECT`: GCP project ID for Vertex AI
 
-## Docker
+### Performance Settings
+- `VALKEY_ENDPOINT`: Redis-compatible endpoint for state management
+- `RETRY_INTERVAL`: Wait duration before retrying failed requests
+- `PING_INTERVAL`: Health check interval
 
-### Running with Docker
+## API Usage
 
-Pull and run the latest version:
-```bash
-docker pull ynext/ogem:latest
-docker run -p 8080:8080 ynext/ogem:latest
-```
-
-Or use a specific version:
-```bash
-docker pull ynext/ogem:0.0.1
-docker run -p 8080:8080 ynext/ogem:0.0.1
-```
-
-### Building Docker Image
-
-The image supports both AMD64 (Intel/AMD) and ARM64 architectures.
-
-Build locally:
-```bash
-# Build for your local architecture
-docker build -t ogem:latest .
-
-# Test locally
-docker run -p 8080:8080 ogem:latest
-```
-
-Build and push multi-architecture images to Docker Hub:
-```bash
-# Set up buildx
-docker buildx create --name mybuilder --use
-
-# Build and push with version tag
-docker buildx build \
-  --platform linux/amd64,linux/arm64 \
-  -t ynext/ogem:0.0.1 \
-  -t ynext/ogem:latest \
-  --push .
-
-# Verify architectures
-docker buildx imagetools inspect ynext/ogem:latest
-```
-
-## Usage
-
-Send requests to the server using the OpenAI API format:
+Send requests using the OpenAI API format:
 
 ```bash
 curl http://localhost:8080/v1/chat/completions \
@@ -147,94 +106,109 @@ curl http://localhost:8080/v1/chat/completions \
 
 ### Model Selection
 
-You can specify models in three formats:
+Three formats for model selection:
 
-1. Model name only (uses default routing):
-   ```json
-   {
-     "model": "gpt-4"
-   }
-   ```
+1. Simple model name:
+```json
+{
+  "model": "gpt-4"
+}
+```
 
 2. Provider and model:
-   ```json
-   {
-     "model": "vertex/gemini-1.5-pro"
-   }
-   ```
+```json
+{
+  "model": "vertex/gemini-1.5-pro"
+}
+```
 
 3. Provider, region, and model:
-   ```json
-   {
-     "model": "vertex/us-central1/gemini-1.5-pro"
-   }
-   ```
+```json
+{
+  "model": "vertex/us-central1/gemini-1.5-pro"
+}
+```
 
-### Fallback Support
+### Fallback Chain
 
-You can specify multiple models for automatic fallback:
-
+Specify multiple models for automatic fallback:
 ```json
 {
   "model": "gpt-4,claude-3-opus,gemini-1.5-pro"
 }
 ```
 
-The system will try each model in order until it gets a successful response.
-
 ### Batch Processing
 
-Append `-batch` to any model name to use batch processing:
-
+Add `-batch` suffix for batch processing:
 ```json
 {
   "model": "gpt-4-batch"
 }
 ```
+Currently, batch processing is only supported for OpenAI models.
 
-Batch requests are automatically grouped and processed together for better efficiency.
+## Docker Support
 
-## Environment Variables
+### Running with Docker
 
-- `VALKEY_ENDPOINT`: Redis-compatible endpoint for state management
-- `OPEN_GEMINI_API_KEY`: API key for accessing Ogem
-- `GOOGLE_CLOUD_PROJECT`: GCP project ID for Vertex AI
-- `GENAI_STUDIO_API_KEY`: API key for Gemini Studio
-- `OPENAI_API_KEY`: API key for OpenAI
-- `CLAUDE_API_KEY`: API key for Claude
-- `RETRY_INTERVAL`: Duration to wait before retrying when no endpoints are available
-- `PING_INTERVAL`: Interval for checking endpoint health
-- `PORT`: Server port (default: 8080)
+```bash
+# Basic run
+docker run -p 8080:8080 ynext/ogem:latest
+
+# With configuration
+docker run -p 8080:8080 \
+  -e CONFIG_SOURCE="https://api.example.com/config.yaml" \
+  -e CONFIG_TOKEN="your-token" \
+  -e OPENAI_API_KEY="your-key" \
+  ynext/ogem:latest
+```
+
+### Building Docker Image
+
+The image supports both AMD64 (Intel/AMD) and ARM64 architectures.
+
+```bash
+# Setup buildx for multi-architecture support
+docker buildx create --name mybuilder --use
+
+# Build and push with version tag
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -t ynext/ogem:0.0.1 \
+  -t ynext/ogem:latest \
+  --push .
+
+# Verify architectures
+docker buildx imagetools inspect ynext/ogem:latest
+```
 
 ## Error Handling
 
-The server returns standard HTTP status codes:
-
-- 400: Bad Request (invalid parameters)
-- 401: Unauthorized (invalid API key)
-- 429: Too Many Requests (rate limit exceeded)
+Standard HTTP status codes:
+- 400: Bad Request
+- 401: Unauthorized
+- 429: Too Many Requests
 - 500: Internal Server Error
-- 503: Service Unavailable (no available endpoints)
+- 503: Service Unavailable
 
 ## Development
 
 Requirements:
 - Go 1.22+
-- Docker (optional, for containerization)
-- Redis (optional, for distributed state management)
-
-Building from source:
+- Docker (optional)
+- Redis (optional)
 
 ```bash
+# Clone repository
 git clone https://github.com/yanolja/ogem.git
 cd ogem
-go build ./cmd/main.go
-```
 
-Running tests:
-
-```bash
+# Run tests
 go test ./...
+
+# Build binary
+go build ./cmd/main.go
 ```
 
 ## License
