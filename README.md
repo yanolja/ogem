@@ -107,6 +107,41 @@ Ogem supports multiple AI providers through different integration methods:
   - Supports: Claude models deployed on GCP
   - Requires: GOOGLE_CLOUD_PROJECT and GCP authentication
 
+- **custom**: Custom endpoint
+  - Supports: Any API that is OpenAI-compatible
+  - Requires: BASE_URL, PROTOCOL, API_KEY_ENV
+
+### Using Custom Endpoint
+
+For custom endpoints, you can specify the base URL, protocol, and API key environment variable.
+
+```yaml
+providers:
+  custom:  # Choose any name for the custom provider
+    base_url: https://api.example.com/v1
+    protocol: openai  # Only openai protocol is supported for custom endpoints
+    api_key_env: EXAMPLE_API_KEY
+    regions:
+      custom:  # This region name must match the provider name
+        models:
+          - name: some-model
+            rate_key: some-model
+            rpm: 10_000
+            tpm: 30_000_000
+  another:
+    base_url: https://api.another.com/v1
+    protocol: openai
+    api_key_env: ANOTHER_API_KEY
+    regions:
+      another:
+        models:
+          - name: your-model-name
+            rate_key: your-rate-key
+```
+
+For the API key, it is not allowed to specify any in the config.yaml file. Instead, you should set it as an environment variable and set the variable name in the `api_key_env` field.
+Currently, only OpenAI protocol is supported for custom endpoints.
+
 ### Using Finetuned Models
 
 For custom or finetuned models on Vertex AI, you can map the full endpoint path to a friendly name:
