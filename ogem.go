@@ -9,6 +9,15 @@ import (
 type ProvidersStatus map[string]*ProviderStatus
 
 type ProviderStatus struct {
+	// Base URL of the endpoint. E.g., "http://localhost:8080/v1"
+	BaseUrl string `yaml:"base_url" json:"base_url"`
+
+	// API protocol used by the endpoint. E.g., "openai"
+	Protocol string `yaml:"protocol" json:"protocol"`
+
+	// Environment variable name for the API key. E.g., "SELF_HOST_API_KEY"
+	ApiKeyEnv string `yaml:"api_key_env" json:"api_key_env"`
+
 	// Regions maps region names to their status.
 	// The "default" region configures provider-wide settings.
 	// E.g., Regions["us-central1"]

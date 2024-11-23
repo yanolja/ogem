@@ -11,6 +11,7 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -50,18 +51,28 @@ type BatchJob struct {
 }
 
 type Endpoint struct {
-	apiKey        string
-	client        *http.Client
-	batchJobs     map[string]*BatchJob
-	batchJobMutex sync.RWMutex
+	apiKey       string
+	baseUrl      *url.URL
+	client       *http.Client
+	providerName string
+	region       string
 
+	batchJobs       map[string]*BatchJob
+	batchJobMutex   sync.RWMutex
 	batchChan       chan *BatchJob
 	stopBatchSignal chan struct{}
 }
 
-func NewEndpoint(apiKey string) *Endpoint {
+func NewEndpoint(providerName string, region string, baseUrl string, apiKey string) (*Endpoint, error) {
+	parsedBaseUrl, err := url.Parse(baseUrl)
+	if err != nil {
+		return nil, fmt.Errorf("invalid endpoint: %v", err)
+	}
 	endpoint := &Endpoint{
+		providerName:    providerName,
+		region:          region,
 		apiKey:          apiKey,
+		baseUrl:         parsedBaseUrl,
 		client:          &http.Client{Timeout: 30 * time.Minute},
 		batchJobs:       make(map[string]*BatchJob),
 		batchChan:       make(chan *BatchJob),
@@ -69,7 +80,7 @@ func NewEndpoint(apiKey string) *Endpoint {
 	}
 
 	go endpoint.batchManager()
-	return endpoint
+	return endpoint, nil
 }
 
 func (p *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
@@ -83,7 +94,12 @@ func (p *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *op
 		return nil, fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	httpRequest, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", strings.NewReader(string(jsonData)))
+	endpointPath, err := url.JoinPath(p.baseUrl.String(), "chat/completions")
+	if err != nil {
+		return nil, fmt.Errorf("failed to build endpoint path: %v", err)
+	}
+
+	httpRequest, err := http.NewRequestWithContext(ctx, "POST", endpointPath, strings.NewReader(string(jsonData)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
@@ -519,11 +535,11 @@ func (p *Endpoint) handleBatchError(batch []*BatchJob, err error) {
 }
 
 func (p *Endpoint) Provider() string {
-	return "openai"
+	return p.providerName
 }
 
 func (p *Endpoint) Region() string {
-	return REGION
+	return p.region
 }
 
 func (p *Endpoint) Ping(ctx context.Context) (time.Duration, error) {
