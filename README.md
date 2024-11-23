@@ -162,7 +162,7 @@ The reasons why we use Valkey instead of Redis are:
 Batch processing is a cost-optimization feature that uses OpenAI's batch API to reduce costs. Here's how it works:
 
 ### How It Works
-1. When you send a request with a `-batch` suffix (e.g., `gpt-4-batch`):
+1. When you send a request with a `-batch` suffix (e.g., `gpt-4o-batch`):
    - Your request joins a batch queue
    - Batches are processed every 10 seconds or when 50,000 requests accumulate
    - The request waits for the batch to complete
@@ -176,7 +176,7 @@ Batch processing is a cost-optimization feature that uses OpenAI's batch API to 
 ### Usage Example
 ```json
 {
-  "model": "gpt-4-batch",  // Add -batch suffix
+  "model": "gpt-4o-batch",
   "messages": [
     [{"role": "user", "content": "Hello! How can you help me today?"}]
   ]
@@ -322,9 +322,9 @@ Standard HTTP status codes:
 ## Development
 
 Requirements:
-- Go 1.22+
+- Go 1.23+
 - Docker (optional)
-- Redis (optional)
+- Valkey (Redis-compatible, optional)
 
 ```bash
 # Clone repository
