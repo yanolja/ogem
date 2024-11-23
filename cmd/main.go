@@ -64,7 +64,7 @@ func loadConfig(path string) (*server.Config, error) {
 		},
 	}
 
-	// Check if config is specified via environment variable
+	// Checks if config is specified via environment variable.
 	configSource := env.OptionalStringVariable("CONFIG_SOURCE", path)
 	configToken := env.OptionalStringVariable("CONFIG_TOKEN", "")
 	configData, err := func(configSource string, configToken string) ([]byte, error) {
@@ -79,7 +79,7 @@ func loadConfig(path string) (*server.Config, error) {
 		return nil, fmt.Errorf("failed to get config data: %v", err)
 	}
 
-	// Overrides config with the YAML data
+	// Overrides config with the YAML data.
 	if err := yaml.Unmarshal(configData, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %v", err)
 	}
