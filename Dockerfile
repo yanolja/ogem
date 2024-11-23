@@ -1,19 +1,17 @@
-# Build stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.23.3-alpine3.20 AS builder
 
 WORKDIR /app
-
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-# Explicitly disable CGO and build for better portability
-RUN CGO_ENABLED=0 GOOS=linux \
-    go build \
-    -ldflags="-w -s" \
-    -o ogem cmd/main.go
+# Explicitly disables CGO and builds for better portability.
+RUN CGO_ENABLED=0 go build -o ogem cmd/main.go
 
-FROM scratch
+# Same version used in the Golang image.
+FROM alpine:3.20
+
+RUN apk --no-cache add ca-certificates
 
 WORKDIR /app
 COPY --from=builder /app/ogem .

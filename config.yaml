@@ -191,8 +191,8 @@ providers:
       me-west1:
   studio:
     regions:
-      default:
-        studio:
+      studio:
+        models:
           - name: "gemini-1.5-flash-latest"
             other_names:
               - "gemini-1.5-flash"
