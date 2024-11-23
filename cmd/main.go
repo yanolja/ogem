@@ -4,9 +4,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -23,7 +25,7 @@ import (
 )
 
 func loadConfig(path string) (*server.Config, error) {
-	// Setting default values.
+	// Setting default values
 	config := server.Config{
 		ValkeyEndpoint: "localhost:6379",
 		OgemApiKey:     "",
@@ -62,16 +64,24 @@ func loadConfig(path string) (*server.Config, error) {
 		},
 	}
 
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open config file: %v", err)
-	}
-	defer file.Close()
+	// Check if config is specified via environment variable
+	configSource := env.OptionalStringVariable("CONFIG_SOURCE", path)
+	configToken := env.OptionalStringVariable("CONFIG_TOKEN", "")
+	configData, err := func(configSource string, configToken string) ([]byte, error) {
+		// Handle URL or local path
+		if strings.HasPrefix(configSource, "http://") || strings.HasPrefix(configSource, "https://") {
+			return fetchRemoteConfig(configSource, configToken)
+		}
+		return os.ReadFile(configSource)
+	}(configSource, configToken)
 
-	// Overrides config with the given YAML file.
-	decoder := yaml.NewDecoder(file)
-	if err := decoder.Decode(&config); err != nil {
-		return nil, fmt.Errorf("failed to parse config file: %v", err)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get config data: %v", err)
+	}
+
+	// Overrides config with the YAML data
+	if err := yaml.Unmarshal(configData, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse config: %v", err)
 	}
 
 	// Overrides config with environment variables.
@@ -87,6 +97,33 @@ func loadConfig(path string) (*server.Config, error) {
 	config.Port = env.OptionalIntVariable("PORT", config.Port)
 
 	return &config, nil
+}
+
+func fetchRemoteConfig(url string, token string) ([]byte, error) {
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to fetch config: HTTP %d", resp.StatusCode)
+	}
+
+	return io.ReadAll(resp.Body)
 }
 
 func setupStateManager(valkeyEndpoint string) (state.Manager, func(), error) {

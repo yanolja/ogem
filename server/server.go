@@ -43,20 +43,20 @@ type Config struct {
 	ValkeyEndpoint string `yaml:"valkey_endpoint"`
 
 	// API key to access the Ogem service. The user should provide this key in the Authorization header with the Bearer scheme.
-	OgemApiKey string `yaml:"api_key"`
+	OgemApiKey string
 
 	// Project ID of the Google Cloud project to use Vertex AI.
 	// E.g., my-project-12345
 	GoogleCloudProject string `yaml:"google_cloud_project"`
 
 	// API key to access the GenAI Studio service.
-	GenaiStudioApiKey string `yaml:"genai_studio_api_key"`
+	GenaiStudioApiKey string
 
 	// API key to access the OpenAI service.
-	OpenAiApiKey string `yaml:"openai_api_key"`
+	OpenAiApiKey string
 
 	// API key to access the Claude service.
-	ClaudeApiKey string `yaml:"claude_api_key"`
+	ClaudeApiKey string
 
 	// Interval to retry when no available endpoints are found. E.g., 10m
 	RetryInterval string `yaml:"retry_interval"`
