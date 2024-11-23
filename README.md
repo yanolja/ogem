@@ -128,6 +128,15 @@ providers:
             rate_key: some-model
             rpm: 10_000
             tpm: 30_000_000
+  another:
+    base_url: https://api.another.com/v1
+    protocol: openai
+    api_key_env: ANOTHER_API_KEY
+    regions:
+      another:
+        models:
+          - name: your-model-name
+            rate_key: your-rate-key
 ```
 
 For the API key, it is not allowed to specify any in the config.yaml file. Instead, you should set it as an environment variable and set the variable name in the `api_key_env` field.
