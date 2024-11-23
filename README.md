@@ -162,12 +162,22 @@ The reasons why we use Valkey instead of Redis are:
 Batch processing is a cost-optimization feature that uses OpenAI's batch API to reduce costs. Here's how it works:
 
 ### How It Works
-1. When you send a request with a `-batch` suffix (e.g., `gpt-4o-batch`):
+1. Add a batch model to the config (e.g., `gpt-4o@batch`).
+
+```yaml
+models:
+  - name: "gpt-4o@batch"
+    rate_key: "gpt-4o@batch"
+    rpm: 10_000
+    tpm: 30_000_000
+```
+
+2. When you send a request with a `@batch` suffix (e.g., `gpt-4o@batch`):
    - Your request joins a batch queue
    - Batches are processed every 10 seconds or when 50,000 requests accumulate
    - The request waits for the batch to complete
 
-2. Response Behavior:
+3. Response Behavior:
    - The request blocks until the batch is completed
    - If the batch completes within your request timeout: You get results
    - If timeout occurs: You can retry with the same request
@@ -176,7 +186,7 @@ Batch processing is a cost-optimization feature that uses OpenAI's batch API to 
 ### Usage Example
 ```json
 {
-  "model": "gpt-4o-batch",
+  "model": "gpt-4o@batch",
   "messages": [
     [{"role": "user", "content": "Hello! How can you help me today?"}]
   ]
@@ -267,10 +277,10 @@ Specify multiple models for automatic fallback:
 
 ### Batch Processing
 
-Add `-batch` suffix for batch processing:
+Add `@batch` suffix for batch processing:
 ```json
 {
-  "model": "gpt-4-batch"
+  "model": "gpt-4@batch"
 }
 ```
 Currently, batch processing is only supported for OpenAI models.
