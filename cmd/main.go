@@ -163,7 +163,12 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go proxy.StartPingLoop(ctx)
+	if pingInterval := proxy.PingInterval(); pingInterval > 0 {
+		sugar.Infow("Starting ping loop", "interval", pingInterval)
+		go proxy.StartPingLoop(ctx)
+	} else {
+		sugar.Infow("Ping loop disabled")
+	}
 
 	go func() {
 		<-shutdownSignal

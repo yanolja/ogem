@@ -1,5 +1,5 @@
 retry_interval: 1m
-ping_interval: 1h
+ping_interval: 0
 providers:
   openai:
     regions:

@@ -7,8 +7,8 @@ Ogem is a unified proxy server that provides access to multiple AI language mode
 - OpenAI API-compatible interface
 - Support for multiple AI providers:
   - OpenAI (e.g., GPT-4, GPT-3.5)
-  - Google Gemini (e.g., 1.5 Flash, Pro)
-  - Anthropic Claude (e.g., 3.5 Opus, Sonnet, Haiku)
+  - Google Gemini (e.g., Gemini 1.5 Flash, Pro)
+  - Anthropic Claude (e.g., Claude 3.5 Opus, Sonnet, Haiku)
 - Smart routing based on latency
 - Rate limiting and quota management
 - Response caching for deterministic requests

@@ -236,7 +236,15 @@ func (s *ModelProxy) HandleAuthentication(handler http.HandlerFunc) http.Handler
 	}
 }
 
+func (s *ModelProxy) PingInterval() time.Duration {
+	return s.pingInterval
+}
+
 func (s *ModelProxy) StartPingLoop(ctx context.Context) {
+	if s.pingInterval <= 0 {
+		return
+	}
+
 	ticker := time.NewTicker(s.pingInterval)
 	defer ticker.Stop()
 
