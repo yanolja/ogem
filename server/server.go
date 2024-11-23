@@ -138,13 +138,13 @@ func newEndpoint(provider string, region string, config *Config) (provider.AiEnd
 	}
 }
 
-func newCustomEndpoint(providerName string, protocol string, endpoint string, apiKeyEnv string, region string) (provider.AiEndpoint, error) {
+func newCustomEndpoint(providerName string, protocol string, baseUrl string, apiKeyEnv string, region string) (provider.AiEndpoint, error) {
 	switch protocol {
 	case "openai":
 		if region != providerName {
 			return nil, fmt.Errorf("region is not supported for custom openai provider; region field must match provider name")
 		}
-		return openaiProvider.NewEndpoint(providerName, region, endpoint, env.RequiredStringVariable(apiKeyEnv))
+		return openaiProvider.NewEndpoint(providerName, region, baseUrl, env.RequiredStringVariable(apiKeyEnv))
 	default:
 		return nil, fmt.Errorf("unsupported protocol: %s, only openai is supported", protocol)
 	}
@@ -176,13 +176,13 @@ func NewProxyServer(stateManager state.Manager, cleanup func(), config Config, l
 	) bool {
 		var endpoint provider.AiEndpoint
 		var err error
-		if providerData.Endpoint == "" {
+		if providerData.BaseUrl == "" {
 			endpoint, err = newEndpoint(providerName, region, &config)
 		} else {
 			endpoint, err = newCustomEndpoint(
 				providerName,
 				providerData.Protocol,
-				providerData.Endpoint,
+				providerData.BaseUrl,
 				providerData.ApiKeyEnv,
 				region,
 			)

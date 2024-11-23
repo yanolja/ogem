@@ -52,7 +52,7 @@ type BatchJob struct {
 
 type Endpoint struct {
 	apiKey       string
-	endpoint     *url.URL
+	baseUrl      *url.URL
 	client       *http.Client
 	providerName string
 	region       string
@@ -63,8 +63,8 @@ type Endpoint struct {
 	stopBatchSignal chan struct{}
 }
 
-func NewEndpoint(providerName string, region string, address string, apiKey string) (*Endpoint, error) {
-	parsedAddress, err := url.Parse(address)
+func NewEndpoint(providerName string, region string, baseUrl string, apiKey string) (*Endpoint, error) {
+	parsedBaseUrl, err := url.Parse(baseUrl)
 	if err != nil {
 		return nil, fmt.Errorf("invalid endpoint: %v", err)
 	}
@@ -72,7 +72,7 @@ func NewEndpoint(providerName string, region string, address string, apiKey stri
 		providerName:    providerName,
 		region:          region,
 		apiKey:          apiKey,
-		endpoint:        parsedAddress,
+		baseUrl:         parsedBaseUrl,
 		client:          &http.Client{Timeout: 30 * time.Minute},
 		batchJobs:       make(map[string]*BatchJob),
 		batchChan:       make(chan *BatchJob),
@@ -94,7 +94,7 @@ func (p *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *op
 		return nil, fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	endpointPath, err := url.JoinPath(p.endpoint.String(), "chat/completions")
+	endpointPath, err := url.JoinPath(p.baseUrl.String(), "chat/completions")
 	if err != nil {
 		return nil, fmt.Errorf("failed to build endpoint path: %v", err)
 	}

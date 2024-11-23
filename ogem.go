@@ -9,10 +9,10 @@ import (
 type ProvidersStatus map[string]*ProviderStatus
 
 type ProviderStatus struct {
-	// Endpoint to use for generating completions. E.g., "localhost:8080"
-	Endpoint string `yaml:"endpoint" json:"endpoint"`
+	// Base URL of the endpoint. E.g., "http://localhost:8080/v1"
+	BaseUrl string `yaml:"base_url" json:"base_url"`
 
-	// Protocol to use for generating completions. E.g., "openai"
+	// API protocol used by the endpoint. E.g., "openai"
 	Protocol string `yaml:"protocol" json:"protocol"`
 
 	// Environment variable name for the API key. E.g., "SELF_HOST_API_KEY"
