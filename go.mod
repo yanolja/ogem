@@ -1,6 +1,6 @@
 module github.com/yanolja/ogem
 
-go 1.23.3
+go 1.22
 
 require (
 	cloud.google.com/go/vertexai v0.13.2
