@@ -367,7 +367,7 @@ Standard HTTP status codes:
 ## Development
 
 Requirements:
-- Go 1.23+
+- Go 1.22+
 - Docker (optional)
 - Valkey (Redis-compatible, optional)
 
