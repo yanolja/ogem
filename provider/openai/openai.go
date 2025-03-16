@@ -107,6 +107,8 @@ func (p *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *op
 	httpRequest.Header.Set("Content-Type", "application/json")
 	httpRequest.Header.Set("Authorization", "Bearer "+p.apiKey)
 
+	log.Printf("Sending %s request to %s with body: %s", httpRequest.Method, endpointPath, string(jsonData))
+
 	httpResponse, err := p.client.Do(httpRequest)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %v", err)
