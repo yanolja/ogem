@@ -10,7 +10,7 @@ import (
 func TestMust(t *testing.T) {
 	tests := []struct {
 		name      string
-		obj       interface{}
+		obj       any
 		err       error
 		wantPanic bool
 	}{
@@ -48,7 +48,7 @@ func TestMust(t *testing.T) {
 func TestToPtr(t *testing.T) {
 	tests := []struct {
 		name string
-		v    interface{}
+		v    any
 	}{
 		{
 			name: "string value",
@@ -78,13 +78,13 @@ func TestJsonToMap(t *testing.T) {
 	tests := []struct {
 		name    string
 		jsonStr string
-		want    map[string]interface{}
+		want    map[string]any
 		wantErr bool
 	}{
 		{
 			name:    "valid json",
 			jsonStr: `{"key": "value", "number": 42}`,
-			want: map[string]interface{}{
+			want: map[string]any{
 				"key":    "value",
 				"number": float64(42),
 			},
@@ -95,6 +95,16 @@ func TestJsonToMap(t *testing.T) {
 			jsonStr: `{invalid json}`,
 			want:    nil,
 			wantErr: true,
+		},
+		{
+			name:    "empty json",
+			jsonStr: `{"key": "value", "number": -1, "": 2}`,
+			want: map[string]any{
+				"key":    "value",
+				"number": float64(-1),
+				"":       float64(2),
+			},
+			wantErr: false,
 		},
 	}
 
@@ -115,13 +125,13 @@ func TestJsonToMap(t *testing.T) {
 func TestMapToJson(t *testing.T) {
 	tests := []struct {
 		name    string
-		jsonMap map[string]interface{}
+		jsonMap map[string]any
 		want    string
 		wantErr bool
 	}{
 		{
-			name: "valid map",
-			jsonMap: map[string]interface{}{
+			name: "valid map to JSON",
+			jsonMap: map[string]any{
 				"key":    "value",
 				"number": 42,
 			},
@@ -129,9 +139,15 @@ func TestMapToJson(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "empty map",
-			jsonMap: map[string]interface{}{},
+			name:    "empty map to JSON",
+			jsonMap: map[string]any{},
 			want:    `{}`,
+			wantErr: false,
+		},
+		{
+			name:    "null map to JSON",
+			jsonMap: nil,
+			want:    `null`,
 			wantErr: false,
 		},
 	}
@@ -145,7 +161,7 @@ func TestMapToJson(t *testing.T) {
 			}
 			if !tt.wantErr {
 				// Compare the JSON strings after normalizing them
-				var gotMap, wantMap map[string]interface{}
+				var gotMap, wantMap any
 				json.Unmarshal([]byte(got), &gotMap)
 				json.Unmarshal([]byte(tt.want), &wantMap)
 				if !reflect.DeepEqual(gotMap, wantMap) {

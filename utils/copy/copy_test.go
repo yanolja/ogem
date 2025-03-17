@@ -20,7 +20,7 @@ type TestStruct struct {
 
 func TestCopy(t *testing.T) {
 
-	t.Run("primitive types", func(t *testing.T) {
+	t.Run("Successfully deep copied primitive types", func(t *testing.T) {
 		original := TestStruct{
 			String: "test",
 			Int:    42,
@@ -33,7 +33,7 @@ func TestCopy(t *testing.T) {
 		assert.Equal(t, original, copied)
 	})
 
-	t.Run("slice", func(t *testing.T) {
+	t.Run("Successfully deep copy slice types", func(t *testing.T) {
 		original := TestStruct{
 			Slice: []string{"a", "b", "c"},
 		}
@@ -47,7 +47,7 @@ func TestCopy(t *testing.T) {
 		assert.NotEqual(t, original.Slice[0], "x", "Deep() created a shallow copy of slice")
 	})
 
-	t.Run("map", func(t *testing.T) {
+	t.Run("Successfully deep copy map types", func(t *testing.T) {
 		original := TestStruct{
 			Map: map[string]int{
 				"a": 1,
@@ -64,7 +64,7 @@ func TestCopy(t *testing.T) {
 		assert.NotEqual(t, original.Map["a"], 3, "Deep() created a shallow copy of map")
 	})
 
-	t.Run("pointer", func(t *testing.T) {
+	t.Run("Successfully deep copy pointer types", func(t *testing.T) {
 		str := "test"
 		original := TestStruct{
 			Ptr: &str,
@@ -79,9 +79,9 @@ func TestCopy(t *testing.T) {
 		assert.NotEqual(t, *original.Ptr, "new", "Deep() created a shallow copy of pointer")
 	})
 
-	t.Run("any", func(t *testing.T) {
+	t.Run("Successfully copied any types", func(t *testing.T) {
 		original := TestStruct{
-			Any: map[string]interface{}{
+			Any: map[string]any{
 				"key": "value",
 			},
 		}
@@ -90,13 +90,13 @@ func TestCopy(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, original, copied)
 
-		// Modify the copied interface to verify deep copy
-		copiedMap := copied.Any.(map[string]interface{})
+		// Modify the copied any to verify deep copy
+		copiedMap := copied.Any.(map[string]any)
 		copiedMap["key"] = "new value"
-		assert.NotEqual(t, original.Any.(map[string]interface{})["key"], "new value", "Deep() created a shallow copy of interface")
+		assert.NotEqual(t, original.Any.(map[string]any)["key"], "new value", "Deep() created a shallow copy of any")
 	})
 
-	t.Run("nil values", func(t *testing.T) {
+	t.Run("Fails copied because something return nil", func(t *testing.T) {
 		original := TestStruct{
 			Slice: nil,
 			Map:   nil,
@@ -109,11 +109,11 @@ func TestCopy(t *testing.T) {
 		assert.Equal(t, original, copied)
 	})
 
-	t.Run("empty values", func(t *testing.T) {
+	t.Run("Fails copied empty values", func(t *testing.T) {
 		original := TestStruct{
 			Slice: []string{},
 			Map:   map[string]int{},
-			Any:   map[string]interface{}{},
+			Any:   map[string]any{},
 		}
 
 		copied, err := Deep(original)
