@@ -1,173 +1,108 @@
 package utils
 
 import (
-	"encoding/json"
 	"fmt"
-	"reflect"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestMust(t *testing.T) {
-	tests := []struct {
-		name      string
-		obj       any
-		err       error
-		wantPanic bool
-	}{
-		{
-			name:      "success case",
-			obj:       "test",
-			err:       nil,
-			wantPanic: false,
-		},
-		{
-			name:      "panic case",
-			obj:       nil,
-			err:       fmt.Errorf("test error"),
-			wantPanic: true,
-		},
-	}
+	t.Run("Return object when no error", func(t *testing.T) {
+		obj := "test"
+		err := error(nil)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.wantPanic {
-				defer func() {
-					if r := recover(); r == nil {
-						t.Error("Must() should have panicked but didn't")
-					}
-				}()
-			}
-			result := Must(tt.obj, tt.err)
-			if !tt.wantPanic && result != tt.obj {
-				t.Errorf("Must() = %v, want %v", result, tt.obj)
-			}
+		got := Must(obj, err)
+		assert.Equal(t, obj, got)
+	})
+
+	t.Run("Panic when error is not nil", func(t *testing.T) {
+		obj := any(nil)
+		err := fmt.Errorf("test error")
+
+		assert.PanicsWithValue(t, err, func() {
+			_ = Must(obj, err)
 		})
-	}
+	})
 }
 
 func TestToPtr(t *testing.T) {
-	tests := []struct {
-		name string
-		v    any
-	}{
-		{
-			name: "string value",
-			v:    "test",
-		},
-		{
-			name: "int value",
-			v:    42,
-		},
-		{
-			name: "bool value",
-			v:    true,
-		},
-	}
+	t.Run("String value", func(t *testing.T) {
+		value := "test"
+		ptr := ToPtr(value)
+		assert.Equal(t, value, *ptr)
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := ToPtr(tt.v)
-			if *result != tt.v {
-				t.Errorf("ToPtr() = %v, want %v", *result, tt.v)
-			}
-		})
-	}
+	t.Run("Int value", func(t *testing.T) {
+		value := 42
+		ptr := ToPtr(value)
+		assert.Equal(t, value, *ptr)
+	})
+
+	t.Run("Bool value", func(t *testing.T) {
+		value := true
+		ptr := ToPtr(value)
+		assert.Equal(t, value, *ptr)
+	})
 }
 
 func TestJsonToMap(t *testing.T) {
-	tests := []struct {
-		name    string
-		jsonStr string
-		want    map[string]any
-		wantErr bool
-	}{
-		{
-			name:    "valid json",
-			jsonStr: `{"key": "value", "number": 42}`,
-			want: map[string]any{
-				"key":    "value",
-				"number": float64(42),
-			},
-			wantErr: false,
-		},
-		{
-			name:    "invalid json",
-			jsonStr: `{invalid json}`,
-			want:    nil,
-			wantErr: true,
-		},
-		{
-			name:    "empty json",
-			jsonStr: `{"key": "value", "number": -1, "": 2}`,
-			want: map[string]any{
-				"key":    "value",
-				"number": float64(-1),
-				"":       float64(2),
-			},
-			wantErr: false,
-		},
-	}
+	t.Run("Valid json", func(t *testing.T) {
+		jsonStr := `{"key": "value", "number": 42}`
+		want := map[string]any{
+			"key":    "value",
+			"number": float64(42),
+		}
+		got, err := JsonToMap(jsonStr)
+		assert.NoError(t, err)
+		assert.Equal(t, want, got)
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := JsonToMap(tt.jsonStr)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("JsonToMap() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("JsonToMap() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+	t.Run("Invalid json", func(t *testing.T) {
+		jsonStr := `{invalid json}`
+		got, err := JsonToMap(jsonStr)
+		assert.Error(t, err)
+		assert.Nil(t, got)
+	})
+
+	t.Run("Empty json", func(t *testing.T) {
+		jsonStr := `{"key": "value", "number": -1, "": 2}`
+		want := map[string]any{
+			"key":    "value",
+			"number": float64(-1),
+			"":       float64(2),
+		}
+		got, err := JsonToMap(jsonStr)
+		assert.NoError(t, err)
+		assert.Equal(t, want, got)
+	})
 }
 
 func TestMapToJson(t *testing.T) {
-	tests := []struct {
-		name    string
-		jsonMap map[string]any
-		want    string
-		wantErr bool
-	}{
-		{
-			name: "valid map to JSON",
-			jsonMap: map[string]any{
-				"key":    "value",
-				"number": 42,
-			},
-			want:    `{"key":"value","number":42}`,
-			wantErr: false,
-		},
-		{
-			name:    "empty map to JSON",
-			jsonMap: map[string]any{},
-			want:    `{}`,
-			wantErr: false,
-		},
-		{
-			name:    "null map to JSON",
-			jsonMap: nil,
-			want:    `null`,
-			wantErr: false,
-		},
-	}
+	t.Run("Valid map to JSON", func(t *testing.T) {
+		jsonMap := map[string]any{
+			"key":    "value",
+			"number": 42,
+			"":       2,
+		}
+		want := `{"key":"value","number":42,"":2}`
+		got, err := MapToJson(jsonMap)
+		assert.NoError(t, err)
+		assert.JSONEq(t, want, got)
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := MapToJson(tt.jsonMap)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("MapToJson() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !tt.wantErr {
-				// Compare the JSON strings after normalizing them
-				var gotMap, wantMap any
-				json.Unmarshal([]byte(got), &gotMap)
-				json.Unmarshal([]byte(tt.want), &wantMap)
-				if !reflect.DeepEqual(gotMap, wantMap) {
-					t.Errorf("MapToJson() = %v, want %v", got, tt.want)
-				}
-			}
-		})
-	}
+	t.Run("Empty map to JSON", func(t *testing.T) {
+		jsonMap := map[string]any{}
+		want := `{}`
+		got, err := MapToJson(jsonMap)
+		assert.NoError(t, err)
+		assert.JSONEq(t, want, got)
+	})
+
+	t.Run("Null map to JSON", func(t *testing.T) {
+		jsonMap := map[string]any(nil)
+		want := `null`
+		got, err := MapToJson(jsonMap)
+		assert.NoError(t, err)
+		assert.JSONEq(t, want, got)
+	})
 }
