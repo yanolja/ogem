@@ -6,19 +6,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestStruct is a test struct for deep copy, a struct may be shallow copied by copying the pointer to the struct
 type TestStruct struct {
-	String    string
-	Int       int
-	Float     float64
-	Bool      bool
-	Slice     []string
-	Map       map[string]int
-	Ptr       *string
-	Interface interface{}
+	String string
+	Int    int
+	Float  float64
+	Bool   bool
+	Slice  []string
+	Map    map[string]int
+	Ptr    *string
+	Any    any
 }
 
 func TestCopy(t *testing.T) {
-	// Test case 1: Copy primitive types
+
 	t.Run("primitive types", func(t *testing.T) {
 		original := TestStruct{
 			String: "test",
@@ -32,7 +33,6 @@ func TestCopy(t *testing.T) {
 		assert.Equal(t, original, copied)
 	})
 
-	// Test case 2: Copy slice
 	t.Run("slice", func(t *testing.T) {
 		original := TestStruct{
 			Slice: []string{"a", "b", "c"},
@@ -47,7 +47,6 @@ func TestCopy(t *testing.T) {
 		assert.NotEqual(t, original.Slice[0], "x", "Deep() created a shallow copy of slice")
 	})
 
-	// Test case 3: Copy map
 	t.Run("map", func(t *testing.T) {
 		original := TestStruct{
 			Map: map[string]int{
@@ -65,7 +64,6 @@ func TestCopy(t *testing.T) {
 		assert.NotEqual(t, original.Map["a"], 3, "Deep() created a shallow copy of map")
 	})
 
-	// Test case 4: Copy pointer
 	t.Run("pointer", func(t *testing.T) {
 		str := "test"
 		original := TestStruct{
@@ -81,10 +79,9 @@ func TestCopy(t *testing.T) {
 		assert.NotEqual(t, *original.Ptr, "new", "Deep() created a shallow copy of pointer")
 	})
 
-	// Test case 5: Copy interface
-	t.Run("interface", func(t *testing.T) {
+	t.Run("any", func(t *testing.T) {
 		original := TestStruct{
-			Interface: map[string]interface{}{
+			Any: map[string]interface{}{
 				"key": "value",
 			},
 		}
@@ -94,18 +91,17 @@ func TestCopy(t *testing.T) {
 		assert.Equal(t, original, copied)
 
 		// Modify the copied interface to verify deep copy
-		copiedMap := copied.Interface.(map[string]interface{})
+		copiedMap := copied.Any.(map[string]interface{})
 		copiedMap["key"] = "new value"
-		assert.NotEqual(t, original.Interface.(map[string]interface{})["key"], "new value", "Deep() created a shallow copy of interface")
+		assert.NotEqual(t, original.Any.(map[string]interface{})["key"], "new value", "Deep() created a shallow copy of interface")
 	})
 
-	// Test case 6: Copy nil values
 	t.Run("nil values", func(t *testing.T) {
 		original := TestStruct{
-			Slice:     nil,
-			Map:       nil,
-			Ptr:       nil,
-			Interface: nil,
+			Slice: nil,
+			Map:   nil,
+			Ptr:   nil,
+			Any:   nil,
 		}
 
 		copied, err := Deep(original)
@@ -113,12 +109,11 @@ func TestCopy(t *testing.T) {
 		assert.Equal(t, original, copied)
 	})
 
-	// Test case 7: Copy empty values
 	t.Run("empty values", func(t *testing.T) {
 		original := TestStruct{
-			Slice:     []string{},
-			Map:       map[string]int{},
-			Interface: map[string]interface{}{},
+			Slice: []string{},
+			Map:   map[string]int{},
+			Any:   map[string]interface{}{},
 		}
 
 		copied, err := Deep(original)
@@ -126,7 +121,6 @@ func TestCopy(t *testing.T) {
 		assert.Equal(t, original, copied)
 	})
 
-	// Test case 8: Copy primitive type directly
 	t.Run("primitive type", func(t *testing.T) {
 		original := 42
 		copied, err := Deep(original)
@@ -134,7 +128,6 @@ func TestCopy(t *testing.T) {
 		assert.Equal(t, original, copied)
 	})
 
-	// Test case 9: Copy slice directly
 	t.Run("slice directly", func(t *testing.T) {
 		original := []string{"a", "b", "c"}
 		copied, err := Deep(original)
