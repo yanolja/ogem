@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCopy(t *testing.T) {
+func TestDeep(t *testing.T) {
 	t.Run("Deep copied int type", func(t *testing.T) {
 		original := 42
 		copied, err := Deep(original)
@@ -52,17 +52,14 @@ func TestCopy(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotSame(t, original, copied)
 		assert.Equal(t, *original, *copied)
-
 		*copied = "new"
 		assert.NotEqual(t, *original, *copied)
 	})
 
-	t.Run("Fails copied empty values", func(t *testing.T) {
+	t.Run("Fails copying struct{}{}", func(t *testing.T) {
 		original := struct{}{}
-
 		copied, err := Deep(original)
 		assert.NoError(t, err)
 		assert.Equal(t, original, copied)
 	})
-
 }

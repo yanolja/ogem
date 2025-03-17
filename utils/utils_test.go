@@ -29,19 +29,19 @@ func TestToPtr(t *testing.T) {
 	t.Run("String value", func(t *testing.T) {
 		value := "test"
 		ptr := ToPtr(value)
-		assert.Equal(t, value, *ptr)
+		assert.Equal(t, "test", *ptr)
 	})
 
 	t.Run("Int value", func(t *testing.T) {
 		value := 42
 		ptr := ToPtr(value)
-		assert.Equal(t, value, *ptr)
+		assert.Equal(t, 42, *ptr)
 	})
 
 	t.Run("Bool value", func(t *testing.T) {
 		value := true
 		ptr := ToPtr(value)
-		assert.Equal(t, value, *ptr)
+		assert.Equal(t, true, *ptr)
 	})
 }
 
