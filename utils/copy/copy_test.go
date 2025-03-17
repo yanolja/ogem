@@ -50,10 +50,11 @@ func TestCopy(t *testing.T) {
 		original := &str
 		copied, err := Deep(original)
 		assert.NoError(t, err)
-		assert.Equal(t, original, copied)
+		assert.NotSame(t, original, copied)
+		assert.Equal(t, *original, *copied)
 
 		*copied = "new"
-		assert.NotEqual(t, *original, "new")
+		assert.NotEqual(t, *original, *copied)
 	})
 
 	t.Run("Fails copied empty values", func(t *testing.T) {
