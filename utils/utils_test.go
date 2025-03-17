@@ -10,7 +10,6 @@ func TestMust(t *testing.T) {
 	t.Run("Return object when no error", func(t *testing.T) {
 		obj := "test"
 		err := error(nil)
-
 		got := Must(obj, err)
 		assert.Equal(t, obj, got)
 	})
@@ -18,7 +17,6 @@ func TestMust(t *testing.T) {
 	t.Run("Panic when error is not nil", func(t *testing.T) {
 		obj := any(nil)
 		err := fmt.Errorf("test error")
-
 		assert.PanicsWithValue(t, err, func() {
 			_ = Must(obj, err)
 		})
@@ -42,6 +40,18 @@ func TestToPtr(t *testing.T) {
 		value := true
 		ptr := ToPtr(value)
 		assert.Equal(t, true, *ptr)
+	})
+
+	t.Run("Float value", func(t *testing.T) {
+		value := 3.14
+		ptr := ToPtr(value)
+		assert.Equal(t, 3.14, *ptr)
+	})
+
+	t.Run("Any value", func(t *testing.T) {
+		value := []any{'a', 1, 3.14, "test", []int{1, 2, 3}}
+		ptr := ToPtr(value)
+		assert.Equal(t, []any{'a', 1, 3.14, "test", []int{1, 2, 3}}, *ptr)
 	})
 }
 
