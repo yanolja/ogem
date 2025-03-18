@@ -38,6 +38,36 @@ type ChatCompletionRequest struct {
 	User                *string               `json:"user,omitempty"`
 	FunctionCall        *LegacyFunctionChoice `json:"function_call,omitempty"`
 	Functions           []LegacyFunction      `json:"functions,omitempty"`
+	Audio               *Audio                `json:"audio,omitempty"`
+	Metadata            *orderedmap.Map       `json:"metadata,omitempty"` // max: 16 chars key, 512 chars value
+	Modalities          *[]string             `json:"modalities,omitempty"`
+	Prediction          *Prediction           `json:"prediction,omitempty"`
+	ReasoningEffort     *string               `json:"reasoning_effort,omitempty"` // o-series models only
+	Store               *bool                 `json:"store,omitempty"`
+	WebSearchOptions    *WebSearchOptions     `json:"web_search_options,omitempty"`
+}
+
+type Prediction struct {
+	Content Type `json:"content"`
+}
+
+type Type string
+
+type WebSearchOptions struct {
+	SearchContextSize *string `json:"search_context_size,omitempty"`
+	UserLocation      *string `json:"user_location,omitempty"`
+}
+
+type UserLocation struct {
+	Type        string       `json:"type"` // always approximate
+	Approximate *Approximate `json:"approximate,omitempty"`
+}
+
+type Approximate struct {
+	City     *string `json:"city,omitempty"`
+	Country  *string `json:"country,omitempty"`
+	Region   *string `json:"region,omitempty"`
+	Timezone *string `json:"timezone,omitempty"` // IANA timezone
 }
 
 type StopSequences struct {
@@ -71,6 +101,11 @@ type Tool struct {
 type ToolChoice struct {
 	Value  *ToolChoiceValue
 	Struct *ToolChoiceStruct
+}
+
+type Audio struct {
+	Format string `json:"format"` // wav, mp3, flac, opus, or pcm16
+	Voice  string `json:"voice"`  // alloy, ash, ballad, coral, echo, sage, or shimmer
 }
 
 type ToolChoiceValue string
@@ -169,6 +204,27 @@ type Message struct {
 	ToolCalls    []ToolCall      `json:"tool_calls,omitempty"`
 	ToolCallId   *string         `json:"tool_call_id,omitempty"`
 	FunctionCall *FunctionCall   `json:"function_call,omitempty"`
+	Annotations  *[]Annotation   `json:"annotations,omitempty"`
+	Audio        *AudioResponse  `json:"audio,omitempty"`
+}
+
+type Annotation struct {
+	Type        string       `json:"type"`
+	UrlCitation *UrlCitation `json:"url_citation,omitempty"`
+}
+
+type UrlCitation struct {
+	EndIndex   int    `json:"end_index"`
+	StartIndex int    `json:"start_index"`
+	Title      string `json:"title"`
+	Url        string `json:"url"`
+}
+
+type AudioResponse struct {
+	Data       *string `json:"data"`
+	ExpiresAt  *int64  `json:"expires_at"`
+	Id         *string `json:"id"`
+	Transcript *string `json:"transcript"`
 }
 
 type MessageContent struct {
@@ -301,10 +357,19 @@ type Usage struct {
 	CompletionTokens        int32                   `json:"completion_tokens"`
 	TotalTokens             int32                   `json:"total_tokens"`
 	CompletionTokensDetails CompletionTokensDetails `json:"completion_tokens_details"`
+	PromptTokensDetails     PromptTokensDetails     `json:"prompt_tokens_details"`
 }
 
 type CompletionTokensDetails struct {
-	ReasoningTokens int32 `json:"reasoning_tokens"`
+	ReasoningTokens          int32 `json:"reasoning_tokens"`
+	AcceptedPredictionTokens int32 `json:"accepted_prediction_tokens"`
+	AudioTokens              int32 `json:"audio_tokens"`
+	RejectedPredictionTokens int32 `json:"rejected_prediction_tokens"`
+}
+
+type PromptTokensDetails struct {
+	AudioTokens  int32 `json:"audio_tokens"`
+	CachedTokens int32 `json:"cached_tokens"`
 }
 
 type StreamOptions struct {
