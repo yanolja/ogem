@@ -315,7 +315,7 @@ func toClaudeToolChoice(toolChoice *openai.ToolChoice) (anthropic.ToolChoiceUnio
 				Type: anthropic.F(anthropic.ToolChoiceAnyTypeAny),
 			}, nil
 		case "none":
-			return nil, fmt.Errorf("Claude does not support 'none' tool choice")
+			return nil, fmt.Errorf("claude does not support 'none' tool choice")
 		}
 	}
 	if toolChoice.Struct == nil {
@@ -379,10 +379,10 @@ func toOpenAiMessage(claudeMessage *anthropic.Message) (*openai.Message, error) 
 	toolCalls := make([]openai.ToolCall, 0)
 
 	for _, block := range claudeMessage.Content {
-		switch block := block.AsUnion().(type) {
-		case anthropic.TextBlock:
+		switch block.Type {
+		case anthropic.ContentBlockTypeText:
 			content.WriteString(block.Text)
-		case anthropic.ToolUseBlock:
+		case anthropic.ContentBlockTypeToolUse:
 			toolCalls = append(toolCalls, openai.ToolCall{
 				Id:   block.ID,
 				Type: "function",

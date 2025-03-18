@@ -342,6 +342,11 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 		return nil, BadRequestError{fmt.Errorf("no messages provided")}
 	}
 
+	// Determine if the response can be cached based on temperature setting.
+	// Responses are only cached when:
+	// 1. Temperature parameter is provided (not nil)
+	// 2. Temperature is effectively zero (deterministic responses)
+	// This is because non-zero temperatures introduce randomness, making caching inappropriate.
 	cacheable := openAiRequest.Temperature != nil && math.Abs(float64(*openAiRequest.Temperature)-float64(0)) < math.SmallestNonzeroFloat32
 
 	if cacheable {
