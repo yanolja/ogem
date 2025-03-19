@@ -7,6 +7,7 @@ import (
 	"github.com/google/generative-ai-go/genai"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/yanolja/ogem/openai"
 	"github.com/yanolja/ogem/utils/orderedmap"
 )
 
@@ -268,4 +269,112 @@ func TestToGeminiSchema_WithRef(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestToGeminiSystemInstruction(t *testing.T) {
+	tests := []struct {
+		name               string
+		messages           []openai.Message
+		expectedSystemInst *genai.Content
+	}{
+		{
+			name: "No system message",
+			messages: []openai.Message{
+				{
+					Role:    "user",
+					Content: &openai.MessageContent{String: stringPtr("Hello")},
+				},
+				{
+					Role:    "assistant",
+					Content: &openai.MessageContent{String: stringPtr("Hi there")},
+				},
+			},
+			expectedSystemInst: nil,
+		},
+		{
+			name: "Has system message",
+			messages: []openai.Message{
+				{
+					Role:    "system",
+					Content: &openai.MessageContent{String: stringPtr("You are a helpful assistant")},
+				},
+				{
+					Role:    "user",
+					Content: &openai.MessageContent{String: stringPtr("Hello")},
+				},
+			},
+			expectedSystemInst: &genai.Content{
+				Parts: []genai.Part{genai.Text("You are a helpful assistant")},
+			},
+		},
+		{
+			name: "System message in the middle",
+			messages: []openai.Message{
+				{
+					Role:    "user",
+					Content: &openai.MessageContent{String: stringPtr("Hello")},
+				},
+				{
+					Role:    "system",
+					Content: &openai.MessageContent{String: stringPtr("You are a helpful assistant")},
+				},
+				{
+					Role:    "assistant",
+					Content: &openai.MessageContent{String: stringPtr("Hi there")},
+				},
+			},
+			expectedSystemInst: &genai.Content{
+				Parts: []genai.Part{genai.Text("You are a helpful assistant")},
+			},
+		},
+		{
+			name: "Multiple system messages - should return the first one",
+			messages: []openai.Message{
+				{
+					Role:    "system",
+					Content: &openai.MessageContent{String: stringPtr("You are a helpful assistant")},
+				},
+				{
+					Role:    "user",
+					Content: &openai.MessageContent{String: stringPtr("Hello")},
+				},
+				{
+					Role:    "system",
+					Content: &openai.MessageContent{String: stringPtr("You are a funny assistant")},
+				},
+			},
+			expectedSystemInst: &genai.Content{
+				Parts: []genai.Part{genai.Text("You are a helpful assistant")},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request := &openai.ChatCompletionRequest{
+				Messages: tt.messages,
+			}
+
+			result := toGeminiSystemInstruction(request)
+
+			if tt.expectedSystemInst == nil {
+				assert.Nil(t, result)
+			} else {
+				assert.NotNil(t, result)
+				assert.Equal(t, len(tt.expectedSystemInst.Parts), len(result.Parts))
+
+				if len(tt.expectedSystemInst.Parts) > 0 {
+					// Compare the text of the first part
+					expectedText := tt.expectedSystemInst.Parts[0].(genai.Text)
+					actualText := result.Parts[0].(genai.Text)
+					assert.Equal(t, string(expectedText), string(actualText))
+				}
+			}
+		})
+	}
+}
+
+// Helper function for creating string pointers
+func stringPtr(s string) *string {
+	return &s
 }
