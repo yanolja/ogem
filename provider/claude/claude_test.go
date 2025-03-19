@@ -27,7 +27,7 @@ func (m *mockMessageService) New(ctx context.Context, params anthropic.MessageNe
 		Content: []anthropic.ContentBlock{block},
 		Model: "claude-3-haiku-20240307",
 		Role: "assistant",
-	  }, nil
+	}, nil
 }
 
 type mockAnthropicClient struct {
