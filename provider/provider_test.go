@@ -28,14 +28,14 @@ func TestToGeminiRole(t *testing.T) {
 }
 
 func TestToGeminiResponseMimeType_SuccessCases(t *testing.T) {
-	t.Run("plain_text_nil_format", func(t *testing.T) {
+	t.Run("no format specified", func(t *testing.T) {
 		mimeType, schema, err := ToGeminiResponseMimeType(&openai.ChatCompletionRequest{})
 		assert.NoError(t, err)
 		assert.Equal(t, "text/plain", mimeType)
 		assert.Nil(t, schema)
 	})
 
-	t.Run("plain_text_format", func(t *testing.T) {
+	t.Run("plain text format", func(t *testing.T) {
 		mimeType, schema, err := ToGeminiResponseMimeType(&openai.ChatCompletionRequest{
 			ResponseFormat: &openai.ResponseFormat{
 				Type: "plain_text",
@@ -46,7 +46,7 @@ func TestToGeminiResponseMimeType_SuccessCases(t *testing.T) {
 		assert.Nil(t, schema)
 	})
 
-	t.Run("json_object", func(t *testing.T) {
+	t.Run("json object format", func(t *testing.T) {
 		mimeType, schema, err := ToGeminiResponseMimeType(&openai.ChatCompletionRequest{
 			ResponseFormat: &openai.ResponseFormat{
 				Type: "json_object",
@@ -57,7 +57,7 @@ func TestToGeminiResponseMimeType_SuccessCases(t *testing.T) {
 		assert.Nil(t, schema)
 	})
 
-	t.Run("json_schema", func(t *testing.T) {
+	t.Run("json schema format", func(t *testing.T) {
 		mimeType, schema, err := ToGeminiResponseMimeType(&openai.ChatCompletionRequest{
 			ResponseFormat: &openai.ResponseFormat{
 				Type: "json_schema",
