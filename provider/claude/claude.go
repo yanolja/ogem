@@ -17,28 +17,16 @@ import (
 // A unique identifier for the Claude provider
 const REGION = "claude"
 
-type MessageService interface {
-	New(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error)
-}
-
 type anthropicClient interface {
-	Messages() MessageService
+	sendRequest(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error)
 }
 
-type standardMessageService struct {
-	sdkService *anthropic.MessageService
+type anthropicClientImpl struct {
+	client *anthropic.Client
 }
 
-func (s *standardMessageService) New(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error) {
-	return s.sdkService.New(ctx, params)
-}
-
-type standardAnthropicClient struct {
-	*anthropic.Client
-}
-
-func (c *standardAnthropicClient) Messages() MessageService {
-	return &standardMessageService{sdkService: c.Client.Messages}
+func (c *anthropicClientImpl) sendRequest(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error) {
+	return c.client.Messages.New(ctx, params)
 }
 
 type Endpoint struct {
@@ -47,12 +35,7 @@ type Endpoint struct {
 
 func NewEndpoint(apiKey string) (*Endpoint, error) {
 	client := anthropic.NewClient(option.WithAPIKey(apiKey))
-	return &Endpoint{client: &standardAnthropicClient{client}}, nil
-}
-
-// NewEndpointWithClient creates an endpoint with a custom client (useful for testing)
-func NewEndpointWithClient(client anthropicClient) *Endpoint {
-	return &Endpoint{client: client}
+	return &Endpoint{client: &anthropicClientImpl{client}}, nil
 }
 
 func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
@@ -61,7 +44,7 @@ func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *o
 		return nil, err
 	}
 
-	claudeResponse, err := ep.client.Messages().New(ctx, *claudeParams)
+	claudeResponse, err := ep.client.sendRequest(ctx, *claudeParams)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +67,7 @@ func (ep *Endpoint) Region() string {
 
 func (ep *Endpoint) Ping(ctx context.Context) (time.Duration, error) {
 	start := time.Now()
-	_, err := ep.client.Messages().New(ctx, anthropic.MessageNewParams{
+	_, err := ep.client.sendRequest(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.F(anthropic.ModelClaude_3_Haiku_20240307),
 		MaxTokens: anthropic.Int(1),
 		Messages: anthropic.F([]anthropic.MessageParam{

@@ -12,9 +12,15 @@ import (
 	"github.com/yanolja/ogem/utils"
 )
 
-type mockMessageService struct{}
+type mockAnthropicClient struct {
+	sendFunc func(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error)
+}
 
-func (m *mockMessageService) New(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error) {
+func (m *mockAnthropicClient) sendRequest(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error) {
+	return m.sendFunc(ctx, params)
+}
+
+func mockSendRequest(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error) {
 	var block anthropic.ContentBlock
 	if err := json.Unmarshal([]byte(`{
 		"type": "text",
@@ -30,18 +36,14 @@ func (m *mockMessageService) New(ctx context.Context, params anthropic.MessageNe
 	}, nil
 }
 
-type mockAnthropicClient struct {
-	mockService MessageService
-}
-
-func (m *mockAnthropicClient) Messages() MessageService {
-	return m.mockService
+func newMockEndpoint(client anthropicClient) *Endpoint {
+	return &Endpoint{client: client}
 }
 
 func TestEndpoint_Ping(t *testing.T) {
 	ctx := context.Background()
-	client := &mockAnthropicClient{mockService: &mockMessageService{}}
-	endpoint := NewEndpointWithClient(client)
+	client := &mockAnthropicClient{sendFunc: mockSendRequest}
+	endpoint := newMockEndpoint(client)
 
 	duration, err := endpoint.Ping(ctx)
 
@@ -52,8 +54,8 @@ func TestEndpoint_Ping(t *testing.T) {
 func TestEndpoint_GenerateChatCompletion(t *testing.T) {
 	ctx := context.Background()
 
-	client := &mockAnthropicClient{mockService: &mockMessageService{}}
-	endpoint := NewEndpointWithClient(client)
+	client := &mockAnthropicClient{sendFunc: mockSendRequest}
+	endpoint := newMockEndpoint(client)
 
 	openaiRequest := &openai.ChatCompletionRequest{
 		Model: "claude-3-haiku",
