@@ -115,9 +115,3 @@ func TestToGeminiResponseMimeType_ErrorCases(t *testing.T) {
 		})
 	}
 }
-
-func createJsonSchema() *orderedmap.Map {
-	schema := orderedmap.New()
-	schema.Set("type", "object")
-	return schema
-}
