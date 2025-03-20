@@ -9,6 +9,7 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 
+	"github.com/yanolja/ogem/imagedownloader"
 	"github.com/yanolja/ogem/openai"
 	"github.com/yanolja/ogem/utils"
 	"github.com/yanolja/ogem/utils/array"
@@ -23,15 +24,16 @@ type anthropicClient interface {
 
 type Endpoint struct {
 	client anthropicClient
+	imageDownloader imagedownloader.ImageDownloader
 }
 
-func NewEndpoint(apiKey string) (*Endpoint, error) {
+func NewEndpoint(apiKey string, imageDownloader imagedownloader.ImageDownloader) (*Endpoint, error) {
 	client := anthropic.NewClient(option.WithAPIKey(apiKey))
-	return &Endpoint{client: client.Messages}, nil
+	return &Endpoint{client: client.Messages, imageDownloader: imageDownloader}, nil
 }
 
 func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
-	claudeParams, err := toClaudeParams(openaiRequest)
+	claudeParams, err := toClaudeParams(ctx, openaiRequest, ep.imageDownloader)
 	if err != nil {
 		return nil, err
 	}
@@ -76,8 +78,8 @@ func (ep *Endpoint) Shutdown() error {
 	return nil
 }
 
-func toClaudeParams(openaiRequest *openai.ChatCompletionRequest) (*anthropic.MessageNewParams, error) {
-	messages, err := toClaudeMessages(openaiRequest.Messages)
+func toClaudeParams(ctx context.Context, openaiRequest *openai.ChatCompletionRequest, imageDownloader imagedownloader.ImageDownloader) (*anthropic.MessageNewParams, error) {
+	messages, err := toClaudeMessages(ctx, openaiRequest.Messages, imageDownloader)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +105,7 @@ func toClaudeParams(openaiRequest *openai.ChatCompletionRequest) (*anthropic.Mes
 	if openaiRequest.StopSequences != nil {
 		params.StopSequences = anthropic.F(openaiRequest.StopSequences.Sequences)
 	}
-	systemMessage, err := toClaudeSystemMessage(openaiRequest)
+	systemMessage, err := toClaudeSystemMessage(ctx, openaiRequest, imageDownloader)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +139,7 @@ func toClaudeParams(openaiRequest *openai.ChatCompletionRequest) (*anthropic.Mes
 	return params, nil
 }
 
-func toClaudeMessages(openaiMessages []openai.Message) ([]anthropic.MessageParam, error) {
+func toClaudeMessages(ctx context.Context, openaiMessages []openai.Message, imageDownloader imagedownloader.ImageDownloader) ([]anthropic.MessageParam, error) {
 	messageCount := len(openaiMessages)
 	if messageCount == 0 {
 		return nil, fmt.Errorf("at least one message is required")
@@ -153,7 +155,7 @@ func toClaudeMessages(openaiMessages []openai.Message) ([]anthropic.MessageParam
 		if message.FunctionCall != nil {
 			toolMap[message.FunctionCall.Name] = fmt.Sprintf("call-%s-%d", message.FunctionCall.Name, index)
 		}
-		claudeMessage, err := toClaudeMessage(message, toolMap)
+		claudeMessage, err := toClaudeMessage(ctx, message, toolMap, imageDownloader)
 		if err != nil {
 			return nil, err
 		}
@@ -162,8 +164,8 @@ func toClaudeMessages(openaiMessages []openai.Message) ([]anthropic.MessageParam
 	return claudeMessages, nil
 }
 
-func toClaudeMessage(openaiMessage openai.Message, toolMap map[string]string) (*anthropic.MessageParam, error) {
-	blocks, err := toClaudeMessageBlocks(openaiMessage, toolMap)
+func toClaudeMessage(ctx context.Context, openaiMessage openai.Message, toolMap map[string]string, imageDownloader imagedownloader.ImageDownloader) (*anthropic.MessageParam, error) {
+	blocks, err := toClaudeMessageBlocks(ctx, openaiMessage, toolMap, imageDownloader)
 	if err != nil {
 		return nil, err
 	}
@@ -182,10 +184,10 @@ func toClaudeMessage(openaiMessage openai.Message, toolMap map[string]string) (*
 	return nil, fmt.Errorf("unsupported message role: %s", openaiMessage.Role)
 }
 
-func toClaudeSystemMessage(openAiRequest *openai.ChatCompletionRequest) ([]anthropic.TextBlockParam, error) {
+func toClaudeSystemMessage(ctx context.Context, openAiRequest *openai.ChatCompletionRequest, imageDownloader imagedownloader.ImageDownloader) ([]anthropic.TextBlockParam, error) {
 	for _, message := range openAiRequest.Messages {
 		if message.Role == "system" {
-			blocks, err := toClaudeMessageBlocks(message, nil)
+			blocks, err := toClaudeMessageBlocks(ctx, message, nil, imageDownloader)
 			if err != nil {
 				return nil, err
 			}
@@ -203,7 +205,7 @@ func toClaudeSystemMessage(openAiRequest *openai.ChatCompletionRequest) ([]anthr
 	return nil, nil
 }
 
-func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([]anthropic.MessageParamContentUnion, error) {
+func toClaudeMessageBlocks(ctx context.Context, message openai.Message, toolMap map[string]string, imageDownloader imagedownloader.ImageDownloader) ([]anthropic.MessageParamContentUnion, error) {
 	if message.Role == "tool" {
 		if message.Content == nil || message.Content.String == nil {
 			return nil, fmt.Errorf("tool message must contain a string content")
@@ -241,9 +243,11 @@ func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([
 				return anthropic.NewTextBlock(part.Content.TextContent.Text)
 			}
 			if part.Content.ImageContent != nil {
-				// TODO(seungduk): Implement image downloader and pass it from the main to this provider.
-				// It should support cache mechanism using Valkey.
-				return anthropic.NewTextBlock("image content is not supported yet")
+				imageBase64, err := imageDownloader.FetchImageAsBase64(ctx, part.Content.ImageContent.Url)
+				if err != nil {
+					return anthropic.NewTextBlock("failed to fetch image")
+				}
+				return anthropic.NewTextBlock(imageBase64)
 			}
 			return anthropic.NewTextBlock("unsupported content type")
 		}), nil

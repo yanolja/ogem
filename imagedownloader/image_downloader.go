@@ -12,17 +12,21 @@ import (
 	"github.com/yanolja/ogem/state"
 )
 
-type ImageDownloader struct {
+type ImageDownloader interface {
+	FetchImageAsBase64(ctx context.Context, imageURL string) (string, error)
+}
+
+type imageDownloaderImpl struct {
 	stateManager state.Manager
 }
 
-func NewImageDownloader(stateManager state.Manager) *ImageDownloader {
-	return &ImageDownloader{
+func NewImageDownloader(stateManager state.Manager) *imageDownloaderImpl {
+	return &imageDownloaderImpl{
 		stateManager: stateManager,
 	}
 }
 
-func (d *ImageDownloader) FetchImageAsBase64(ctx context.Context, imageURL string) (string, error) {
+func (d *imageDownloaderImpl) FetchImageAsBase64(ctx context.Context, imageURL string) (string, error) {
 	cacheKey := fmt.Sprintf("imgcache:%x", sha1.Sum([]byte(imageURL)))
 	cachedImage, err := d.stateManager.LoadCache(ctx, cacheKey)
 	if err == nil {
