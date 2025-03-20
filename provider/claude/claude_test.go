@@ -3,6 +3,7 @@ package claude
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -20,7 +21,7 @@ func (m *mockAnthropicClient) sendRequest(ctx context.Context, params anthropic.
 	return m.sendFunc(ctx, params)
 }
 
-func mockSendRequest(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error) {
+func mockSendRequestReturnsValidResponse(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error) {
 	var block anthropic.ContentBlock
 	if err := json.Unmarshal([]byte(`{
 		"type": "text",
@@ -36,25 +37,24 @@ func mockSendRequest(ctx context.Context, params anthropic.MessageNewParams) (*a
 	}, nil
 }
 
+func mockSendRequestReturnsError(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error) {
+	return nil, fmt.Errorf("claude api call error")
+}
+
 func newMockEndpoint(client anthropicClient) *Endpoint {
 	return &Endpoint{client: client}
 }
 
-func TestEndpoint_Ping(t *testing.T) {
-	ctx := context.Background()
-	client := &mockAnthropicClient{sendFunc: mockSendRequest}
-	endpoint := newMockEndpoint(client)
-
-	duration, err := endpoint.Ping(ctx)
-
+func TestNewEndpoint(t *testing.T) {
+	endpoint, err := NewEndpoint("test-api-key")
 	assert.NoError(t, err)
-	assert.Greater(t, duration, time.Duration(0))
+	assert.NotNil(t, endpoint)
 }
 
-func TestEndpoint_GenerateChatCompletion(t *testing.T) {
+func TestEndpoint_GenerateChatCompletion_SuccessCases(t *testing.T) {
 	ctx := context.Background()
 
-	client := &mockAnthropicClient{sendFunc: mockSendRequest}
+	client := &mockAnthropicClient{sendFunc: mockSendRequestReturnsValidResponse}
 	endpoint := newMockEndpoint(client)
 
 	openaiRequest := &openai.ChatCompletionRequest{
@@ -79,4 +79,87 @@ func TestEndpoint_GenerateChatCompletion(t *testing.T) {
 	assert.Len(t, resp.Choices, 1)
 	assert.Equal(t, "assistant", resp.Choices[0].Message.Role)
 	assert.Equal(t, "Pong", *resp.Choices[0].Message.Content.String)
+}
+
+func TestEndpoint_GenerateChatCompletion_ErrorCases(t *testing.T) {
+	tests := []struct {
+		name string
+		openaiRequest *openai.ChatCompletionRequest
+		sendFunc func(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error)
+	}{
+		{
+			name: "toClaudeParams error: empty messages",
+			openaiRequest: &openai.ChatCompletionRequest{
+				Model: "claude-3-haiku",
+				Messages: []openai.Message{},
+			},
+			sendFunc: nil,
+		},
+		{
+			name: "claude api call error",
+			openaiRequest: &openai.ChatCompletionRequest{
+				Model: "claude-3-haiku",
+				Messages: []openai.Message{
+					{
+						Role: "user",
+						Content: &openai.MessageContent{
+							String: utils.ToPtr("Ping"),
+						},
+					},
+				},
+			},
+			sendFunc: mockSendRequestReturnsError,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			client := &mockAnthropicClient{sendFunc: test.sendFunc}
+			endpoint := newMockEndpoint(client)
+
+			resp, err := endpoint.GenerateChatCompletion(ctx, test.openaiRequest)
+
+			assert.Error(t, err)
+			assert.Nil(t, resp)
+		})
+	}
+}
+
+func TestEndpoint_Provider(t *testing.T) {
+	endpoint := newMockEndpoint(&mockAnthropicClient{})
+	assert.Equal(t, "claude", endpoint.Provider())
+}
+
+func TestEndpoint_Region(t *testing.T) {
+	endpoint := newMockEndpoint(&mockAnthropicClient{})
+	assert.Equal(t, REGION, endpoint.Region())
+}
+
+func TestEndpoint_Ping_SuccessCases(t *testing.T) {
+	ctx := context.Background()
+	client := &mockAnthropicClient{sendFunc: mockSendRequestReturnsValidResponse}
+	endpoint := newMockEndpoint(client)
+
+	duration, err := endpoint.Ping(ctx)
+
+	assert.NoError(t, err)
+	assert.Greater(t, duration, time.Duration(0))
+}
+
+func TestEndpoint_Ping_ErrorCases(t *testing.T) {
+	ctx := context.Background()
+	client := &mockAnthropicClient{sendFunc: mockSendRequestReturnsError}
+	endpoint := newMockEndpoint(client)
+
+	duration, err := endpoint.Ping(ctx)
+
+	assert.Error(t, err)
+	assert.Contains(t, "error", err.Error())
+	assert.Equal(t, time.Duration(0), duration)
+}
+
+func TestEndpoint_Shutdown(t *testing.T) {
+	endpoint := newMockEndpoint(&mockAnthropicClient{})
+	assert.NoError(t, endpoint.Shutdown())
 }
