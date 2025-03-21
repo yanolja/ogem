@@ -18,15 +18,7 @@ import (
 const REGION = "claude"
 
 type anthropicClient interface {
-	sendRequest(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error)
-}
-
-type anthropicClientImpl struct {
-	client *anthropic.Client
-}
-
-func (c *anthropicClientImpl) sendRequest(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error) {
-	return c.client.Messages.New(ctx, params)
+	New(ctx context.Context, params anthropic.MessageNewParams, opts ...option.RequestOption) (*anthropic.Message, error)
 }
 
 type Endpoint struct {
@@ -35,7 +27,7 @@ type Endpoint struct {
 
 func NewEndpoint(apiKey string) (*Endpoint, error) {
 	client := anthropic.NewClient(option.WithAPIKey(apiKey))
-	return &Endpoint{client: &anthropicClientImpl{client}}, nil
+	return &Endpoint{client: client.Messages}, nil
 }
 
 func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
@@ -44,7 +36,7 @@ func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *o
 		return nil, err
 	}
 
-	claudeResponse, err := ep.client.sendRequest(ctx, *claudeParams)
+	claudeResponse, err := ep.client.New(ctx, *claudeParams)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +59,7 @@ func (ep *Endpoint) Region() string {
 
 func (ep *Endpoint) Ping(ctx context.Context) (time.Duration, error) {
 	start := time.Now()
-	_, err := ep.client.sendRequest(ctx, anthropic.MessageNewParams{
+	_, err := ep.client.New(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.F(anthropic.ModelClaude_3_Haiku_20240307),
 		MaxTokens: anthropic.Int(1),
 		Messages: anthropic.F([]anthropic.MessageParam{

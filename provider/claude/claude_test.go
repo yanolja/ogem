@@ -8,20 +8,21 @@ import (
 	"time"
 
 	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/stretchr/testify/assert"
 	"github.com/yanolja/ogem/openai"
 	"github.com/yanolja/ogem/utils"
 )
 
 type mockAnthropicClient struct {
-	sendFunc func(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error)
+	resultFunc func(ctx context.Context, params anthropic.MessageNewParams, opts ...option.RequestOption) (*anthropic.Message, error)
 }
 
-func (m *mockAnthropicClient) sendRequest(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error) {
-	return m.sendFunc(ctx, params)
+func (m *mockAnthropicClient) New(ctx context.Context, params anthropic.MessageNewParams, opts ...option.RequestOption) (*anthropic.Message, error) {
+	return m.resultFunc(ctx, params, opts...)
 }
 
-func mockSendRequestReturnsValidResponse(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error) {
+func mockNewRequestReturnsValidResponse(ctx context.Context, params anthropic.MessageNewParams, opts ...option.RequestOption) (*anthropic.Message, error) {
 	var block anthropic.ContentBlock
 	if err := json.Unmarshal([]byte(`{
 		"type": "text",
@@ -30,14 +31,14 @@ func mockSendRequestReturnsValidResponse(ctx context.Context, params anthropic.M
 		panic(err)
 	}
 	return &anthropic.Message{
-		ID: "msg_abc123",
+		ID:      "msg_abc123",
 		Content: []anthropic.ContentBlock{block},
-		Model: "claude-3-haiku-20240307",
-		Role: "assistant",
+		Model:   "claude-3-haiku-20240307",
+		Role:    "assistant",
 	}, nil
 }
 
-func mockSendRequestReturnsError(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error) {
+func mockNewRequestReturnsError(ctx context.Context, params anthropic.MessageNewParams, opts ...option.RequestOption) (*anthropic.Message, error) {
 	return nil, fmt.Errorf("claude api call error")
 }
 
@@ -53,15 +54,13 @@ func TestNewEndpoint(t *testing.T) {
 
 func TestEndpoint_GenerateChatCompletion_SuccessCases(t *testing.T) {
 	ctx := context.Background()
-
-	client := &mockAnthropicClient{sendFunc: mockSendRequestReturnsValidResponse}
+	client := &mockAnthropicClient{resultFunc: mockNewRequestReturnsValidResponse}
 	endpoint := newMockEndpoint(client)
-
 	openaiRequest := &openai.ChatCompletionRequest{
 		Model: "claude-3-haiku",
 		Messages: []openai.Message{
 			{
-				Role:    "assistant",
+				Role: "assistant",
 				Content: &openai.MessageContent{
 					String: utils.ToPtr("Ping"),
 				},
@@ -69,10 +68,8 @@ func TestEndpoint_GenerateChatCompletion_SuccessCases(t *testing.T) {
 		},
 	}
 
-	// Call GenerateChatCompletion
 	resp, err := endpoint.GenerateChatCompletion(ctx, openaiRequest)
 
-	// Assertions
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Contains(t, resp.Model, "claude-3-haiku")
@@ -83,17 +80,17 @@ func TestEndpoint_GenerateChatCompletion_SuccessCases(t *testing.T) {
 
 func TestEndpoint_GenerateChatCompletion_ErrorCases(t *testing.T) {
 	tests := []struct {
-		name string
+		name          string
 		openaiRequest *openai.ChatCompletionRequest
-		sendFunc func(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error)
+		resultFunc    func(ctx context.Context, params anthropic.MessageNewParams, opts ...option.RequestOption) (*anthropic.Message, error)
 	}{
 		{
 			name: "toClaudeParams error: empty messages",
 			openaiRequest: &openai.ChatCompletionRequest{
-				Model: "claude-3-haiku",
+				Model:    "claude-3-haiku",
 				Messages: []openai.Message{},
 			},
-			sendFunc: nil,
+			resultFunc: nil,
 		},
 		{
 			name: "claude api call error",
@@ -108,14 +105,14 @@ func TestEndpoint_GenerateChatCompletion_ErrorCases(t *testing.T) {
 					},
 				},
 			},
-			sendFunc: mockSendRequestReturnsError,
+			resultFunc: mockNewRequestReturnsError,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
-			client := &mockAnthropicClient{sendFunc: test.sendFunc}
+			client := &mockAnthropicClient{resultFunc: test.resultFunc}
 			endpoint := newMockEndpoint(client)
 
 			resp, err := endpoint.GenerateChatCompletion(ctx, test.openaiRequest)
@@ -138,7 +135,7 @@ func TestEndpoint_Region(t *testing.T) {
 
 func TestEndpoint_Ping_SuccessCases(t *testing.T) {
 	ctx := context.Background()
-	client := &mockAnthropicClient{sendFunc: mockSendRequestReturnsValidResponse}
+	client := &mockAnthropicClient{resultFunc: mockNewRequestReturnsValidResponse}
 	endpoint := newMockEndpoint(client)
 
 	duration, err := endpoint.Ping(ctx)
@@ -149,13 +146,13 @@ func TestEndpoint_Ping_SuccessCases(t *testing.T) {
 
 func TestEndpoint_Ping_ErrorCases(t *testing.T) {
 	ctx := context.Background()
-	client := &mockAnthropicClient{sendFunc: mockSendRequestReturnsError}
+	client := &mockAnthropicClient{resultFunc: mockNewRequestReturnsError}
 	endpoint := newMockEndpoint(client)
 
 	duration, err := endpoint.Ping(ctx)
 
 	assert.Error(t, err)
-	assert.Contains(t, "error", err.Error())
+	assert.Equal(t, "claude api call error", err.Error())
 	assert.Equal(t, time.Duration(0), duration)
 }
 
