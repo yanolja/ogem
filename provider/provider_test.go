@@ -58,15 +58,13 @@ func TestToGeminiResponseMimeType_SuccessCases(t *testing.T) {
 	})
 
 	t.Run("json schema format", func(t *testing.T) {
+		schema := orderedmap.New()
+		schema.Set("type", "object")
 		mimeType, schema, err := ToGeminiResponseMimeType(&openai.ChatCompletionRequest{
 			ResponseFormat: &openai.ResponseFormat{
 				Type: "json_schema",
 				JsonSchema: &openai.JsonSchema{
-					Schema: func() *orderedmap.Map {
-						schema := orderedmap.New()
-						schema.Set("type", "object")
-						return schema
-					}(),
+					Schema: schema,
 				},
 			},
 		})
