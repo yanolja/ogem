@@ -319,7 +319,7 @@ func toClaudeToolChoice(toolChoice *openai.ToolChoice) (anthropic.ToolChoiceUnio
 				Type: anthropic.F(anthropic.ToolChoiceAnyTypeAny),
 			}, nil
 		case "none":
-			return nil, fmt.Errorf("Claude does not support 'none' tool choice")
+			return nil, fmt.Errorf("claude does not support 'none' tool choice")
 		}
 	}
 	if toolChoice.Struct == nil {
