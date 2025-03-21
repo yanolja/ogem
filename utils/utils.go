@@ -12,6 +12,12 @@ func Must[T any](obj T, err error) T {
 	return obj
 }
 
+func MustWithoutOutput(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 func ToPtr[T any](v T) *T {
 	return &v
 }
