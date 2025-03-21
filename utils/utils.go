@@ -12,7 +12,7 @@ func Must[T any](obj T, err error) T {
 	return obj
 }
 
-func MustWithoutOutput(err error) {
+func Must0(err error) {
 	if err != nil {
 		panic(err)
 	}

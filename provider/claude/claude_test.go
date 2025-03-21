@@ -24,7 +24,7 @@ func (m *mockAnthropicClient) New(ctx context.Context, params anthropic.MessageN
 
 func mockNewRequestReturnsValidResponse(ctx context.Context, params anthropic.MessageNewParams, opts ...option.RequestOption) (*anthropic.Message, error) {
 	var block anthropic.ContentBlock
-	utils.MustWithoutOutput(json.Unmarshal([]byte(`{
+	utils.Must0(json.Unmarshal([]byte(`{
 		"type": "text",
 		"text": "Pong"
 	}`), &block))

@@ -7,13 +7,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMustWithoutOutput(t *testing.T) {
+func TestMust0(t *testing.T) {
 	t.Run("should not panic when error is nil", func(t *testing.T) {
-		MustWithoutOutput(nil)
+		Must0(nil)
 	})
+
 	t.Run("should panic when error is not nil", func(t *testing.T) {
 		assert.Panics(t, func() {
-			MustWithoutOutput(fmt.Errorf("test error"))
+			Must0(fmt.Errorf("test error"))
 		})
 	})
 }
