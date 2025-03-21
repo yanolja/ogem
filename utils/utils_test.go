@@ -2,9 +2,22 @@ package utils
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
+
+func TestMust0(t *testing.T) {
+	t.Run("should not panic when error is nil", func(t *testing.T) {
+		Must0(nil)
+	})
+
+	t.Run("should panic when error is not nil", func(t *testing.T) {
+		assert.Panics(t, func() {
+			Must0(fmt.Errorf("test error"))
+		})
+	})
+}
 
 func TestMust(t *testing.T) {
 	t.Run("Return object when no error", func(t *testing.T) {
