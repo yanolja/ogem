@@ -247,7 +247,7 @@ func toClaudeMessageBlocks(ctx context.Context, message openai.Message, toolMap 
 				if err != nil {
 					return anthropic.NewTextBlock("failed to fetch image")
 				}
-				return anthropic.NewTextBlock(imageBase64)
+				return anthropic.NewImageBlockBase64("image/jpeg", imageBase64)
 			}
 			return anthropic.NewTextBlock("unsupported content type")
 		}), nil
