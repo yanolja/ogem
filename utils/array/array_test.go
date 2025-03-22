@@ -67,7 +67,7 @@ func TestFind(t *testing.T) {
 		assert.Equal(t, "", got)
 	})
 
-	t.Run("Find any", func(t *testing.T) {
+	t.Run("Find a value from a mixed-type array", func(t *testing.T) {
 		array := []any{1, "test", 3.14, []int{1, 2, 3}}
 		predicate := func(a any) bool {
 			return a == "test"
