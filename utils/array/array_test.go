@@ -7,7 +7,7 @@ import (
 )
 
 func TestMap(t *testing.T) {
-	t.Run("Map int to string", func(t *testing.T) {
+	t.Run("Map int to int", func(t *testing.T) {
 		array := []int{1, 2, 3}
 		mapper := func(i int) int {
 			return i * 2
@@ -16,7 +16,7 @@ func TestMap(t *testing.T) {
 		assert.Equal(t, []int{2, 4, 6}, got)
 	})
 
-	t.Run("Map string to double", func(t *testing.T) {
+	t.Run("Map string to int", func(t *testing.T) {
 		array := []string{"1", "2", "3"}
 		mapper := func(s string) int {
 			return int(s[0] - '0')
@@ -27,10 +27,21 @@ func TestMap(t *testing.T) {
 }
 
 func TestContains(t *testing.T) {
-	t.Run("Does not contain any", func(t *testing.T) {
-		array := []any{1, 2, 3, "test", 3.14}
+	t.Run("Contains int", func(t *testing.T) {
+		array := []int{1, 2, 3}
 		assert.False(t, Contains(array, 4))
-		assert.False(t, Contains(array, 3.1)) // float64 3.1 is not equal to int 3
+		assert.True(t, Contains(array, 3))
+	})
+
+	t.Run("Contains string", func(t *testing.T) {
+		array := []string{"a", "b", "c"}
+		assert.False(t, Contains(array, "d"))
+		assert.True(t, Contains(array, "a"))
+	})
+
+	t.Run("Contains any", func(t *testing.T) {
+		array := []any{1, "test", 3.14, []int{1, 2, 3}}
+		assert.False(t, Contains(array, 4))
 		assert.True(t, Contains(array, "test"))
 	})
 }
