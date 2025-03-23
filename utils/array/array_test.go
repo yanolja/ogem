@@ -76,5 +76,4 @@ func TestFind(t *testing.T) {
 		assert.True(t, found)
 		assert.Equal(t, "test", got)
 	})
-
 }
