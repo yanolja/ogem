@@ -39,10 +39,10 @@ type ChatCompletionRequest struct {
 	FunctionCall        *LegacyFunctionChoice `json:"function_call,omitempty"`
 	Functions           []LegacyFunction      `json:"functions,omitempty"`
 	Audio               *Audio                `json:"audio,omitempty"`
-	Metadata            *orderedmap.Map       `json:"metadata,omitempty"` // max: 16 chars key, 512 chars value
+	Metadata            *orderedmap.Map       `json:"metadata,omitempty"` // Maximum: 16 chars for key, 512 chars for value
 	Modalities          *[]string             `json:"modalities,omitempty"`
 	Prediction          *Prediction           `json:"prediction,omitempty"`
-	ReasoningEffort     *string               `json:"reasoning_effort,omitempty"` // o-series models only
+	ReasoningEffort     *string               `json:"reasoning_effort,omitempty"`
 	Store               *bool                 `json:"store,omitempty"`
 	WebSearchOptions    *WebSearchOptions     `json:"web_search_options,omitempty"`
 }
@@ -59,7 +59,7 @@ type WebSearchOptions struct {
 }
 
 type UserLocation struct {
-	Type        string       `json:"type"` // always approximate
+	Type        string       `json:"type"`
 	Approximate *Approximate `json:"approximate,omitempty"`
 }
 
@@ -67,7 +67,7 @@ type Approximate struct {
 	City     *string `json:"city,omitempty"`
 	Country  *string `json:"country,omitempty"`
 	Region   *string `json:"region,omitempty"`
-	Timezone *string `json:"timezone,omitempty"` // IANA timezone
+	Timezone *string `json:"timezone,omitempty"` // Use IANA (Internet Assigned Numbers Authority) timezone of the user
 }
 
 type StopSequences struct {
@@ -104,8 +104,8 @@ type ToolChoice struct {
 }
 
 type Audio struct {
-	Format string `json:"format"` // wav, mp3, flac, opus, or pcm16
-	Voice  string `json:"voice"`  // alloy, ash, ballad, coral, echo, sage, or shimmer
+	Format string `json:"format"` // Must be one of wav, mp3, flac, opus, or pcm16
+	Voice  string `json:"voice"`  // Supported voices are alloy, ash, ballad, coral, echo, sage, and shimmer
 }
 
 type ToolChoiceValue string
