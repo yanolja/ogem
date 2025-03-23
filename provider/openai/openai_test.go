@@ -18,6 +18,10 @@ type BatchChatCompletionTestCase struct {
 	expectedResult *openai.ChatCompletionResponse
 }
 
+// MockHTTPClient provides a custom RoundTrip implementation to mock HTTP responses.
+// This is necessary because http.Client does not allow direct overriding of the Do method.
+// Instead, it calls the RoundTrip method of its Transport, which we override here
+// to intercept HTTP requests and return mock responses without making real network calls.
 type MockHTTPClient struct {
 	DoFunc func(req *http.Request) (*http.Response, error)
 }
@@ -41,7 +45,6 @@ func TestGenerateBatchChatCompletionSuccess(t *testing.T) {
 			},
 		},
 		batchJobSetup: func(endpoint *Endpoint) {
-			// Simulate a successful batch job
 			jobId := generateJobId(&openai.ChatCompletionRequest{
 				Model: "gpt-3.5-turbo",
 				Messages: []openai.Message{
@@ -53,7 +56,8 @@ func TestGenerateBatchChatCompletionSuccess(t *testing.T) {
 					},
 				},
 			})
-			// Lock the batch job mutex to simulate a successful batch job
+			// Lock the batch job mutex before modifying batchJobs to prevent race conditions.
+			// This ensures thread safety when updating shared resources.
 			endpoint.batchJobMutex.Lock()
 			endpoint.batchJobs[jobId] = &BatchJob{
 				Id:     jobId,
@@ -131,14 +135,11 @@ func TestGenerateBatchChatCompletionSuccess(t *testing.T) {
 		assert.NoError(t, err)
 		defer endpoint.Shutdown()
 
-		// Setup a successful batch job
 		successTestCase.batchJobSetup(endpoint)
 
-		// Execute the batch job completion
 		ctx := context.Background()
 		result, err := endpoint.GenerateBatchChatCompletion(ctx, successTestCase.request)
 
-		// Assert the result is as expected
 		assert.NoError(t, err)
 		assert.Equal(t, successTestCase.expectedResult, result)
 	})
@@ -169,7 +170,6 @@ func TestGenerateBatchChatCompletionNotFound(t *testing.T) {
 		assert.NoError(t, err)
 		defer endpoint.Shutdown()
 
-		// Setup a mock HTTP client to return "batch job not found" error
 		endpoint.client = &http.Client{
 			Transport: &MockHTTPClient{
 				DoFunc: func(req *http.Request) (*http.Response, error) {
@@ -192,7 +192,6 @@ func TestGenerateBatchChatCompletionNotFound(t *testing.T) {
 func TestGenerateBatchChatCompletionFailed(t *testing.T) {
 	failureTestCase := BatchChatCompletionTestCase{
 		name: "batch job failed",
-		// Simulate a failed batch job
 		request: &openai.ChatCompletionRequest{
 			Model: "gpt-3.5-turbo",
 			Messages: []openai.Message{
