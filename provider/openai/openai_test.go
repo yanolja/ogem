@@ -170,7 +170,10 @@ func TestGenerateChatCompletionBatchJobNotFound(t *testing.T) {
 	})
 }
 
-// MockHTTPClient overrides the Do function of http.Client
+// MockHTTPClient provides a custom RoundTrip implementation to mock HTTP responses.
+// This is necessary because http.Client does not allow direct overriding of the Do method.
+// Instead, it calls the RoundTrip method of its Transport, which we override here
+// to intercept HTTP requests and return mock responses without making real network calls.
 type MockHTTPClient struct {
 	DoFunc func(req *http.Request) (*http.Response, error)
 }
