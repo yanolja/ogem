@@ -320,3 +320,31 @@ func FinalizeResponse(provider string, region string, model string, response *Ch
 	response.Object = "chat.completion"
 	return response
 }
+
+type EmbeddingRequest struct {
+	Input          any    `json:"input"` // Could be: string, []string, []int, [][]int
+	Model          string `json:"model"`
+	User           string `json:"user,omitempty"`
+	Dimensions     int32  `json:"dimensions,omitempty"`      // Only supported in "text-embedding-3" and later models
+	EncodingFormat string `json:"encoding_format,omitempty"` // Should be "float" or "base64"
+}
+
+type EmbeddingResponse struct {
+	Embedding []float32      `json:"embedding"`
+	Index     int32          `json:"index"`
+	Object    string         `json:"object"`
+	Data      []Data         `json:"data"`
+	Model     string         `json:"model"`
+	Usage     EmbeddingUsage `json:"usage"`
+}
+
+type Data struct {
+	Index     int32     `json:"index"`
+	Object    string    `json:"object"`
+	Embedding []float32 `json:"embedding"`
+}
+
+type EmbeddingUsage struct {
+	PromptTokens int32 `json:"prompt_tokens"`
+	TotalTokens  int32 `json:"total_tokens"`
+}

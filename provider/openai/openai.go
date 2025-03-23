@@ -559,3 +559,47 @@ func generateJobId(openAiRequest *openai.ChatCompletionRequest) string {
 	json.NewEncoder(h).Encode(openAiRequest)
 	return "ogem-" + hex.EncodeToString(h.Sum(nil))
 }
+
+func (p *Endpoint) CreateEmbeddings(ctx context.Context, request *openai.EmbeddingRequest) (*openai.EmbeddingResponse, error) {
+	jsonData, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %v", err)
+	}
+
+	endpointPath, err := url.JoinPath(p.baseUrl.String(), "embeddings")
+	if err != nil {
+		return nil, fmt.Errorf("failed to build endpoint path: %v", err)
+	}
+
+	httpRequest, err := http.NewRequestWithContext(ctx, "POST", endpointPath, bytes.NewReader(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %v", err)
+	}
+
+	httpRequest.Header.Set("Content-Type", "application/json")
+	httpRequest.Header.Set("Authorization", "Bearer "+p.apiKey)
+
+	log.Printf("Sending %s request to %s with body: %s", httpRequest.Method, endpointPath, string(jsonData))
+
+	httpResponse, err := p.client.Do(httpRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %v", err)
+	}
+	defer httpResponse.Body.Close()
+
+	body, err := io.ReadAll(httpResponse.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %v", err)
+	}
+
+	if httpResponse.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API error: status code %d, response: %q", httpResponse.StatusCode, string(body))
+	}
+
+	var openAiResponse openai.EmbeddingResponse
+	if err := json.Unmarshal(body, &openAiResponse); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	return &openAiResponse, nil
+}
