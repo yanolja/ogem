@@ -22,6 +22,7 @@ type BatchChatCompletionTestCase struct {
 // This is necessary because http.Client does not allow direct overriding of the Do method.
 // Instead, it calls the RoundTrip method of its Transport, which we override here
 // to intercept HTTP requests and return mock responses without making real network calls.
+// Ref: https://go.dev/src/net/http/client.go#L114
 type MockHTTPClient struct {
 	DoFunc func(req *http.Request) (*http.Response, error)
 }
