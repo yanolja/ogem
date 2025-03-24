@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  app-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: ogem-app-dev
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./:/app
+      - /app/tmp
+    depends_on:
+      - valkey
+    env_file:
+      - .env
+    networks:
+      - ogem-network
+    command: ["air", "-c", ".air.toml"]
+
+  valkey:
+    image: valkey/valkey:latest
+    container_name: ogem-valkey-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey_data:/data
+    command: valkey-server --appendonly yes
+    networks:
+      - ogem-network
+
+networks:
+  ogem-network:
+    driver: bridge
+
+volumes:
+  valkey_data: 
