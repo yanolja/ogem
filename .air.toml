@@ -1,0 +1,26 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -mod=mod -o ./tmp/main ./cmd/main.go"
+bin = "./tmp/main"
+full_bin = "./tmp/main"
+include_ext = ["go", "env"]
+exclude_dir = ["tmp", "models"]
+delay = 1000 # ms
+kill_delay = "0.5s"
+log = "build-errors.log"
+send_interrupt = false
+stop_on_error = true
+
+[log]
+time = true
+
+[color]
+main = "magenta"
+watcher = "cyan"
+build = "yellow"
+runner = "green"
+
+[misc]
+clean_on_exit = true 

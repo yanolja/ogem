@@ -1,1 +1,13 @@
 .gpt
+.idea
+.env
+.env.*
+!.env.example
+logs/
+models/
+tmp/
+build-errors.log
+vendor/
+.cursor/
+.cursorrules
+.vscode/

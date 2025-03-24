@@ -176,6 +176,24 @@ func NewProxyServer(stateManager state.Manager, cleanup func(), config Config, l
 	) bool {
 		var endpoint provider.AiEndpoint
 		var err error
+
+		if providerName == "studio" && config.GenaiStudioApiKey == "" {
+			logger.Infow("Skipping Studio endpoint - no API key provided")
+			return false
+		}
+		if providerName == "openai" && config.OpenAiApiKey == "" {
+			logger.Infow("Skipping OpenAI endpoint - no API key provided")
+			return false
+		}
+		if providerName == "claude" && config.ClaudeApiKey == "" {
+			logger.Infow("Skipping Claude endpoint - no API key provided")
+			return false
+		}
+		if (providerName == "vertex" || providerName == "vclaude") && config.GoogleCloudProject == "" {
+			logger.Infow("Skipping Google endpoint - no project ID provided")
+			return false
+		}
+
 		if providerData.BaseUrl == "" {
 			endpoint, err = newEndpoint(providerName, region, &config)
 		} else {

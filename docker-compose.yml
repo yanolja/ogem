@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  # Web application service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ogem-app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app
+    depends_on:
+      - valkey
+    environment:
+      - REDIS_URL=redis://valkey:6379
+    networks:
+      - ogem-network
+
+  # Valkey service (Redis-compatible)
+  valkey:
+    image: valkey/valkey:latest
+    container_name: ogem-valkey
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey_data:/data
+    command: valkey-server --appendonly yes
+    networks:
+      - ogem-network
+
+networks:
+  ogem-network:
+    driver: bridge
+
+volumes:
+  valkey_data: 
