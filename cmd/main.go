@@ -18,6 +18,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/yanolja/ogem"
+	"github.com/yanolja/ogem/imagedownloader"
 	"github.com/yanolja/ogem/server"
 	"github.com/yanolja/ogem/state"
 	"github.com/yanolja/ogem/utils"
@@ -132,9 +133,11 @@ func main() {
 		sugar.Fatalw("Failed to setup state manager", "error", err)
 	}
 
+	imageDownloader := imagedownloader.NewImageDownloader(stateManager)
+
 	sugar.Infow("Loaded config", "config", config)
 
-	proxy, err := server.NewProxyServer(stateManager, cleanup, *config, sugar)
+	proxy, err := server.NewProxyServer(stateManager, cleanup, *config, sugar, imageDownloader)
 	if err != nil {
 		sugar.Fatalw("Failed to create proxy server", "error", err)
 	}
