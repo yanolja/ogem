@@ -2,7 +2,7 @@ package imagedownloader
 
 import (
 	"context"
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -46,7 +46,7 @@ func (d *imageDownloaderImpl) GetImageType(url string) (string, error) {
 }
 
 func (d *imageDownloaderImpl) FetchImageAsBase64(ctx context.Context, imageURL string) (string, error) {
-	cacheKey := fmt.Sprintf("imgcache:%x", sha1.Sum([]byte(imageURL)))
+	cacheKey := fmt.Sprintf("imgcache:%x", sha256.Sum256([]byte(imageURL)))
 	cachedImage, err := d.stateManager.LoadCache(ctx, cacheKey)
 	if err == nil && cachedImage != nil {
 		return string(cachedImage), nil

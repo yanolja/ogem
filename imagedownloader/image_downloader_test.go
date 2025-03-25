@@ -2,7 +2,7 @@ package imagedownloader
 
 import (
 	"context"
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -42,8 +42,8 @@ func TestFetchImageAsBase64(t *testing.T) {
 	ctx := context.Background()
 	mockStateManager := new(MockStateManager)
 
-		t.Run("Cached Image", func(t *testing.T) {
-		cacheKey := fmt.Sprintf("imgcache:%x", sha1.Sum([]byte("testkey")))
+	t.Run("Cached Image", func(t *testing.T) {
+		cacheKey := fmt.Sprintf("imgcache:%x", sha256.Sum256([]byte("testkey")))
 		expectedBase64 := "dGVzdA==" // "test" in base64
 		mockStateManager.On("LoadCache", ctx, cacheKey).Return([]byte(expectedBase64), nil)
 
@@ -63,7 +63,7 @@ func TestFetchImageAsBase64(t *testing.T) {
 		}))
 		defer testServer.Close()
 
-		cacheKey := fmt.Sprintf("imgcache:%x", sha1.Sum([]byte(testServer.URL)))
+		cacheKey := fmt.Sprintf("imgcache:%x", sha256.Sum256([]byte(testServer.URL)))
 		expectedBase64 := base64.StdEncoding.EncodeToString(testImageData)
 
 		mockStateManager.On("LoadCache", ctx, cacheKey).Return([]byte(nil), fmt.Errorf("cache miss"))
@@ -82,7 +82,7 @@ func TestFetchImageAsBase64(t *testing.T) {
 		}))
 		defer testServer.Close()
 
-		cacheKey := fmt.Sprintf("imgcache:%x", sha1.Sum([]byte(testServer.URL)))
+		cacheKey := fmt.Sprintf("imgcache:%x", sha256.Sum256([]byte(testServer.URL)))
 		mockStateManager.On("LoadCache", ctx, cacheKey).Return([]byte(nil), fmt.Errorf("cache miss"))
 
 		downloader := NewImageDownloader(mockStateManager)
