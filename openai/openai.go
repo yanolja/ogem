@@ -215,30 +215,14 @@ func (p *Content) MarshalJSON() ([]byte, error) {
 }
 
 func (p *Content) UnmarshalJSON(data []byte) error {
-	var raw map[string]any
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
+	var text TextContent
+	if err := json.Unmarshal(data, &text); err == nil {
+		p.TextContent = &text
+		return nil
 	}
-	if text, ok := raw["text"]; ok {
-		if textStr, ok := text.(string); ok && textStr != "" {
-			p.TextContent = &TextContent{Text: textStr}
-			return nil
-		}
-		return fmt.Errorf("expected text content, got %v", text)
-	}
-	if url, ok := raw["url"]; ok {
-		urlStr, ok := url.(string)
-		if !ok || urlStr == "" {
-			return fmt.Errorf("expected url string content, got %v", url)
-		}
-		detail := ""
-		if detailVal, ok := raw["detail"].(string); ok {
-			detail = detailVal
-		}
-		p.ImageContent = &ImageContent{
-			Url:    urlStr,
-			Detail: detail,
-		}
+	var image ImageContent
+	if err := json.Unmarshal(data, &image); err == nil {
+		p.ImageContent = &image
 		return nil
 	}
 	return fmt.Errorf("expected text or image content, got %s", data)
