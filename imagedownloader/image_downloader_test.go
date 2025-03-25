@@ -38,59 +38,97 @@ func (m *MockStateManager) LoadCache(ctx context.Context, key string) ([]byte, e
 	return args.Get(0).([]byte), args.Error(1)
 }
 
-func TestFetchImageAsBase64_Cached(t *testing.T) {
+func TestFetchImageAsBase64(t *testing.T) {
 	ctx := context.Background()
 	mockStateManager := new(MockStateManager)
-	downloader := NewImageDownloader(mockStateManager)
-	cacheKey := fmt.Sprintf("imgcache:%x", sha1.Sum([]byte("testkey")))
-	expectedBase64 := "dGVzdA==" // "test" in base64
-	mockStateManager.On("LoadCache", ctx, cacheKey).Return([]byte(expectedBase64), nil)
 
-	result, err := downloader.FetchImageAsBase64(ctx, "testkey")
+		t.Run("Cached Image", func(t *testing.T) {
+		cacheKey := fmt.Sprintf("imgcache:%x", sha1.Sum([]byte("testkey")))
+		expectedBase64 := "dGVzdA==" // "test" in base64
+		mockStateManager.On("LoadCache", ctx, cacheKey).Return([]byte(expectedBase64), nil)
 
-	assert.NoError(t, err)
-	assert.Equal(t, expectedBase64, result)
-	mockStateManager.AssertExpectations(t)
+		downloader := NewImageDownloader(mockStateManager)
+		result, err := downloader.FetchImageAsBase64(ctx, "testkey")
+
+		assert.NoError(t, err)
+		assert.Equal(t, expectedBase64, result)
+		mockStateManager.AssertExpectations(t)
+	})
+
+	t.Run("Download And Cache", func(t *testing.T) {
+		testImageData := []byte("testdata")
+		testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write(testImageData)
+		}))
+		defer testServer.Close()
+
+		cacheKey := fmt.Sprintf("imgcache:%x", sha1.Sum([]byte(testServer.URL)))
+		expectedBase64 := base64.StdEncoding.EncodeToString(testImageData)
+
+		mockStateManager.On("LoadCache", ctx, cacheKey).Return([]byte(nil), fmt.Errorf("cache miss"))
+		mockStateManager.On("SaveCache", ctx, cacheKey, []byte(expectedBase64), time.Hour).Return(nil)
+
+		downloader := NewImageDownloader(mockStateManager)
+		result, err := downloader.FetchImageAsBase64(ctx, testServer.URL)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedBase64, result)
+		mockStateManager.AssertExpectations(t)
+	})
+
+	t.Run("HTTP Failure", func(t *testing.T) {
+		testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		}))
+		defer testServer.Close()
+
+		cacheKey := fmt.Sprintf("imgcache:%x", sha1.Sum([]byte(testServer.URL)))
+		mockStateManager.On("LoadCache", ctx, cacheKey).Return([]byte(nil), fmt.Errorf("cache miss"))
+
+		downloader := NewImageDownloader(mockStateManager)
+		_, err := downloader.FetchImageAsBase64(ctx, testServer.URL)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to download image")
+		mockStateManager.AssertExpectations(t)
+	})
 }
 
-func TestFetchImageAsBase64_DownloadAndCache(t *testing.T) {
-	ctx := context.Background()
-	mockStateManager := new(MockStateManager)
-	testImageData := []byte("testdata")
-	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write(testImageData)
-	}))
-	defer testServer.Close()
+func TestGetImageType(t *testing.T) {
+	downloader := NewImageDownloader(nil)
 
-	downloader := NewImageDownloader(mockStateManager)
-	cacheKey := fmt.Sprintf("imgcache:%x", sha1.Sum([]byte(testServer.URL)))
-	expectedBase64 := base64.StdEncoding.EncodeToString(testImageData)
+	t.Run("PNG Image", func(t *testing.T) {
+		result, err := downloader.GetImageType("https://example.com/image.png")
+		assert.NoError(t, err)
+		assert.Equal(t, "image/png", result)
+	})
 
-	mockStateManager.On("LoadCache", ctx, cacheKey).Return([]byte(nil), fmt.Errorf("cache miss"))
-	mockStateManager.On("SaveCache", ctx, cacheKey, []byte(expectedBase64), time.Hour).Return(nil)
+	t.Run("JPG Image", func(t *testing.T) {
+		result, err := downloader.GetImageType("https://example.com/photo.jpg")
+		assert.NoError(t, err)
+		assert.Equal(t, "image/jpeg", result)
+	})
 
-	result, err := downloader.FetchImageAsBase64(ctx, testServer.URL)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedBase64, result)
-	mockStateManager.AssertExpectations(t)
-}
+	t.Run("JPEG Image", func(t *testing.T) {
+		result, err := downloader.GetImageType("https://example.com/picture.jpeg")
+		assert.NoError(t, err)
+		assert.Equal(t, "image/jpeg", result)
+	})
 
-func TestFetchImageAsBase64_HTTPFailure(t *testing.T) {
-	ctx := context.Background()
-	mockStateManager := new(MockStateManager)
-	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer testServer.Close()
+	t.Run("GIF Image", func(t *testing.T) {
+		result, err := downloader.GetImageType("https://example.com/animation.gif")
+		assert.NoError(t, err)
+		assert.Equal(t, "image/gif", result)
+	})
 
-	downloader := NewImageDownloader(mockStateManager)
-	cacheKey := fmt.Sprintf("imgcache:%x", sha1.Sum([]byte(testServer.URL)))
+	t.Run("WEBP Image", func(t *testing.T) {
+		result, err := downloader.GetImageType("https://example.com/graphic.webp")
+		assert.NoError(t, err)
+		assert.Equal(t, "image/webp", result)
+	})
 
-	mockStateManager.On("LoadCache", ctx, cacheKey).Return([]byte(nil), fmt.Errorf("cache miss"))
-
-	_, err := downloader.FetchImageAsBase64(ctx, testServer.URL)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to download image")
-	mockStateManager.AssertExpectations(t)
+	t.Run("Unsupported Image Type", func(t *testing.T) {
+		_, err := downloader.GetImageType("https://example.com/unknown.bmp")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported image type")
+	})
 }
