@@ -119,19 +119,34 @@ func newEndpoint(provider string, region string, config *Config, imageDownloader
 		if region != "claude" {
 			return nil, fmt.Errorf("region is not supported for claude provider")
 		}
+		if config.ClaudeApiKey == "" {
+			return nil, fmt.Errorf("claude api key is not set")
+		}
 		return claude.NewEndpoint(config.ClaudeApiKey, imageDownloader)
 	case "vclaude":
+		if config.GoogleCloudProject == "" {
+			return nil, fmt.Errorf("google cloud project is not set")
+		}
 		return vclaude.NewEndpoint(config.GoogleCloudProject, region)
 	case "vertex":
+		if config.GoogleCloudProject == "" {
+			return nil, fmt.Errorf("google cloud project is not set")
+		}
 		return vertex.NewEndpoint(config.GoogleCloudProject, region)
 	case "studio":
 		if region != "studio" {
 			return nil, fmt.Errorf("region is not supported for studio provider")
 		}
+		if config.GenaiStudioApiKey == "" {
+			return nil, fmt.Errorf("genai studio api key is not set")
+		}
 		return studio.NewEndpoint(config.GenaiStudioApiKey)
 	case "openai":
 		if region != "openai" {
 			return nil, fmt.Errorf("region is not supported for openai provider")
+		}
+		if config.OpenAiApiKey == "" {
+			return nil, fmt.Errorf("openai api key is not set")
 		}
 		return openaiProvider.NewEndpoint("openai", "openai", "https://api.openai.com/v1", config.OpenAiApiKey)
 	default:
