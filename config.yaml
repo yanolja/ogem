@@ -125,6 +125,18 @@ providers:
             rate_key: "gpt-3.5-turbo@batch"
             rpm: 1_000_000
             tpm: 5_000_000_000
+          - name: "text-embedding-ada-002"
+            rate_key: "text-embedding-ada-002"
+            rpm: 1_000_000
+            tpm: 150_000_000
+          - name: "text-embedding-3-small"
+            rate_key: "text-embedding-3-small"
+            rpm: 1_000_000
+            tpm: 150_000_000
+          - name: "text-embedding-3-large"
+            rate_key: "text-embedding-3-large"
+            rpm: 1_000_000
+            tpm: 150_000_000
   vertex:
     regions:
       default:
