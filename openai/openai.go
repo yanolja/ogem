@@ -224,12 +224,12 @@ func (p *Content) UnmarshalJSON(data []byte) error {
 			p.TextContent = &TextContent{Text: textStr}
 			return nil
 		}
-		return fmt.Errorf("invalid text content: %v", text)
+		return fmt.Errorf("expected text content, got %v", text)
 	}
 	if url, ok := raw["url"]; ok {
 		urlStr, ok := url.(string)
 		if !ok || urlStr == "" {
-			return fmt.Errorf("invalid url content: %v", url)
+			return fmt.Errorf("expected url string content, got %v", url)
 		}
 		detail := ""
 		if detailVal, ok := raw["detail"].(string); ok {
@@ -241,7 +241,7 @@ func (p *Content) UnmarshalJSON(data []byte) error {
 		}
 		return nil
 	}
-	return fmt.Errorf("invalid content format: %s", data)
+	return fmt.Errorf("expected text or image content, got %s", data)
 }
 
 type TextContent struct {

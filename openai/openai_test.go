@@ -15,10 +15,8 @@ func TestContent_UnmarshalJSON(t *testing.T) {
 			TextContent:  &TextContent{Text: "hello world"},
 			ImageContent: nil,
 		}
-
 		var content Content
 		err := json.Unmarshal([]byte(input), &content)
-
 		assert.NoError(t, err)
 		assert.Equal(t, expected, content)
 	})
@@ -32,10 +30,8 @@ func TestContent_UnmarshalJSON(t *testing.T) {
 				Detail: "high",
 			},
 		}
-
 		var content Content
 		err := json.Unmarshal([]byte(input), &content)
-
 		assert.NoError(t, err)
 		assert.Equal(t, expected, content)
 	})
@@ -44,27 +40,24 @@ func TestContent_UnmarshalJSON(t *testing.T) {
 		input := `{}`
 		var content Content
 		err := json.Unmarshal([]byte(input), &content)
-
 		assert.Error(t, err)
-		assert.Equal(t, "invalid content format: {}", err.Error())
+		assert.Equal(t, "expected text or image content, got {}", err.Error())
 	})
 
 	t.Run("null content", func(t *testing.T) {
 		input := `null`
 		var content Content
 		err := json.Unmarshal([]byte(input), &content)
-
 		assert.Error(t, err)
-		assert.Equal(t, "invalid content format: null", err.Error())
+		assert.Equal(t, "expected text or image content, got null", err.Error())
 	})
 
 	t.Run("empty text content", func(t *testing.T) {
 		input := `{"text": ""}`
 		var content Content
 		err := json.Unmarshal([]byte(input), &content)
-
 		assert.Error(t, err)
-		assert.Equal(t, "invalid text content: ", err.Error())
+		assert.Equal(t, "expected text content, got ", err.Error())
 	})
 
 	t.Run("image content without detail", func(t *testing.T) {
@@ -76,10 +69,8 @@ func TestContent_UnmarshalJSON(t *testing.T) {
 				Detail: "",
 			},
 		}
-
 		var content Content
 		err := json.Unmarshal([]byte(input), &content)
-
 		assert.NoError(t, err)
 		assert.Equal(t, expected, content)
 	})
@@ -93,10 +84,8 @@ func TestContent_UnmarshalJSON(t *testing.T) {
 				Detail: "",
 			},
 		}
-
 		var content Content
 		err := json.Unmarshal([]byte(input), &content)
-
 		assert.NoError(t, err)
 		assert.Equal(t, expected, content)
 	})
@@ -105,27 +94,24 @@ func TestContent_UnmarshalJSON(t *testing.T) {
 		input := `{"text": 123}`
 		var content Content
 		err := json.Unmarshal([]byte(input), &content)
-
 		assert.Error(t, err)
-		assert.Equal(t, "invalid text content: 123", err.Error())
+		assert.Equal(t, "expected text content, got 123", err.Error())
 	})
 
 	t.Run("invalid url type", func(t *testing.T) {
 		input := `{"url": 123}`
 		var content Content
 		err := json.Unmarshal([]byte(input), &content)
-
 		assert.Error(t, err)
-		assert.Equal(t, "invalid url content: 123", err.Error())
+		assert.Equal(t, "expected url string content, got 123", err.Error())
 	})
 
 	t.Run("empty url content", func(t *testing.T) {
 		input := `{"url": ""}`
 		var content Content
 		err := json.Unmarshal([]byte(input), &content)
-
 		assert.Error(t, err)
-		assert.Equal(t, "invalid url content: ", err.Error())
+		assert.Equal(t, "expected url string content, got ", err.Error())
 	})
 
 	t.Run("image content with non-string detail", func(t *testing.T) {
@@ -137,10 +123,8 @@ func TestContent_UnmarshalJSON(t *testing.T) {
 				Detail: "",
 			},
 		}
-
 		var content Content
 		err := json.Unmarshal([]byte(input), &content)
-
 		assert.NoError(t, err)
 		assert.Equal(t, expected, content)
 	})
@@ -154,10 +138,8 @@ func TestContent_UnmarshalJSON(t *testing.T) {
 				Detail: "",
 			},
 		}
-
 		var content Content
 		err := json.Unmarshal([]byte(input), &content)
-
 		assert.NoError(t, err)
 		assert.Equal(t, expected, content)
 	})
@@ -166,7 +148,6 @@ func TestContent_UnmarshalJSON(t *testing.T) {
 		input := `{"text": "incomplete"`
 		var content Content
 		err := json.Unmarshal([]byte(input), &content)
-
 		assert.Error(t, err)
 	})
 }
@@ -178,10 +159,8 @@ func TestMessageContent_UnmarshalJSON(t *testing.T) {
 			String: utils.ToPtr("hello world"),
 			Parts:  nil,
 		}
-
 		var content MessageContent
 		err := json.Unmarshal([]byte(input), &content)
-
 		assert.NoError(t, err)
 		assert.Equal(t, expected, content)
 	})
@@ -207,10 +186,8 @@ func TestMessageContent_UnmarshalJSON(t *testing.T) {
 				},
 			},
 		}
-
 		var content MessageContent
 		err := json.Unmarshal([]byte(input), &content)
-
 		assert.NoError(t, err)
 		assert.Equal(t, expected, content)
 	})
@@ -248,10 +225,8 @@ func TestMessageContent_UnmarshalJSON(t *testing.T) {
 				},
 			},
 		}
-
 		var content MessageContent
 		err := json.Unmarshal([]byte(input), &content)
-
 		assert.NoError(t, err)
 		assert.Equal(t, expected, content)
 	})
@@ -260,7 +235,6 @@ func TestMessageContent_UnmarshalJSON(t *testing.T) {
 		input := `{"invalid": "format"}`
 		var content MessageContent
 		err := json.Unmarshal([]byte(input), &content)
-
 		assert.Error(t, err)
 	})
 
@@ -270,10 +244,8 @@ func TestMessageContent_UnmarshalJSON(t *testing.T) {
 			String: nil,
 			Parts:  []Part{},
 		}
-
 		var content MessageContent
 		err := json.Unmarshal([]byte(input), &content)
-
 		assert.NoError(t, err)
 		assert.Equal(t, expected, content)
 	})
