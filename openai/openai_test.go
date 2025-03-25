@@ -9,257 +9,272 @@ import (
 )
 
 func TestContent_UnmarshalJSON(t *testing.T) {
-    tests := []struct {
-        name     string
-        input    string
-        expected Content
-        wantErr  bool
-        errMsg   string
-    }{
-        {
-            name:  "valid text content",
-            input: `{"text": "hello world"}`,
-            expected: Content{
-                TextContent:  &TextContent{Text: "hello world"},
-                ImageContent: nil,
-            },
-            wantErr: false,
-        },
-        {
-            name:  "valid image content with detail",
-            input: `{"url": "https://example.com/image.jpg", "detail": "high"}`,
-            expected: Content{
-                TextContent: nil,
-                ImageContent: &ImageContent{
-                    Url:    "https://example.com/image.jpg",
-                    Detail: "high",
-                },
-            },
-            wantErr: false,
-        },
-        {
-            name:     "empty object",
-            input:    `{}`,
-            expected: Content{},
-            wantErr:  true,
-            errMsg:   "invalid content format: {}",
-        },
-        {
-            name:     "null content",
-            input:    `null`,
-            expected: Content{},
-            wantErr:  true,
-            errMsg:   "invalid content format: null",
-        },
-        {
-            name:  "empty text content",
-            input: `{"text": ""}`,
-            expected: Content{
-                TextContent:  &TextContent{Text: ""},
-                ImageContent: nil,
-            },
-            wantErr: true,
-            errMsg: "invalid text content: ",
-        },
-        {
-            name:  "image content without detail",
-            input: `{"url": "https://example.com/image.jpg"}`,
-            expected: Content{
-                TextContent: nil,
-                ImageContent: &ImageContent{
-                    Url:    "https://example.com/image.jpg",
-                    Detail: "",
-                },
-            },
-            wantErr: false,
-        },
-        {
-            name:  "image content with empty detail",
-            input: `{"url": "https://example.com/image.jpg", "detail": ""}`,
-            expected: Content{
-                TextContent: nil,
-                ImageContent: &ImageContent{
-                    Url:    "https://example.com/image.jpg",
-                    Detail: "",
-                },
-            },
-            wantErr: false,
-        },
-        {
-            name:     "invalid text type",
-            input:    `{"text": 123}`,
-            expected: Content{},
-            wantErr:  true,
-            errMsg:   "invalid text content: 123",
-        },
-        {
-            name:     "invalid url type",
-            input:    `{"url": 123}`,
-            expected: Content{},
-            wantErr:  true,
-            errMsg:   "invalid url content: 123",
-        },
-		{
-			name:     "empty url content",
-			input:    `{"url": ""}`,
-			expected: Content{},
-			wantErr:  true,
-			errMsg:   "invalid url content: ",
-		},
-        {
-            name:  "image content with non-string detail",
-            input: `{"url": "https://example.com/image.jpg", "detail": 123}`,
-            expected: Content{
-                TextContent: nil,
-                ImageContent: &ImageContent{
-                    Url:    "https://example.com/image.jpg",
-                    Detail: "",
-                },
-            },
-            wantErr: false,
-        },
-        {
-            name:  "image content with null detail",
-            input: `{"url": "https://example.com/image.jpg", "detail": null}`,
-            expected: Content{
-                TextContent: nil,
-                ImageContent: &ImageContent{
-                    Url:    "https://example.com/image.jpg",
-                    Detail: "",
-                },
-            },
-            wantErr: false,
-        },
-        {
-            name:     "malformed JSON",
-            input:    `{"text": "incomplete"`,
-            expected: Content{},
-            wantErr:  true,
-        },
-    }
+	t.Run("valid text content", func(t *testing.T) {
+		input := `{"text": "hello world"}`
+		expected := Content{
+			TextContent:  &TextContent{Text: "hello world"},
+			ImageContent: nil,
+		}
 
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            var content Content
-            err := json.Unmarshal([]byte(tt.input), &content)
+		var content Content
+		err := json.Unmarshal([]byte(input), &content)
 
-            if tt.wantErr {
-                assert.Error(t, err)
-                if tt.errMsg != "" {
-                    assert.Equal(t, tt.errMsg, err.Error())
-                }
-            } else {
-                assert.NoError(t, err)
-                assert.Equal(t, tt.expected, content)
-            }
-        })
-    }
+		assert.NoError(t, err)
+		assert.Equal(t, expected, content)
+	})
+
+	t.Run("valid image content with detail", func(t *testing.T) {
+		input := `{"url": "https://example.com/image.jpg", "detail": "high"}`
+		expected := Content{
+			TextContent: nil,
+			ImageContent: &ImageContent{
+				Url:    "https://example.com/image.jpg",
+				Detail: "high",
+			},
+		}
+
+		var content Content
+		err := json.Unmarshal([]byte(input), &content)
+
+		assert.NoError(t, err)
+		assert.Equal(t, expected, content)
+	})
+
+	t.Run("empty object", func(t *testing.T) {
+		input := `{}`
+		var content Content
+		err := json.Unmarshal([]byte(input), &content)
+
+		assert.Error(t, err)
+		assert.Equal(t, "invalid content format: {}", err.Error())
+	})
+
+	t.Run("null content", func(t *testing.T) {
+		input := `null`
+		var content Content
+		err := json.Unmarshal([]byte(input), &content)
+
+		assert.Error(t, err)
+		assert.Equal(t, "invalid content format: null", err.Error())
+	})
+
+	t.Run("empty text content", func(t *testing.T) {
+		input := `{"text": ""}`
+		var content Content
+		err := json.Unmarshal([]byte(input), &content)
+
+		assert.Error(t, err)
+		assert.Equal(t, "invalid text content: ", err.Error())
+	})
+
+	t.Run("image content without detail", func(t *testing.T) {
+		input := `{"url": "https://example.com/image.jpg"}`
+		expected := Content{
+			TextContent: nil,
+			ImageContent: &ImageContent{
+				Url:    "https://example.com/image.jpg",
+				Detail: "",
+			},
+		}
+
+		var content Content
+		err := json.Unmarshal([]byte(input), &content)
+
+		assert.NoError(t, err)
+		assert.Equal(t, expected, content)
+	})
+
+	t.Run("image content with empty detail", func(t *testing.T) {
+		input := `{"url": "https://example.com/image.jpg", "detail": ""}`
+		expected := Content{
+			TextContent: nil,
+			ImageContent: &ImageContent{
+				Url:    "https://example.com/image.jpg",
+				Detail: "",
+			},
+		}
+
+		var content Content
+		err := json.Unmarshal([]byte(input), &content)
+
+		assert.NoError(t, err)
+		assert.Equal(t, expected, content)
+	})
+
+	t.Run("invalid text type", func(t *testing.T) {
+		input := `{"text": 123}`
+		var content Content
+		err := json.Unmarshal([]byte(input), &content)
+
+		assert.Error(t, err)
+		assert.Equal(t, "invalid text content: 123", err.Error())
+	})
+
+	t.Run("invalid url type", func(t *testing.T) {
+		input := `{"url": 123}`
+		var content Content
+		err := json.Unmarshal([]byte(input), &content)
+
+		assert.Error(t, err)
+		assert.Equal(t, "invalid url content: 123", err.Error())
+	})
+
+	t.Run("empty url content", func(t *testing.T) {
+		input := `{"url": ""}`
+		var content Content
+		err := json.Unmarshal([]byte(input), &content)
+
+		assert.Error(t, err)
+		assert.Equal(t, "invalid url content: ", err.Error())
+	})
+
+	t.Run("image content with non-string detail", func(t *testing.T) {
+		input := `{"url": "https://example.com/image.jpg", "detail": 123}`
+		expected := Content{
+			TextContent: nil,
+			ImageContent: &ImageContent{
+				Url:    "https://example.com/image.jpg",
+				Detail: "",
+			},
+		}
+
+		var content Content
+		err := json.Unmarshal([]byte(input), &content)
+
+		assert.NoError(t, err)
+		assert.Equal(t, expected, content)
+	})
+
+	t.Run("image content with null detail", func(t *testing.T) {
+		input := `{"url": "https://example.com/image.jpg", "detail": null}`
+		expected := Content{
+			TextContent: nil,
+			ImageContent: &ImageContent{
+				Url:    "https://example.com/image.jpg",
+				Detail: "",
+			},
+		}
+
+		var content Content
+		err := json.Unmarshal([]byte(input), &content)
+
+		assert.NoError(t, err)
+		assert.Equal(t, expected, content)
+	})
+
+	t.Run("malformed json", func(t *testing.T) {
+		input := `{"text": "incomplete"`
+		var content Content
+		err := json.Unmarshal([]byte(input), &content)
+
+		assert.Error(t, err)
+	})
 }
 
 func TestMessageContent_UnmarshalJSON(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected MessageContent
-		wantErr  bool
-	}{
-		{
-			name:  "string content",
-			input: `"hello world"`,
-			expected: MessageContent{
-				String: utils.ToPtr("hello world"),
-				Parts:  nil,
-			},
-			wantErr: false,
-		},
-        {
-            name: "image content",
-            input: `[
-                {
-                    "type": "image", 
-                    "content": {"url": "https://example.com/image.jpg", "detail": "high"}
-                }
-            ]`,
-            expected: MessageContent{
-                String: nil,
-                Parts: []Part{
-                    {
-                        Type: "image",
-                        Content: Content{
-                            ImageContent: &ImageContent{
-                                Url:    "https://example.com/image.jpg",
-                                Detail: "high",
-                            },
-                        },
-                    },
-                },
-            },
-            wantErr: false,
-        },
-		{
-			name: "array with text and image parts",
-			input: `[
-				{
-					"type": "text",
-					"content": {"text": "explain this image"}
-				},
-				{
-					"type": "image",
-					"content": {"url": "https://example.com/image.jpg", "detail": "high"}
-				}
-			]`,
-			expected: MessageContent{
-				String: nil,
-				Parts: []Part{
-					{
-						Type: "text",
-						Content: Content{
-							TextContent:  &TextContent{Text: "explain this image"},
-							ImageContent: nil,
-						},
-					},
-					{
-						Type: "image",
-						Content: Content{
-							TextContent: nil,
-							ImageContent: &ImageContent{
-								Url:    "https://example.com/image.jpg",
-								Detail: "high",
-							},
-						},
-					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name:     "invalid content",
-			input:    `{"invalid": "format"}`,
-			expected: MessageContent{},
-			wantErr:  true,
-		},
-		{
-			name: "empty array",
-			input: `[]`,
-			expected: MessageContent{
-				String: nil,
-				Parts:  []Part{},
-			},
-			wantErr: false,
-		},
-	}
+	t.Run("string content", func(t *testing.T) {
+		input := `"hello world"`
+		expected := MessageContent{
+			String: utils.ToPtr("hello world"),
+			Parts:  nil,
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var content MessageContent
-			err := json.Unmarshal([]byte(tt.input), &content)
+		var content MessageContent
+		err := json.Unmarshal([]byte(input), &content)
 
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, content)
+		assert.NoError(t, err)
+		assert.Equal(t, expected, content)
+	})
+
+	t.Run("image content", func(t *testing.T) {
+		input := `[
+			{
+				"type": "image", 
+				"content": {"url": "https://example.com/image.jpg", "detail": "high"}
 			}
-		})
-	}
+		]`
+		expected := MessageContent{
+			String: nil,
+			Parts: []Part{
+				{
+					Type: "image",
+					Content: Content{
+						ImageContent: &ImageContent{
+							Url:    "https://example.com/image.jpg",
+							Detail: "high",
+						},
+					},
+				},
+			},
+		}
+
+		var content MessageContent
+		err := json.Unmarshal([]byte(input), &content)
+
+		assert.NoError(t, err)
+		assert.Equal(t, expected, content)
+	})
+
+	t.Run("text and image parts", func(t *testing.T) {
+		input := `[
+			{
+				"type": "text",
+				"content": {"text": "explain this image"}
+			},
+			{
+				"type": "image",
+				"content": {"url": "https://example.com/image.jpg", "detail": "high"}
+			}
+		]`
+		expected := MessageContent{
+			String: nil,
+			Parts: []Part{
+				{
+					Type: "text",
+					Content: Content{
+						TextContent:  &TextContent{Text: "explain this image"},
+						ImageContent: nil,
+					},
+				},
+				{
+					Type: "image",
+					Content: Content{
+						TextContent: nil,
+						ImageContent: &ImageContent{
+							Url:    "https://example.com/image.jpg",
+							Detail: "high",
+						},
+					},
+				},
+			},
+		}
+
+		var content MessageContent
+		err := json.Unmarshal([]byte(input), &content)
+
+		assert.NoError(t, err)
+		assert.Equal(t, expected, content)
+	})
+
+	t.Run("invalid content", func(t *testing.T) {
+		input := `{"invalid": "format"}`
+		var content MessageContent
+		err := json.Unmarshal([]byte(input), &content)
+
+		assert.Error(t, err)
+	})
+
+	t.Run("empty array", func(t *testing.T) {
+		input := `[]`
+		expected := MessageContent{
+			String: nil,
+			Parts:  []Part{},
+		}
+
+		var content MessageContent
+		err := json.Unmarshal([]byte(input), &content)
+
+		assert.NoError(t, err)
+		assert.Equal(t, expected, content)
+	})
 }
