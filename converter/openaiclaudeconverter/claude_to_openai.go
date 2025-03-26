@@ -1,4 +1,4 @@
-package openaiclaude
+package openaiclaudeconverter
 
 import (
 	"strings"
