@@ -1,4 +1,5 @@
-package studio
+
+package openaigeminiconverter
 
 import (
 	"encoding/json"
