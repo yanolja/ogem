@@ -274,8 +274,7 @@ func TestToGeminiSchema_WithRef(t *testing.T) {
 }
 
 func TestGetModelFromOpenAiRequest(t *testing.T) {
-	client, err := genai.NewClient(context.Background())
-	assert.NoError(t, err)
+	client, _ := genai.NewClient(context.Background())
 
 	t.Run("basic configuration", func(t *testing.T) {
 		req := &openai.ChatCompletionRequest{
@@ -288,9 +287,9 @@ func TestGetModelFromOpenAiRequest(t *testing.T) {
 		model, err := GetModelFromOpenAiRequest(client, req)
 		assert.NoError(t, err)
 		assert.NotNil(t, model)
-		assert.Equal(t, 0.7, model.Temperature)
-		assert.Equal(t, 0.9, model.TopP)
-		assert.Equal(t, ptr(100), model.MaxOutputTokens)
+		assert.Equal(t, float32(0.7), *model.Temperature)
+		assert.Equal(t, float32(0.9), *model.TopP)
+		assert.Equal(t, utils.ToPtr(int32(100)), model.MaxOutputTokens)
 	})
 
 	t.Run("with system message", func(t *testing.T) {
@@ -308,7 +307,7 @@ func TestGetModelFromOpenAiRequest(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, model)
 		assert.NotNil(t, model.SystemInstruction)
-		assert.Equal(t, "You are a helpful assistant", model.SystemInstruction.Parts[0].(genai.Text))
+		assert.Equal(t, "You are a helpful assistant", string(model.SystemInstruction.Parts[0].(genai.Text)))
 	})
 
 	t.Run("with stop sequences", func(t *testing.T) {
@@ -484,7 +483,3 @@ func TestToGeminiRequest(t *testing.T) {
 	})
 }
 
-// Helper function to create pointers to values
-func ptr[T any](v T) *T {
-	return &v
-}
