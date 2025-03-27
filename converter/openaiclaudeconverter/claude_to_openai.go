@@ -1,6 +1,7 @@
 package openaiclaudeconverter
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -8,6 +9,12 @@ import (
 )
 
 func ToOpenAiResponse(claudeResponse *anthropic.Message) (*openai.ChatCompletionResponse, error) {
+	if claudeResponse == nil {
+		return nil, fmt.Errorf("claude response is nil")
+	}
+	if len(claudeResponse.Content) == 0 {
+		return nil, fmt.Errorf("claude response content is nil or empty")
+	}
 	choices := make([]openai.Choice, 1)
 	message, err := toOpenAiMessage(claudeResponse)
 	if err != nil {
@@ -40,7 +47,7 @@ func toOpenAiMessage(claudeMessage *anthropic.Message) (*openai.Message, error) 
 	for _, block := range claudeMessage.Content {
 		switch block := block.AsUnion().(type) {
 		case anthropic.TextBlock:
-			content.WriteString(block.Text)
+			content.WriteString(" " + block.Text)
 		case anthropic.ToolUseBlock:
 			toolCalls = append(toolCalls, openai.ToolCall{
 				Id:   block.ID,
@@ -54,7 +61,7 @@ func toOpenAiMessage(claudeMessage *anthropic.Message) (*openai.Message, error) 
 	}
 
 	if content.Len() > 0 {
-		contentStr := content.String()
+		contentStr := strings.TrimSpace(content.String())
 		message.Content = &openai.MessageContent{String: &contentStr}
 	}
 
