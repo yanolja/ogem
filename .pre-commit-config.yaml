@@ -10,7 +10,7 @@ repos:
     rev: v2.0.2
     hooks:
       - id: golangci-lint
-        args: [ "--timeout=5m" ]
+        args: [ "--config=.golangci.yml" ]
 
   - repo: local
     hooks:
@@ -27,7 +27,7 @@ repos:
         pass_filenames: false
       - id: go build
         name: go build
-        entry: go build -o ogem -trimpath -ldflags="-s -w" ./cmd/
+        entry: /bin/bash -c "go build -o ogem -trimpath -ldflags='-s -w' ./cmd/ && rm -f ogem"
         language: system
         pass_filenames: false
       - id: go-test
