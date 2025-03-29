@@ -1,0 +1,37 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v2.0.2
+    hooks:
+      - id: golangci-lint
+        args: [ "--timeout=5m" ]
+
+  - repo: local
+    hooks:
+      - id: gofmt
+        name: gofmt
+        entry: gofmt -l .
+        language: system
+        types: [ file ]
+        pass_filenames: false
+      - id: go-mod-tidy
+        name: go mod tidy
+        entry: go mod tidy
+        language: system
+        pass_filenames: false
+      - id: go build
+        name: go build
+        entry: go build -o ogem -trimpath -ldflags="-s -w" ./cmd/
+        language: system
+        pass_filenames: false
+      - id: go-test
+        name: Run Go Tests
+        entry: go test -race -cover ./...
+        language: system
+        pass_filenames: false

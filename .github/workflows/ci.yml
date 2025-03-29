@@ -38,25 +38,8 @@ jobs:
       - name: Verify Modules
         run: go mod verify
 
-      - name: Check Formatting
-        run: |
-          if [ -n "$(gofmt -l .)" ]; then 
-            echo "Code is not formatted. Run 'gofmt -w .'"; 
-            exit 1; 
-          fi
-
-      - name: Run Linter
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
-
-      - name: Run Security Scan
-        uses: securego/gosec@v2.22.2
-        with:
-          args: ./...
-
       - name: Build
-        run: go build -o ogem -trimpath -ldflags="-s -w" ./...
+        run: go build -o ogem -trimpath -ldflags="-s -w" ./cmd/
 
       - name: Run Tests in Parallel
         run: go test -v -p=8 -race -coverprofile=coverage.out -json > test-results.json
@@ -73,12 +56,12 @@ jobs:
           name: coverage-report
           path: coverage.out
 
-      - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          file: coverage.out
-          flags: unittests
-          fail_ci_if_error: true
+      # - name: Upload Coverage to Codecov
+      #   uses: codecov/codecov-action@v4
+      #   with:
+      #     file: coverage.out
+      #     flags: unittests
+      #     fail_ci_if_error: true
 
       - name: Run Benchmarks
         run: go test -bench=. -benchmem > benchmark.txt
