@@ -75,6 +75,7 @@
         "CONFIG_TOKEN": "${localEnv:CONFIG_TOKEN}"
     },
     "remoteUser": "vscode",
+    "updateRemoteUserUID": true,
     "postCreateCommand": "go mod download",
     "initializeCommand": "if [ ! -f ${localWorkspaceFolder}/.env ] && [ -f ${localWorkspaceFolder}/.env.example ]; then cp ${localWorkspaceFolder}/.env.example ${localWorkspaceFolder}/.env; fi"
 }
