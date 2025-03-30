@@ -55,7 +55,7 @@
     },
     "features": {
         "ghcr.io/devcontainers/features/go:1": {
-            "version": "latest"
+            "version": "1.23"
         },
         "ghcr.io/devcontainers/features/git:1": {},
         "ghcr.io/devcontainers/features/docker-from-docker:1": {
@@ -74,7 +74,7 @@
         "CONFIG_SOURCE": "${localEnv:CONFIG_SOURCE}",
         "CONFIG_TOKEN": "${localEnv:CONFIG_TOKEN}"
     },
-    "remoteUser": "vscode",
+    "remoteUser": "dev",
     "updateRemoteUserUID": true,
     "initializeCommand": "if [ ! -f ${localWorkspaceFolder}/.env ] && [ -f ${localWorkspaceFolder}/.env.example ]; then cp ${localWorkspaceFolder}/.env.example ${localWorkspaceFolder}/.env; fi"
 }
