@@ -55,7 +55,7 @@ jobs:
           context: .
           push: true
           tags: |
-            nvtrinh2001/ogem:latest
-            nvtrinh2001/ogem:${{ github.ref_name }}
+            ynext/ogem:latest
+            ynext/ogem:${{ github.ref_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
