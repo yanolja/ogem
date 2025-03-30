@@ -59,7 +59,8 @@
         },
         "ghcr.io/devcontainers/features/git:1": {},
         "ghcr.io/devcontainers/features/docker-from-docker:1": {
-            "version": "latest"
+            "version": "latest",
+            "installBuildx": true
         }
     },
     "remoteEnv": {
@@ -75,7 +76,7 @@
         "CONFIG_TOKEN": "${localEnv:CONFIG_TOKEN}"
     },
     "remoteUser": "vscode",
-    "updateContentCommand": "apk add --no-cache bash",
+    "onCreateCommand": "apk add --no-cache bash",
     "postCreateCommand": "go mod download",
     "initializeCommand": "if [ ! -f ${localWorkspaceFolder}/.env ] && [ -f ${localWorkspaceFolder}/.env.example ]; then cp ${localWorkspaceFolder}/.env.example ${localWorkspaceFolder}/.env; fi"
 }
