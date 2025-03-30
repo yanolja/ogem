@@ -1,4 +1,36 @@
 {
+    "secrets": {
+        "OPEN_GEMINI_API_KEY": {
+            "description": "Ogem API Key"
+        },
+        "OPENAI_API_KEY": {
+            "description": "OpenAI API Key"
+        },
+        "CLAUDE_API_KEY": {
+            "description": "Claude API Key"
+        },
+        "GENAI_STUDIO_API_KEY": {
+            "description": "GenAI Studio API Key"
+        },
+        "GOOGLE_CLOUD_PROJECT": {
+            "description": "Google Cloud Project"
+        },
+        "VALKEY_ENDPOINT": {
+            "description": "Valkey Endpoint"
+        },
+        "RETRY_INTERVAL": {
+            "description": "Retry Interval"
+        },
+        "PING_INTERVAL": {
+            "description": "Ping Interval"
+        },
+        "CONFIG_SOURCE": {
+            "description": "Configuration Source Path"
+        },
+        "CONFIG_TOKEN": {
+            "description": "Configuration Token"
+        }
+    },
     "name": "Ogem",
     "dockerComposeFile": "../docker-compose.dev.yml",
     "service": "app-dev",

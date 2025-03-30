@@ -1,1 +1,4 @@
 .gpt
+.env
+.env.*
+!.env.example

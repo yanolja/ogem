@@ -10,3 +10,8 @@ COPY . .
 RUN if [ ! -f .air.toml ]; then \
       air init; \
     fi
+
+ENV PORT=8080
+EXPOSE ${PORT}
+
+CMD ["air", "-c", ".air.toml"]

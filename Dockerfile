@@ -16,3 +16,8 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /app
 COPY --from=builder /app/ogem .
 COPY config.yaml .
+
+ENV PORT=8080
+EXPOSE ${PORT}
+
+CMD ["/app/ogem"]
