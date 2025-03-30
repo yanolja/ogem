@@ -34,7 +34,7 @@
     "name": "Ogem",
     "dockerComposeFile": "../docker-compose.dev.yml",
     "service": "app-dev",
-    "workspaceFolder": "/workspace",
+    "workspaceFolder": "/app",
     "runServices": ["app-dev", "valkey"],
     "customizations": {
         "vscode": {
@@ -76,6 +76,5 @@
     },
     "remoteUser": "vscode",
     "updateRemoteUserUID": true,
-    "postCreateCommand": "go mod download",
     "initializeCommand": "if [ ! -f ${localWorkspaceFolder}/.env ] && [ -f ${localWorkspaceFolder}/.env.example ]; then cp ${localWorkspaceFolder}/.env.example ${localWorkspaceFolder}/.env; fi"
 }
