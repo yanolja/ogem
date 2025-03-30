@@ -75,6 +75,6 @@
         "CONFIG_TOKEN": "${localEnv:CONFIG_TOKEN}"
     },
     "remoteUser": "vscode",
-    "postCreateCommand": "go mod download && apk add --no-cache bash git curl",
+    "postCreateCommand": "go mod download && apk add --no-cache git curl",
     "initializeCommand": "if [ ! -f ${localWorkspaceFolder}/.env ] && [ -f ${localWorkspaceFolder}/.env.example ]; then cp ${localWorkspaceFolder}/.env.example ${localWorkspaceFolder}/.env; fi"
 }
