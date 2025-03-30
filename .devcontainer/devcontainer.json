@@ -60,7 +60,18 @@
         "ghcr.io/devcontainers/features/git:1": {},
         "ghcr.io/devcontainers/features/docker-in-docker:2": {}
     },
-
+    "remoteEnv": {
+        "OPEN_GEMINI_API_KEY": "${localEnv:OPEN_GEMINI_API_KEY}",
+        "OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}",
+        "CLAUDE_API_KEY": "${localEnv:CLAUDE_API_KEY}",
+        "GENAI_STUDIO_API_KEY": "${localEnv:GENAI_STUDIO_API_KEY}",
+        "GOOGLE_CLOUD_PROJECT": "${localEnv:GOOGLE_CLOUD_PROJECT}",
+        "VALKEY_ENDPOINT": "${localEnv:VALKEY_ENDPOINT}",
+        "RETRY_INTERVAL": "${localEnv:RETRY_INTERVAL}",
+        "PING_INTERVAL": "${localEnv:PING_INTERVAL}",
+        "CONFIG_SOURCE": "${localEnv:CONFIG_SOURCE}",
+        "CONFIG_TOKEN": "${localEnv:CONFIG_TOKEN}"
+    },
     "remoteUser": "vscode",
-    "postCreateCommand": "go mod download"
+    "postCreateCommand": "[[ ! -f .env && -f .env.example ]] && cp .env.example .env || echo '.env already exists'; go mod download"
 }
