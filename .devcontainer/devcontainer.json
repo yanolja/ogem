@@ -54,6 +54,11 @@
         }
     },
     "features": {
+        "ghcr.io/devcontainers/features/common-utils:2": {
+            "installZsh": false,
+            "installOhMyZsh": false,
+            "upgradePackages": false
+        },
         "ghcr.io/devcontainers/features/go:1": {
             "version": "latest"
         },
