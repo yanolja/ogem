@@ -1,0 +1,12 @@
+FROM golang:1.23.3-alpine3.20 
+
+WORKDIR /app
+
+RUN go install github.com/air-verse/air@latest
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+# Create .air.toml if it doesn't exist
+RUN if [ ! -f .air.toml ]; then \
+      air init; \
+    fi
