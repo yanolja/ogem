@@ -19,6 +19,7 @@ COPY . .
 RUN if [ ! -f .air.toml ]; then \
       air init; \
     fi
+RUN mkdir -p /app/tmp && chown -R ${USERNAME}:${USERNAME} /app/tmp
 RUN chown -R ${USERNAME}:${USERNAME} /app
 USER $USERNAME
 
