@@ -49,7 +49,7 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
-          args: [ "--config=.golangci.yml" ]
+          args: --config=.golangci.yml
 
       - name: Run Security Scan
         uses: securego/gosec@v2.22.2
