@@ -38,6 +38,24 @@ jobs:
       - name: Verify Modules
         run: go mod verify
 
+      - name: Check Formatting
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "Code is not formatted. Run 'gofmt -w .'";
+            exit 1;
+          fi
+
+      - name: Run Linter
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: [ "--config=.golangci.yml" ]
+
+      - name: Run Security Scan
+        uses: securego/gosec@v2.22.2
+        with:
+          args: ./...
+
       - name: Build
         run: go build -o ogem -trimpath -ldflags="-s -w" ./cmd/
 
