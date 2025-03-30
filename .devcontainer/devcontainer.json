@@ -73,5 +73,6 @@
         "CONFIG_TOKEN": "${localEnv:CONFIG_TOKEN}"
     },
     "remoteUser": "vscode",
-    "postCreateCommand": "if [ ! -f .env ] && [ -f .env.example ]; then cp .env.example .env; echo 'Created .env from .env.example'; else echo '.env already exists or .env.example is missing'; fi; go mod download"
+    "postCreateCommand": "go mod download",
+    "initializeCommand": "if [ ! -f ${localWorkspaceFolder}/.env ] && [ -f ${localWorkspaceFolder}/.env.example ]; then cp ${localWorkspaceFolder}/.env.example ${localWorkspaceFolder}/.env; fi"
 }
