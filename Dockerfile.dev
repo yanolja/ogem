@@ -8,21 +8,14 @@ RUN groupadd --gid $USER_GID $USERNAME \
     && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
     && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
-
 WORKDIR /app
-
 RUN go install github.com/air-verse/air@latest
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-# Create .air.toml if it doesn't exist
-RUN if [ ! -f .air.toml ]; then \
-      air init; \
-    fi
 RUN mkdir -p /app/tmp && chown -R ${USERNAME}:${USERNAME} /app/tmp
 RUN chown -R ${USERNAME}:${USERNAME} /app
 USER $USERNAME
-
 ENV PORT=8080
 EXPOSE ${PORT}
 

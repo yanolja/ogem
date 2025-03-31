@@ -11,15 +11,15 @@ help:
 	@echo "OGEM Docker Commands:"
 	@echo "===================="
 	@echo "make build-dev		- Build development Docker images"
-	@echo "make up-dev			- Start development containers with hot-reload"
-	@echo "make dev				- Start and follow logs for development"
+	@echo "make up-dev		- Start development containers with hot-reload"
+	@echo "make dev			- Start and follow logs for development"
 	@echo "make down-dev		- Stop development containers"
 	@echo "make logs-dev		- View logs from development containers"
 	@echo "make exec-app-dev	- Execute shell in development app container"
 	@echo "make exec-valkey-dev	- Execute Redis CLI in development Valkey container"
-	@echo "make clean			- Remove containers and networks"
+	@echo "make clean		- Remove containers and networks"
 	@echo "make restart-dev		- Rebuild and restart development environment"
-	@echo "make ps				- List all running containers"
+	@echo "make ps			- List all running containers"
 
 # Build development images
 build-dev:
