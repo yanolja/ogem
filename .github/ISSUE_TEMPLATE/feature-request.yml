@@ -1,0 +1,29 @@
+name: Feature Request  
+description: Share your ideas to help improve Ogem!  
+labels: ["feature request"]  
+body:  
+  - type: markdown  
+    attributes:  
+      value: |  
+        Thank you for suggesting a new feature! Let us know what you'd like to see in Ogem.  
+  - type: textarea  
+    id: describe-the-feature  
+    attributes:  
+      label: Describe the Feature  
+      description: Clearly explain the feature you would like to have.  
+    validations:  
+      required: true  
+  - type: textarea  
+    id: background  
+    attributes:  
+      label: Why is this Feature Needed?  
+      description: Explain the reasoning behind your request. Does it solve a problem or improve usability?  
+    validations:  
+      required: false  
+  - type: textarea  
+    id: alternative-solutions  
+    attributes:  
+      label: Alternative Solutions  
+      description: Have you considered other ways to achieve the same goal? Share any alternative ideas.  
+    validations:  
+      required: false  
