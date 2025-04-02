@@ -17,7 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/yanolja/ogem"
-	"github.com/yanolja/ogem/imagedownloader"
+	"github.com/yanolja/ogem/image"
 	"github.com/yanolja/ogem/openai"
 	"github.com/yanolja/ogem/provider"
 	"github.com/yanolja/ogem/provider/claude"
@@ -113,7 +113,7 @@ type ModelProxy struct {
 	logger *zap.SugaredLogger
 }
 
-func newEndpoint(provider string, region string, config *Config, imageDownloader imagedownloader.ImageDownloader) (provider.AiEndpoint, error) {
+func newEndpoint(provider string, region string, config *Config, downloader image.Downloader) (provider.AiEndpoint, error) {
 	switch provider {
 	case "claude":
 		if region != "claude" {
@@ -122,7 +122,7 @@ func newEndpoint(provider string, region string, config *Config, imageDownloader
 		if config.ClaudeApiKey == "" {
 			return nil, fmt.Errorf("claude api key is not set")
 		}
-		return claude.NewEndpoint(config.ClaudeApiKey, imageDownloader)
+		return claude.NewEndpoint(config.ClaudeApiKey, downloader)
 	case "vclaude":
 		if config.GoogleCloudProject == "" {
 			return nil, fmt.Errorf("google cloud project is not set")
@@ -166,7 +166,7 @@ func newCustomEndpoint(providerName string, protocol string, baseUrl string, api
 	}
 }
 
-func NewProxyServer(stateManager state.Manager, cleanup func(), config Config, logger *zap.SugaredLogger, imageDownloader imagedownloader.ImageDownloader) (*ModelProxy, error) {
+func NewProxyServer(stateManager state.Manager, cleanup func(), config Config, logger *zap.SugaredLogger, downloader image.Downloader) (*ModelProxy, error) {
 	retryInterval, err := time.ParseDuration(config.RetryInterval)
 	if err != nil {
 		return nil, fmt.Errorf("invalid retry interval: %v", err)
@@ -193,7 +193,7 @@ func NewProxyServer(stateManager state.Manager, cleanup func(), config Config, l
 		var endpoint provider.AiEndpoint
 		var err error
 		if providerData.BaseUrl == "" {
-			endpoint, err = newEndpoint(providerName, region, &config, imageDownloader)
+			endpoint, err = newEndpoint(providerName, region, &config, downloader)
 		} else {
 			endpoint, err = newCustomEndpoint(
 				providerName,
