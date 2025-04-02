@@ -1,0 +1,29 @@
+# Version control
+.git
+.gitignore
+.github
+
+# Build outputs
+build
+coverage
+
+# Environment and config files
+.env
+.env.*
+
+# Editor directories and files
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Docker specific
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Documentation
+README.md
+*.md
+/tmp
