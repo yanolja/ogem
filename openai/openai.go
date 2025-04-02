@@ -249,17 +249,19 @@ type TextContent struct {
 }
 
 func (tc *TextContent) UnmarshalJSON(data []byte) error {
-    var mixed struct {
-        Text string `json:"text"`
-    }
-    if err := json.Unmarshal(data, &mixed); err != nil {
-        return fmt.Errorf("invalid text content: %v", err)
-    }
-    if mixed.Text == "" {
-        return fmt.Errorf("empty text content")
-    }
-    tc.Text = mixed.Text
-    return nil
+	// New struct is needed so that the unmarshaler
+	// does not return error when there are additional fields.
+	var raw struct {
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("invalid text content: %v", err)
+	}
+	if raw.Text == "" {
+		return fmt.Errorf("empty text content")
+	}
+	tc.Text = raw.Text
+	return nil
 }
 
 type ImageContent struct {
@@ -268,18 +270,20 @@ type ImageContent struct {
 }
 
 func (ic *ImageContent) UnmarshalJSON(data []byte) error {
-    var mixed struct {
-        Url    string `json:"url"`
-        Detail string `json:"detail"`
+	// New struct is needed so that the unmarshaler
+	// does not return error when there are additional fields.
+	var raw struct {
+		Url    string `json:"url"`
+		Detail string `json:"detail"`
     }
-    if err := json.Unmarshal(data, &mixed); err != nil {
+    if err := json.Unmarshal(data, &raw); err != nil {
         return fmt.Errorf("invalid image content: %v", err)
     }
-    if mixed.Url == "" {
+    if raw.Url == "" {
         return fmt.Errorf("empty url content")
     }
-    ic.Url = mixed.Url
-    ic.Detail = mixed.Detail
+    ic.Url = raw.Url
+    ic.Detail = raw.Detail
     return nil
 }
 
