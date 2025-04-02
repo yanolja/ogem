@@ -202,6 +202,36 @@ type Part struct {
 	Content Content `json:"content"`
 }
 
+func (p *Part) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		Type    string          `json:"type"`
+		Content json.RawMessage `json:"content"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	p.Type = raw.Type
+	switch raw.Type {
+	case "text":
+		var textContent TextContent
+		if err := json.Unmarshal(raw.Content, &textContent); err != nil {
+			return fmt.Errorf("invalid text content: %v", err)
+		}
+		p.Content.TextContent = &textContent
+		p.Content.ImageContent = nil
+	case "image":
+		var imageContent ImageContent
+		if err := json.Unmarshal(raw.Content, &imageContent); err != nil {
+			return fmt.Errorf("invalid image content: %v", err)
+		}
+		p.Content.ImageContent = &imageContent
+		p.Content.TextContent = nil
+	default:
+		return fmt.Errorf("unknown content type: %s", raw.Type)
+	}
+	return nil
+}
+
 type Content struct {
 	TextContent  *TextContent
 	ImageContent *ImageContent
@@ -214,43 +244,43 @@ func (p *Content) MarshalJSON() ([]byte, error) {
 	return json.Marshal(p.ImageContent)
 }
 
-func (p *Content) UnmarshalJSON(data []byte) error {
-	var raw map[string]any
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-	if text, ok := raw["text"]; ok {
-		if textStr, ok := text.(string); ok && textStr != "" {
-			p.TextContent = &TextContent{Text: textStr}
-			return nil
-		}
-		return fmt.Errorf("expected text content, got %v", text)
-	}
-	if url, ok := raw["url"]; ok {
-		urlStr, ok := url.(string)
-		if !ok || urlStr == "" {
-			return fmt.Errorf("expected url string content, got %v", url)
-		}
-		detail := ""
-		if detailVal, ok := raw["detail"].(string); ok {
-			detail = detailVal
-		}
-		p.ImageContent = &ImageContent{
-			Url:    urlStr,
-			Detail: detail,
-		}
-		return nil
-	}
-	return fmt.Errorf("expected text or image content, got %s", data)
-}
-
 type TextContent struct {
 	Text string `json:"text"`
+}
+
+func (tc *TextContent) UnmarshalJSON(data []byte) error {
+    var mixed struct {
+        Text string `json:"text"`
+    }
+    if err := json.Unmarshal(data, &mixed); err != nil {
+        return fmt.Errorf("invalid text content: %v", err)
+    }
+    if mixed.Text == "" {
+        return fmt.Errorf("empty text content")
+    }
+    tc.Text = mixed.Text
+    return nil
 }
 
 type ImageContent struct {
 	Url    string `json:"url"`
 	Detail string `json:"detail"`
+}
+
+func (ic *ImageContent) UnmarshalJSON(data []byte) error {
+    var mixed struct {
+        Url    string `json:"url"`
+        Detail string `json:"detail"`
+    }
+    if err := json.Unmarshal(data, &mixed); err != nil {
+        return fmt.Errorf("invalid image content: %v", err)
+    }
+    if mixed.Url == "" {
+        return fmt.Errorf("empty url content")
+    }
+    ic.Url = mixed.Url
+    ic.Detail = mixed.Detail
+    return nil
 }
 
 type ToolCall struct {
