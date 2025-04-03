@@ -1,0 +1,57 @@
+name: Bug Report  
+description: Help us identify and fix issues in Ogem by reporting bugs  
+labels: ["bug"]  
+body:  
+  - type: markdown  
+    attributes:  
+      value: |  
+        We appreciate your help in improving Ogem! Please provide detailed information so we can quickly diagnose and resolve the issue.  
+  - type: input  
+    id: version  
+    attributes:  
+      label: Ogem Version  
+      description: Which version of Ogem are you using?  
+    validations:  
+      required: true  
+  - type: textarea  
+    id: describe-the-bug  
+    attributes:  
+      label: Bug Description  
+      description: Clearly explain the issue you're experiencing.  
+      placeholder: What’s going wrong?  
+    validations:  
+      required: true  
+  - type: textarea  
+    id: steps-to-reproduce-the-bug  
+    attributes:  
+      label: Steps to Reproduce  
+      description: Provide step-by-step instructions to replicate the bug.  
+      placeholder: |  
+        1. Open Ogem and navigate to '...'  
+        2. Click on '...'  
+        3. Perform '...' action  
+        4. Observe the issue  
+    validations:  
+      required: false  
+  - type: textarea  
+    id: expected-behavior  
+    attributes:  
+      label: Expected Behavior  
+      description: What should have happened instead?  
+    validations:  
+      required: false  
+  - type: textarea  
+    id: relevant-log-output  
+    attributes:  
+      label: Relevant Logs  
+      description: If applicable, paste any relevant log output. Logs will be automatically formatted as code.  
+      render: bash  
+    validations:  
+      required: false  
+  - type: textarea  
+    id: additional-information  
+    attributes:  
+      label: Additional Information  
+      description: Anything else we should know?  
+    validations:  
+      required: false  

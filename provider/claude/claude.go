@@ -17,13 +17,17 @@ import (
 // A unique identifier for the Claude provider
 const REGION = "claude"
 
+type anthropicClient interface {
+	New(ctx context.Context, params anthropic.MessageNewParams, opts ...option.RequestOption) (*anthropic.Message, error)
+}
+
 type Endpoint struct {
-	client *anthropic.Client
+	client anthropicClient
 }
 
 func NewEndpoint(apiKey string) (*Endpoint, error) {
 	client := anthropic.NewClient(option.WithAPIKey(apiKey))
-	return &Endpoint{client: client}, nil
+	return &Endpoint{client: client.Messages}, nil
 }
 
 func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
@@ -32,7 +36,7 @@ func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *o
 		return nil, err
 	}
 
-	claudeResponse, err := ep.client.Messages.New(ctx, *claudeParams)
+	claudeResponse, err := ep.client.New(ctx, *claudeParams)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +59,7 @@ func (ep *Endpoint) Region() string {
 
 func (ep *Endpoint) Ping(ctx context.Context) (time.Duration, error) {
 	start := time.Now()
-	_, err := ep.client.Messages.New(ctx, anthropic.MessageNewParams{
+	_, err := ep.client.New(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.F(anthropic.ModelClaude_3_Haiku_20240307),
 		MaxTokens: anthropic.Int(1),
 		Messages: anthropic.F([]anthropic.MessageParam{
@@ -315,7 +319,7 @@ func toClaudeToolChoice(toolChoice *openai.ToolChoice) (anthropic.ToolChoiceUnio
 				Type: anthropic.F(anthropic.ToolChoiceAnyTypeAny),
 			}, nil
 		case "none":
-			return nil, fmt.Errorf("Claude does not support 'none' tool choice")
+			return nil, fmt.Errorf("claude does not support 'none' tool choice")
 		}
 	}
 	if toolChoice.Struct == nil {
