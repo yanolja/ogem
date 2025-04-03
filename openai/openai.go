@@ -13,6 +13,7 @@ import (
 
 // TODO(seungduk): Auto-generate this file from the OpenAI API reference.
 
+// Reference: https://platform.openai.com/docs/api-reference/chat/create
 type ChatCompletionRequest struct {
 	// A list of messages comprising the conversation so far. Depending on the
 	// [model](https://platform.openai.com/docs/models) you use, different message
