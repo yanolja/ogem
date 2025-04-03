@@ -31,7 +31,6 @@ func TestGenerateChatCompletionSuccess(t *testing.T) {
 
 		endpoint, err := NewEndpoint("test-provider", "test-region", server.URL, "test-api-key")
 		assert.NoError(t, err)
-
 		defer endpoint.Shutdown()
 
 		request := &openai.ChatCompletionRequest{
@@ -103,7 +102,6 @@ func TestGenerateChatCompletionInternalServerError(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(`{"error": {"message": "Internal server error"}}`))
 		}))
-
 		defer server.Close()
 
 		endpoint, err := NewEndpoint("test-provider", "test-region", server.URL, "test-api-key")
@@ -143,7 +141,6 @@ func TestGenerateChatCompletionBadRequest(t *testing.T) {
 		defer endpoint.Shutdown()
 
 		request := &openai.ChatCompletionRequest{}
-
 		ctx := context.Background()
 		_, err = endpoint.GenerateChatCompletion(ctx, request)
 
