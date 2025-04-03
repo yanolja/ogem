@@ -292,7 +292,7 @@ func toClaudeToolParamsFromFunctions(openaiFunctions []openai.LegacyFunction) []
 	return claudeTools
 }
 
-// TODO(#101): Handle these model names in environment variables.
+// TODO(#105): Handle these model names in environment variables.
 // Ref: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-names
 func standardizeModelName(model string) string {
 	switch strings.TrimRight(model, "0123456789@-") {
