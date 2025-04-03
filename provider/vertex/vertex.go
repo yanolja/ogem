@@ -637,5 +637,5 @@ func toOpenAiFinishReason(finishReason genai.FinishReason) string {
 }
 
 func (ep *Endpoint) CreateEmbeddings(ctx context.Context, request *openai.EmbeddingRequest) (*openai.EmbeddingResponse, error) {
-	return nil, fmt.Errorf("Currently, Vertex does not support embeddings") // TODO: Implement Vertex embeddings
+	return nil, fmt.Errorf("Currently, Vertex does not support embeddings") // TODO(#104): Implement Vertex embeddings
 }

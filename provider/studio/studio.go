@@ -638,5 +638,5 @@ func toOpenAiFinishReason(finishReason genai.FinishReason) string {
 }
 
 func (ep *Endpoint) CreateEmbeddings(ctx context.Context, request *openai.EmbeddingRequest) (*openai.EmbeddingResponse, error) {
-	return nil, fmt.Errorf("Currently, Studio does not support embeddings") // TODO: Implement Gemini embeddings
+	return nil, fmt.Errorf("Currently, Studio does not support embeddings") // TODO(#102): Implement Gemini embeddings
 }

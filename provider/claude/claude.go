@@ -436,5 +436,5 @@ func standardizeModelName(model string) string {
 }
 
 func (ep *Endpoint) CreateEmbeddings(ctx context.Context, request *openai.EmbeddingRequest) (*openai.EmbeddingResponse, error) {
-	return nil, fmt.Errorf("Currently, Claude does not support embeddings") // TODO: Implement Claude embeddings
+	return nil, fmt.Errorf("Currently, Claude does not support embeddings") // TODO(#101): Implement Claude embeddings
 }

@@ -436,5 +436,5 @@ func standardizeModelName(model string) string {
 }
 
 func (ep *Endpoint) CreateEmbeddings(ctx context.Context, request *openai.EmbeddingRequest) (*openai.EmbeddingResponse, error) {
-	return nil, fmt.Errorf("Currently, VClaude does not support embeddings") // TODO: Implement VClaude embeddings
+	return nil, fmt.Errorf("Currently, VClaude does not support embeddings") // TODO(#103): Implement VClaude embeddings
 }
