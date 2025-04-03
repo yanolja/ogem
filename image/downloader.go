@@ -33,8 +33,11 @@ var validImageTypes = map[string]ImageType{
 	"image/webp": ImageTypeWebP,
 }
 
-// TODO(#issue number): Make cache expiration time configurable.
-const cacheExpiry = time.Hour
+// TODO(#100): Make timeout and cache expiry configurable.
+const (
+	cacheExpiry = time.Hour
+	timeout     = 10 * time.Second
+)
 
 type Downloader interface {
 	FetchImage(ctx context.Context, imageURL string) (*Image, error)
@@ -49,8 +52,7 @@ func NewDownloader(stateManager state.Manager) Downloader {
 	return &downloaderImpl{
 		stateManager: stateManager,
 		httpClient: &http.Client{
-			// TODO(#issue number): Make timeout configurable.
-			Timeout: 10 * time.Second,
+			Timeout: timeout,
 		},
 	}
 }
