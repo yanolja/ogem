@@ -13,7 +13,7 @@ import (
 	"github.com/yanolja/ogem/utils"
 )
 
-func TestGenerateBatchChatCompletionSuccess(t *testing.T) {
+func TestGenerateBatchChatCompletion(t *testing.T) {
 	t.Run("successful batch completion", func(t *testing.T) {
 		endpoint, err := NewEndpoint("test-provider", "test-region", "http://test-url", "test-api-key")
 		assert.NoError(t, err)
@@ -22,8 +22,25 @@ func TestGenerateBatchChatCompletionSuccess(t *testing.T) {
 		setupMockBatchJob(endpoint)
 
 		ctx := context.Background()
-		request := generateTestChatCompletionRequest()
-		expectedResponse := generateTestChatCompletionResponse()
+		request := generateMockChatCompletionRequest(
+			"gpt-3.5-turbo",
+			"user",
+			"Hello, how are you?",
+		)
+		expectedResponse := generateMockResponse(
+			"assistant",
+			"I'm doing well, thank you!",
+			"gpt-3.5-turbo",
+			"chat.completion",
+			openai.Usage{
+				PromptTokens:     10,
+				CompletionTokens: 20,
+				TotalTokens:      30,
+				CompletionTokensDetails: openai.CompletionTokensDetails{
+					ReasoningTokens: 15,
+				},
+			},
+		)
 
 		result, err := endpoint.GenerateBatchChatCompletion(ctx, request)
 
@@ -56,7 +73,11 @@ func TestGenerateBatchChatCompletionSuccess(t *testing.T) {
 		assert.NoError(t, err)
 
 		ctx := context.Background()
-		request := generateTestChatCompletionRequest()
+		request := generateMockChatCompletionRequest(
+			"gpt-3.5-turbo",
+			"user",
+			"Hello, how are you?",
+		)
 
 		result, err := endpoint.GenerateBatchChatCompletion(ctx, request)
 
@@ -66,7 +87,11 @@ func TestGenerateBatchChatCompletionSuccess(t *testing.T) {
 }
 
 func setupMockBatchJob(endpoint *Endpoint) {
-	jobId := generateJobId(generateTestChatCompletionRequest())
+	jobId := generateJobId(generateMockChatCompletionRequest(
+		"gpt-3.5-turbo",
+		"user",
+		"Hello, how are you?",
+	))
 
 	endpoint.batchJobMutex.Lock()
 	defer endpoint.batchJobMutex.Unlock()
@@ -75,51 +100,57 @@ func setupMockBatchJob(endpoint *Endpoint) {
 		Id:     jobId,
 		Method: "POST",
 		Url:    "/v1/chat/completions",
-		Body:   generateTestChatCompletionRequest(),
+		Body:   generateMockChatCompletionRequest("gpt-3.5-turbo", "user", "Hello, how are you?"),
 		Status: BatchJobStatusCompleted,
-		Result: generateTestChatCompletionResponse(),
+		Result: generateMockResponse(
+			"assistant",
+			"I'm doing well, thank you!",
+			"gpt-3.5-turbo",
+			"chat.completion",
+			openai.Usage{
+				PromptTokens:     10,
+				CompletionTokens: 20,
+				TotalTokens:      30,
+				CompletionTokensDetails: openai.CompletionTokensDetails{
+					ReasoningTokens: 15,
+				},
+			},
+		),
 	}
 }
 
-func generateTestChatCompletionRequest() *openai.ChatCompletionRequest {
+func generateMockChatCompletionRequest(model, role, message string) *openai.ChatCompletionRequest {
 	return &openai.ChatCompletionRequest{
-		Model: "gpt-3.5-turbo",
+		Model: model,
 		Messages: []openai.Message{
 			{
-				Role: "user",
+				Role: role,
 				Content: &openai.MessageContent{
-					String: utils.ToPtr("Hello, how are you?"),
+					String: utils.ToPtr(message),
 				},
 			},
 		},
 	}
 }
 
-func generateTestChatCompletionResponse() *openai.ChatCompletionResponse {
+func generateMockResponse(role, message, model, object string, usage openai.Usage) *openai.ChatCompletionResponse {
 	return &openai.ChatCompletionResponse{
 		Id: "test-id",
 		Choices: []openai.Choice{
 			{
 				Message: openai.Message{
-					Role: "assistant",
+					Role: role,
 					Content: &openai.MessageContent{
-						String: utils.ToPtr("I'm doing well, thank you!"),
+						String: utils.ToPtr(message),
 					},
 				},
 			},
 		},
 		Created:           1234567890,
-		Model:             "gpt-3.5-turbo",
+		Model:             model,
 		SystemFingerprint: "test-fingerprint",
-		Object:            "chat.completion",
-		Usage: openai.Usage{
-			PromptTokens:     10,
-			CompletionTokens: 20,
-			TotalTokens:      30,
-			CompletionTokensDetails: openai.CompletionTokensDetails{
-				ReasoningTokens: 15,
-			},
-		},
+		Object:            object,
+		Usage:             usage,
 	}
 }
 
@@ -128,6 +159,7 @@ func generateInvalidTestChatCompletionRequest() *openai.ChatCompletionRequest {
 		Messages: nil,
 	}
 }
+
 func setupMockBatchJobWithError(endpoint *Endpoint) error {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -151,7 +183,11 @@ func TestGenerateBatchChatCompletionFailed(t *testing.T) {
 		setupMockFailedBatchJob(endpoint)
 
 		ctx := context.Background()
-		request := generateTestChatCompletionRequest()
+		request := generateMockChatCompletionRequest(
+			"gpt-3.5-turbo",
+			"user",
+			"Hello, how are you?",
+		)
 
 		result, err := endpoint.GenerateBatchChatCompletion(ctx, request)
 
@@ -162,7 +198,11 @@ func TestGenerateBatchChatCompletionFailed(t *testing.T) {
 }
 
 func setupMockFailedBatchJob(endpoint *Endpoint) {
-	jobId := generateJobId(generateTestChatCompletionRequest())
+	jobId := generateJobId(generateMockChatCompletionRequest(
+		"gpt-3.5-turbo",
+		"user",
+		"Hello, how are you?",
+	))
 
 	endpoint.batchJobMutex.Lock()
 	defer endpoint.batchJobMutex.Unlock()
@@ -171,7 +211,7 @@ func setupMockFailedBatchJob(endpoint *Endpoint) {
 		Id:     jobId,
 		Method: "POST",
 		Url:    "/v1/chat/completions",
-		Body:   generateTestChatCompletionRequest(),
+		Body:   generateMockChatCompletionRequest("gpt-3.5-turbo", "user", "Hello, how are you?"),
 		Status: BatchJobStatusFailed,
 		Error:  fmt.Errorf("batch processing failed"),
 	}
