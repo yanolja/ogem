@@ -1,4 +1,4 @@
-package openaiclaudeconverter
+package openaiclaude
 
 import (
 	"fmt"
@@ -28,9 +28,15 @@ func ToClaudeRequest(openaiRequest *openai.ChatCompletionRequest) (*anthropic.Me
 		params.MaxTokens = anthropic.Int(int64(*openaiRequest.MaxCompletionTokens))
 	}
 	if !params.MaxTokens.Present {
-		if standardizeModelName(openaiRequest.Model) == "claude-3-5-sonnet-20240620" {
+		// Ref: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
+		switch standardizeModelName(openaiRequest.Model) {
+		case "claude-3-7-sonnet-20250219":
+		case "claude-3-5-haiku-20241022":
+		case "claude-3-5-sonnet-v2-20241022":
+		case "claude-3-5-sonnet-20240620":
+		case "claude-3-sonnet-20240229":
 			params.MaxTokens = anthropic.Int(8192)
-		} else {
+		default:
 			params.MaxTokens = anthropic.Int(4096)
 		}
 	}
@@ -286,16 +292,24 @@ func toClaudeToolParamsFromFunctions(openaiFunctions []openai.LegacyFunction) []
 	return claudeTools
 }
 
+// TODO(#101): Handle these model names in environment variables.
+// Ref: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-names
 func standardizeModelName(model string) string {
 	switch strings.TrimRight(model, "0123456789@-") {
+	case "claude-3-7-sonnet":
+		return "claude-3-7-sonnet-20250219"
+	case "claude-3-5-haiku":
+		return "claude-3-5-haiku-20241022"
+	case "claude-3-5-sonnet-v2":
+		return "claude-3-5-sonnet-20241022"
 	case "claude-3-5-sonnet":
 		return "claude-3-5-sonnet-20240620"
-	case "claude-3-opus":
-		return "claude-3-opus-20240229"
 	case "claude-3-sonnet":
 		return "claude-3-sonnet-20240229"
 	case "claude-3-haiku":
 		return "claude-3-haiku-20240307"
+	case "claude-3-opus":
+		return "claude-3-opus-20240229"
 	}
 	return model
 }
