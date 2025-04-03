@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/yanolja/ogem/openai"
+	"github.com/yanolja/ogem/utils"
 )
 
 func TestGenerateBatchChatCompletionSuccess(t *testing.T) {
@@ -87,7 +88,7 @@ func generateTestChatCompletionRequest() *openai.ChatCompletionRequest {
 			{
 				Role: "user",
 				Content: &openai.MessageContent{
-					String: ptr("Hello, how are you?"),
+					String: utils.ToPtr("Hello, how are you?"),
 				},
 			},
 		},
@@ -102,7 +103,7 @@ func generateTestChatCompletionResponse() *openai.ChatCompletionResponse {
 				Message: openai.Message{
 					Role: "assistant",
 					Content: &openai.MessageContent{
-						String: ptr("I'm doing well, thank you!"),
+						String: utils.ToPtr("I'm doing well, thank you!"),
 					},
 				},
 			},
@@ -139,10 +140,6 @@ func setupMockBatchJobWithError(endpoint *Endpoint) error {
 
 	endpoint.baseUrl = parsedURL
 	return nil
-}
-
-func ptr(s string) *string {
-	return &s
 }
 
 func TestGenerateBatchChatCompletionFailed(t *testing.T) {
