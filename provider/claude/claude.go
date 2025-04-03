@@ -7,7 +7,7 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 
-	"github.com/yanolja/ogem/converter/openaiclaudeconverter"
+	"github.com/yanolja/ogem/converter/openaiclaude"
 	"github.com/yanolja/ogem/openai"
 )
 
@@ -28,7 +28,7 @@ func NewEndpoint(apiKey string) (*Endpoint, error) {
 }
 
 func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
-	claudeParams, err := openaiclaudeconverter.ToClaudeRequest(openaiRequest)
+	claudeParams, err := openaiclaude.ToClaudeRequest(openaiRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *o
 		return nil, err
 	}
 
-	openaiResponse, err := openaiclaudeconverter.ToOpenAiResponse(claudeResponse)
+	openaiResponse, err := openaiclaude.ToOpenAiResponse(claudeResponse)
 	if err != nil {
 		return nil, err
 	}

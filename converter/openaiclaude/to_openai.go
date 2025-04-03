@@ -1,4 +1,4 @@
-package openaiclaudeconverter
+package openaiclaude
 
 import (
 	"fmt"
@@ -18,7 +18,10 @@ func ToOpenAiResponse(claudeResponse *anthropic.Message) (*openai.ChatCompletion
 	choices := make([]openai.Choice, 1)
 	message, err := toOpenAiMessage(claudeResponse)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to convert claude message to openai message: %w", err)
+	}
+	if message == nil {
+		return nil, fmt.Errorf("openai response message is nil")
 	}
 	choices[0] = openai.Choice{
 		Index:        0,
