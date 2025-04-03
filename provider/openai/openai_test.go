@@ -27,7 +27,6 @@ func TestGenerateChatCompletionSuccess(t *testing.T) {
 				}},
 			})
 		}))
-
 		defer server.Close()
 
 		endpoint, err := NewEndpoint("test-provider", "test-region", server.URL, "test-api-key")
@@ -71,12 +70,10 @@ func TestGenerateChatCompletionQuotaExceeded(t *testing.T) {
 			w.WriteHeader(http.StatusTooManyRequests)
 			w.Write([]byte(`{"error": {"message": "Rate limit exceeded"}}`))
 		}))
-
 		defer server.Close()
 
 		endpoint, err := NewEndpoint("test-provider", "test-region", server.URL, "test-api-key")
 		assert.NoError(t, err)
-
 		defer endpoint.Shutdown()
 
 		request := &openai.ChatCompletionRequest{
