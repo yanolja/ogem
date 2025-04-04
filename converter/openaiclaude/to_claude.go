@@ -31,9 +31,13 @@ func ToClaudeRequest(openaiRequest *openai.ChatCompletionRequest) (*anthropic.Me
 		// Ref: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 		switch standardizeModelName(openaiRequest.Model) {
 		case "claude-3-7-sonnet-20250219":
+			fallthrough
 		case "claude-3-5-haiku-20241022":
+			fallthrough
 		case "claude-3-5-sonnet-v2-20241022":
+			fallthrough
 		case "claude-3-5-sonnet-20240620":
+			fallthrough
 		case "claude-3-sonnet-20240229":
 			params.MaxTokens = anthropic.Int(8192)
 		default:
