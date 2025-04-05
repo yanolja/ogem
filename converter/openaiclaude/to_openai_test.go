@@ -20,9 +20,7 @@ func TestToOpenAiResponse(t *testing.T) {
 	t.Run("returns valid text response when input contains single content block", func(t *testing.T) {
 		contentBlock := unmarshalContentBlock(`{"type": "text", "text": "This is a test response"}`)
 		claudeResponse := &anthropic.Message{
-			Content: []anthropic.ContentBlock{
-				contentBlock,
-			},
+			Content: []anthropic.ContentBlock{contentBlock},
 			StopReason: anthropic.MessageStopReasonEndTurn,
 			Usage: anthropic.Usage{
 				InputTokens:  10,
@@ -35,9 +33,7 @@ func TestToOpenAiResponse(t *testing.T) {
 					Index: 0,
 					Message: openai.Message{
 						Role: "assistant",
-						Content: &openai.MessageContent{
-							String: utils.ToPtr("This is a test response"),
-						},
+						Content: &openai.MessageContent{String: utils.ToPtr("This is a test response")},
 					},
 					FinishReason: "stop",
 				},
@@ -55,7 +51,7 @@ func TestToOpenAiResponse(t *testing.T) {
 	})
 
 	// TODO (#106): consider returning multiple blocks instead of concatenation
-	t.Run("returns concatenated text when input contains multiple content blocks", func(t *testing.T) {
+	t.Run("returns multiple text blocks when input contains multiple content blocks", func(t *testing.T) {
 		contentBlock1 := unmarshalContentBlock(`{"type": "text", "text": "First part"}`)
 		contentBlock2 := unmarshalContentBlock(`{"type": "text", "text": "Second part"}`)
 		claudeResponse := &anthropic.Message{
@@ -76,7 +72,16 @@ func TestToOpenAiResponse(t *testing.T) {
 					Message: openai.Message{
 						Role: "assistant",
 						Content: &openai.MessageContent{
-							String: utils.ToPtr("First part Second part"),
+							Parts: []openai.Part{
+								{
+									Type: "text",
+									Content: openai.Content{TextContent: &openai.TextContent{Text: "First part"}},
+								},
+								{
+									Type: "text",
+									Content: openai.Content{TextContent: &openai.TextContent{Text: "Second part"}},
+								},
+							},
 						},
 					},
 					FinishReason: "stop",
@@ -94,9 +99,41 @@ func TestToOpenAiResponse(t *testing.T) {
 		assert.EqualValues(t, expected, result)
 	})
 
+	t.Run("returns string message content instead of parts when input contains single text block", func(t *testing.T) {
+		contentBlock := unmarshalContentBlock(`{"type": "text", "text": "This is a test response"}`)
+		claudeResponse := &anthropic.Message{
+			Content: []anthropic.ContentBlock{contentBlock},
+			StopReason: anthropic.MessageStopReasonEndTurn,
+			Usage: anthropic.Usage{
+				InputTokens:  10,
+				OutputTokens: 5,
+			},
+		}
+		expected := &openai.ChatCompletionResponse{
+			Choices: []openai.Choice{
+				{
+					Index: 0,
+					Message: openai.Message{
+						Role: "assistant",
+						Content: &openai.MessageContent{String: utils.ToPtr("This is a test response")},
+					},
+					FinishReason: "stop",
+				},
+			},
+			Usage: openai.Usage{
+				PromptTokens:     10,
+				CompletionTokens: 5,
+				TotalTokens:      15,
+			},
+		}
+		result, err := ToOpenAiResponse(claudeResponse)
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.EqualValues(t, expected, result)
+	})
+
 	t.Run("returns error message when claude response is nil", func(t *testing.T) {
 		var claudeResponse *anthropic.Message = nil
-
 		result, err := ToOpenAiResponse(claudeResponse)
 		assert.Error(t, err)
 		assert.Nil(t, result)
@@ -112,7 +149,6 @@ func TestToOpenAiResponse(t *testing.T) {
 				OutputTokens: 2,
 			},
 		}
-
 		result, err := ToOpenAiResponse(claudeResponse)
 		assert.Error(t, err)
 		assert.Nil(t, result)
@@ -128,7 +164,6 @@ func TestToOpenAiResponse(t *testing.T) {
 				OutputTokens: 2,
 			},
 		}
-
 		result, err := ToOpenAiResponse(claudeResponse)
 		assert.Error(t, err)
 		assert.Nil(t, result)
@@ -138,13 +173,10 @@ func TestToOpenAiResponse(t *testing.T) {
 	t.Run("returns zero usage values when usage is nil", func(t *testing.T) {
 		contentBlock := unmarshalContentBlock(`{"type": "text", "text": "Test message"}`)
 		claudeResponse := &anthropic.Message{
-			Content: []anthropic.ContentBlock{
-				contentBlock,
-			},
+			Content: []anthropic.ContentBlock{contentBlock},
 			StopReason: anthropic.MessageStopReasonEndTurn,
 			Usage:      anthropic.Usage{},
 		}
-
 		result, err := ToOpenAiResponse(claudeResponse)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
@@ -156,16 +188,13 @@ func TestToOpenAiResponse(t *testing.T) {
 	t.Run("returns zero usage values when token counts are zero", func(t *testing.T) {
 		contentBlock := unmarshalContentBlock(`{"type": "text", "text": "Test message"}`)
 		claudeResponse := &anthropic.Message{
-			Content: []anthropic.ContentBlock{
-				contentBlock,
-			},
+			Content: []anthropic.ContentBlock{contentBlock},
 			StopReason: anthropic.MessageStopReasonEndTurn,
 			Usage: anthropic.Usage{
 				InputTokens:  0,
 				OutputTokens: 0,
 			},
 		}
-
 		result, err := ToOpenAiResponse(claudeResponse)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
@@ -177,16 +206,13 @@ func TestToOpenAiResponse(t *testing.T) {
 	t.Run("returns stop finish reason when stop reason is end_turn", func(t *testing.T) {
 		contentBlock := unmarshalContentBlock(`{"type": "text", "text": "Test message"}`)
 		claudeResponse := &anthropic.Message{
-			Content: []anthropic.ContentBlock{
-				contentBlock,
-			},
+			Content: []anthropic.ContentBlock{contentBlock},
 			StopReason: anthropic.MessageStopReasonEndTurn,
 			Usage: anthropic.Usage{
 				InputTokens:  10,
 				OutputTokens: 5,
 			},
 		}
-
 		result, err := ToOpenAiResponse(claudeResponse)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
@@ -196,16 +222,13 @@ func TestToOpenAiResponse(t *testing.T) {
 	t.Run("returns length finish reason when stop reason is max_tokens", func(t *testing.T) {
 		contentBlock := unmarshalContentBlock(`{"type": "text", "text": "Test message"}`)
 		claudeResponse := &anthropic.Message{
-			Content: []anthropic.ContentBlock{
-				contentBlock,
-			},
+			Content: []anthropic.ContentBlock{contentBlock},
 			StopReason: anthropic.MessageStopReasonMaxTokens,
 			Usage: anthropic.Usage{
 				InputTokens:  10,
 				OutputTokens: 5,
 			},
 		}
-
 		result, err := ToOpenAiResponse(claudeResponse)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
@@ -215,16 +238,13 @@ func TestToOpenAiResponse(t *testing.T) {
 	t.Run("returns stop finish reason when stop reason is stop_sequence", func(t *testing.T) {
 		contentBlock := unmarshalContentBlock(`{"type": "text", "text": "Test message"}`)
 		claudeResponse := &anthropic.Message{
-			Content: []anthropic.ContentBlock{
-				contentBlock,
-			},
+			Content: []anthropic.ContentBlock{contentBlock},
 			StopReason: anthropic.MessageStopReasonStopSequence,
 			Usage: anthropic.Usage{
 				InputTokens:  10,
 				OutputTokens: 5,
 			},
 		}
-
 		result, err := ToOpenAiResponse(claudeResponse)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
@@ -234,16 +254,13 @@ func TestToOpenAiResponse(t *testing.T) {
 	t.Run("returns content_filter finish reason when stop reason is unknown", func(t *testing.T) {
 		contentBlock := unmarshalContentBlock(`{"type": "text", "text": "Test message"}`)
 		claudeResponse := &anthropic.Message{
-			Content: []anthropic.ContentBlock{
-				contentBlock,
-			},
+			Content: []anthropic.ContentBlock{contentBlock},
 			StopReason: "unknown_reason",
 			Usage: anthropic.Usage{
 				InputTokens:  10,
 				OutputTokens: 5,
 			},
 		}
-
 		result, err := ToOpenAiResponse(claudeResponse)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
