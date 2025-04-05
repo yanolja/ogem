@@ -1,4 +1,4 @@
-package openaigeminiconverter
+package openaigemini
 
 import (
 	"testing"
