@@ -1,5 +1,5 @@
 
-package openaigeminiconverter
+package openaigemini 
 
 import (
 	"encoding/json"

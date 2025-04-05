@@ -29,14 +29,14 @@ func NewEndpoint(apiKey string) (*Endpoint, error) {
 }
 
 func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
-	model, err := openaigeminiconverter.GetModelFromOpenAiRequest(ep.client, openaiRequest)
+	model, err := openaigemini.GetModelFromOpenAiRequest(ep.client, openaiRequest)
 	if err != nil {
 		return nil, err
 	}
 
 	chat := model.StartChat()
 	var messageToSend *genai.Content
-	chat.History, messageToSend, err = openaigeminiconverter.ToGeminiRequest(openaiRequest.Messages)
+	chat.History, messageToSend, err = openaigemini.ToGeminiRequest(openaiRequest.Messages)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *o
 		return nil, err
 	}
 
-	openaiResponse, err := openaigeminiconverter.ToOpenAiResponse(geminiResponse)
+	openaiResponse, err := openaigemini.ToOpenAiResponse(geminiResponse)
 	if err != nil {
 		return nil, err
 	}
