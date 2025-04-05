@@ -72,14 +72,6 @@ jobs:
           name: coverage-report
           path: coverage.out
 
-      # - name: Upload Coverage to Codecov
-      #   uses: codecov/codecov-action@v4
-      #   with:
-      #     file: coverage.out
-      #     flags: unittests
-      #     fail_ci_if_error: true
-      #     token: ${{ secrets.CODECOV_TOKEN }}
-
       - name: Run Benchmarks
         run: go test -bench=. -benchmem > benchmark.txt
 
