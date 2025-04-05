@@ -1,5 +1,4 @@
-
-package openaigemini 
+package openaigemini
 
 import (
 	"context"
@@ -15,265 +14,274 @@ import (
 )
 
 func TestToGeminiSchema(t *testing.T) {
-	tests := []struct {
-		name           string
-		input          string
-		expectedSchema *genai.Schema
-		expectedError  bool
-	}{
-		{
-			name: "Simple object schema",
-			input: `{
-				"type": "object",
-				"properties": {
-					"name": {"type": "string"},
-					"age": {"type": "integer"}
-				},
-				"required": ["name"]
-			}`,
-			expectedSchema: &genai.Schema{
-				Type: genai.TypeObject,
-				Properties: map[string]*genai.Schema{
-					"name": {Type: genai.TypeString},
-					"age":  {Type: genai.TypeInteger},
-				},
-				Required: []string{"name"},
+	t.Run("Simple object schema", func(t *testing.T) {
+		input := `{
+			"type": "object",
+			"properties": {
+				"name": {"type": "string"},
+				"age": {"type": "integer"}
 			},
-			expectedError: false,
-		},
-		{
-			name: "Nested object schema",
-			input: `{
-				"type": "object",
-				"properties": {
-					"user": {
-						"type": "object",
-						"properties": {
-							"name": {"type": "string"},
-							"email": {"type": "string", "format": "email"}
-						}
-					},
-					"items": {
-						"type": "array",
-						"items": {"type": "string"}
-					}
-				}
-			}`,
-			expectedSchema: &genai.Schema{
-				Type: genai.TypeObject,
-				Properties: map[string]*genai.Schema{
-					"user": {
-						Type: genai.TypeObject,
-						Properties: map[string]*genai.Schema{
-							"name":  {Type: genai.TypeString},
-							"email": {Type: genai.TypeString, Format: "email"},
-						},
-					},
-					"items": {
-						Type:  genai.TypeArray,
-						Items: &genai.Schema{Type: genai.TypeString},
-					},
-				},
-			},
-			expectedError: false,
-		},
-		{
-			name: "Schema with enum",
-			input: `{
-				"type": "object",
-				"properties": {
-					"color": {
-						"type": "string",
-						"enum": ["red", "green", "blue"]
-					}
-				}
-			}`,
-			expectedSchema: &genai.Schema{
-				Type: genai.TypeObject,
-				Properties: map[string]*genai.Schema{
-					"color": {
-						Type: genai.TypeString,
-						Enum: []string{"red", "green", "blue"},
-					},
-				},
-			},
-			expectedError: false,
-		},
-		{
-			name: "Schema with description and nullable",
-			input: `{
-				"type": "object",
-				"properties": {
-					"description": {
-						"type": "string",
-						"description": "A brief description",
-						"nullable": true
-					}
-				}
-			}`,
-			expectedSchema: &genai.Schema{
-				Type: genai.TypeObject,
-				Properties: map[string]*genai.Schema{
-					"description": {
-						Type:        genai.TypeString,
-						Description: "A brief description",
-						Nullable:    true,
-					},
-				},
-			},
-			expectedError: false,
-		},
-		{
-			name:          "Invalid schema",
-			input:         `{"type": "invalid"}`,
-			expectedError: true,
-		},
-	}
+			"required": ["name"]
+		}`
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var schema orderedmap.Map
-			err := json.Unmarshal([]byte(tt.input), &schema)
-			assert.NoError(t, err, "Failed to unmarshal input JSON")
+		expected := &genai.Schema{
+			Type: genai.TypeObject,
+			Properties: map[string]*genai.Schema{
+				"name": {Type: genai.TypeString},
+				"age":  {Type: genai.TypeInteger},
+			},
+			Required: []string{"name"},
+		}
 
-			result, err := toGeminiSchema(&schema)
+		var schema orderedmap.Map
+		err := json.Unmarshal([]byte(input), &schema)
+		assert.NoError(t, err, "Failed to unmarshal input JSON")
 
-			if tt.expectedError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedSchema, result)
+		result, err := toGeminiSchema(&schema)
+		assert.NoError(t, err)
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("Nested object schema", func(t *testing.T) {
+		input := `{
+			"type": "object",
+			"properties": {
+				"user": {
+					"type": "object",
+					"properties": {
+						"name": {"type": "string"},
+						"email": {"type": "string", "format": "email"}
+					}
+				},
+				"items": {
+					"type": "array",
+					"items": {"type": "string"}
+				}
 			}
-		})
-	}
-}
+		}`
 
-func TestToGeminiSchema_NilInput(t *testing.T) {
-	result, err := toGeminiSchema(nil)
-	assert.NoError(t, err)
-	assert.Nil(t, result)
-}
-
-func TestToGeminiSchema_WithRef(t *testing.T) {
-	tests := []struct {
-		name           string
-		input          string
-		expectedSchema *genai.Schema
-		expectedError  bool
-	}{
-		{
-			name: "Simple $ref",
-			input: `{
-				"type": "object",
-				"properties": {
-					"user": {"$ref": "#/$defs/User"}
+		expected := &genai.Schema{
+			Type: genai.TypeObject,
+			Properties: map[string]*genai.Schema{
+				"user": {
+					Type: genai.TypeObject,
+					Properties: map[string]*genai.Schema{
+						"name":  {Type: genai.TypeString},
+						"email": {Type: genai.TypeString, Format: "email"},
+					},
 				},
-				"$defs": {
-					"User": {
-						"type": "object",
-						"properties": {
-							"name": {"type": "string"},
-							"age": {"type": "integer"}
-						}
+				"items": {
+					Type:  genai.TypeArray,
+					Items: &genai.Schema{Type: genai.TypeString},
+				},
+			},
+		}
+
+		var schema orderedmap.Map
+		err := json.Unmarshal([]byte(input), &schema)
+		assert.NoError(t, err)
+
+		result, err := toGeminiSchema(&schema)
+		assert.NoError(t, err)
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("Schema with enum", func(t *testing.T) {
+		input := `{
+			"type": "object",
+			"properties": {
+				"color": {
+					"type": "string",
+					"enum": ["red", "green", "blue"]
+				}
+			}
+		}`
+
+		expected := &genai.Schema{
+			Type: genai.TypeObject,
+			Properties: map[string]*genai.Schema{
+				"color": {
+					Type: genai.TypeString,
+					Enum: []string{"red", "green", "blue"},
+				},
+			},
+		}
+
+		var schema orderedmap.Map
+		err := json.Unmarshal([]byte(input), &schema)
+		assert.NoError(t, err)
+
+		result, err := toGeminiSchema(&schema)
+		assert.NoError(t, err)
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("Schema with description and nullable", func(t *testing.T) {
+		input := `{
+			"type": "object",
+			"properties": {
+				"description": {
+					"type": "string",
+					"description": "A brief description",
+					"nullable": true
+				}
+			}
+		}`
+
+		expected := &genai.Schema{
+			Type: genai.TypeObject,
+			Properties: map[string]*genai.Schema{
+				"description": {
+					Type:        genai.TypeString,
+					Description: "A brief description",
+					Nullable:    true,
+				},
+			},
+		}
+
+		var schema orderedmap.Map
+		err := json.Unmarshal([]byte(input), &schema)
+		assert.NoError(t, err)
+
+		result, err := toGeminiSchema(&schema)
+		assert.NoError(t, err)
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("Invalid schema", func(t *testing.T) {
+		input := `{"type": "invalid"}`
+
+		var schema orderedmap.Map
+		err := json.Unmarshal([]byte(input), &schema)
+		assert.NoError(t, err)
+
+		result, err := toGeminiSchema(&schema)
+		assert.Error(t, err)
+		assert.Nil(t, result)
+	})
+
+	t.Run("Nil input", func(t *testing.T) {
+		result, err := toGeminiSchema(nil)
+		assert.NoError(t, err)
+		assert.Nil(t, result)
+	})
+
+	t.Run("Simple $ref", func(t *testing.T) {
+		input := `{
+			"type": "object",
+			"properties": {
+				"user": {"$ref": "#/$defs/User"}
+			},
+			"$defs": {
+				"User": {
+					"type": "object",
+					"properties": {
+						"name": {"type": "string"},
+						"age": {"type": "integer"}
 					}
 				}
-			}`,
-			expectedSchema: &genai.Schema{
-				Type: genai.TypeObject,
-				Properties: map[string]*genai.Schema{
-					"user": {
-						Type: genai.TypeObject,
-						Properties: map[string]*genai.Schema{
-							"name": {Type: genai.TypeString},
-							"age":  {Type: genai.TypeInteger},
-						},
+			}
+		}`
+
+		expected := &genai.Schema{
+			Type: genai.TypeObject,
+			Properties: map[string]*genai.Schema{
+				"user": {
+					Type: genai.TypeObject,
+					Properties: map[string]*genai.Schema{
+						"name": {Type: genai.TypeString},
+						"age":  {Type: genai.TypeInteger},
 					},
 				},
 			},
-			expectedError: false,
-		},
-		{
-			name: "Nested $ref",
-			input: `{
-				"type": "object",
-				"properties": {
-					"user": {"$ref": "#/$defs/User"}
+		}
+
+		var schema orderedmap.Map
+		err := json.Unmarshal([]byte(input), &schema)
+		assert.NoError(t, err)
+
+		result, err := toGeminiSchema(&schema)
+		assert.NoError(t, err)
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("Nested $ref", func(t *testing.T) {
+		input := `{
+			"type": "object",
+			"properties": {
+				"user": {"$ref": "#/$defs/User"}
+			},
+			"$defs": {
+				"User": {
+					"type": "object",
+					"properties": {
+						"name": {"type": "string"},
+						"address": {"$ref": "#/$defs/Address"}
+					}
 				},
-				"$defs": {
-					"User": {
-						"type": "object",
-						"properties": {
-							"name": {"type": "string"},
-							"address": {"$ref": "#/$defs/Address"}
-						}
-					},
-					"Address": {
-						"type": "object",
-						"properties": {
-							"street": {"type": "string"},
-							"city": {"type": "string"}
-						}
+				"Address": {
+					"type": "object",
+					"properties": {
+						"street": {"type": "string"},
+						"city": {"type": "string"}
 					}
 				}
-			}`,
-			expectedSchema: &genai.Schema{
-				Type: genai.TypeObject,
-				Properties: map[string]*genai.Schema{
-					"user": {
-						Type: genai.TypeObject,
-						Properties: map[string]*genai.Schema{
-							"name": {Type: genai.TypeString},
-							"address": {
-								Type: genai.TypeObject,
-								Properties: map[string]*genai.Schema{
-									"street": {Type: genai.TypeString},
-									"city":   {Type: genai.TypeString},
-								},
+			}
+		}`
+
+		expected := &genai.Schema{
+			Type: genai.TypeObject,
+			Properties: map[string]*genai.Schema{
+				"user": {
+					Type: genai.TypeObject,
+					Properties: map[string]*genai.Schema{
+						"name": {Type: genai.TypeString},
+						"address": {
+							Type: genai.TypeObject,
+							Properties: map[string]*genai.Schema{
+								"street": {Type: genai.TypeString},
+								"city":   {Type: genai.TypeString},
 							},
 						},
 					},
 				},
 			},
-			expectedError: false,
-		},
-		{
-			name: "Invalid $ref",
-			input: `{
-				"type": "object",
-				"properties": {
-					"user": {"$ref": "#/$defs/NonExistentUser"}
-				},
-				"$defs": {
-					"User": {
-						"type": "object",
-						"properties": {
-							"name": {"type": "string"}
-						}
+		}
+
+		var schema orderedmap.Map
+		err := json.Unmarshal([]byte(input), &schema)
+		assert.NoError(t, err)
+
+		result, err := toGeminiSchema(&schema)
+		assert.NoError(t, err)
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("Invalid $ref", func(t *testing.T) {
+		input := `{
+			"type": "object",
+			"properties": {
+				"user": {"$ref": "#/$defs/NonExistentUser"}
+			},
+			"$defs": {
+				"User": {
+					"type": "object",
+					"properties": {
+						"name": {"type": "string"}
 					}
 				}
-			}`,
-			expectedError: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var schema orderedmap.Map
-			err := json.Unmarshal([]byte(tt.input), &schema)
-			assert.NoError(t, err, "Failed to unmarshal input JSON")
-
-			result, err := toGeminiSchema(&schema)
-
-			if tt.expectedError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedSchema, result)
 			}
-		})
-	}
-}
+		}`
 
+		var schema orderedmap.Map
+		err := json.Unmarshal([]byte(input), &schema)
+		assert.NoError(t, err)
+
+		result, err := toGeminiSchema(&schema)
+		assert.Error(t, err)
+		assert.Nil(t, result)
+	})
+}
 
 func TestGetModelFromOpenAiRequest(t *testing.T) {
 	client, _ := genai.NewClient(context.Background())
@@ -370,7 +378,7 @@ func TestGetModelFromOpenAiRequest(t *testing.T) {
 
 func TestToGeminiRequest(t *testing.T) {
 	t.Run("empty messages", func(t *testing.T) {
-	history, last, err := ToGeminiRequest([]openai.Message{})
+		history, last, err := ToGeminiRequest([]openai.Message{})
 		assert.NoError(t, err)
 		assert.Nil(t, history)
 		assert.Nil(t, last)
@@ -484,4 +492,3 @@ func TestToGeminiRequest(t *testing.T) {
 		assert.Nil(t, last)
 	})
 }
-
