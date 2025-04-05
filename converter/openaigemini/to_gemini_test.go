@@ -1,4 +1,5 @@
-package openaigeminiconverter
+
+package openaigemini 
 
 import (
 	"context"
@@ -272,6 +273,7 @@ func TestToGeminiSchema_WithRef(t *testing.T) {
 		})
 	}
 }
+
 
 func TestGetModelFromOpenAiRequest(t *testing.T) {
 	client, _ := genai.NewClient(context.Background())
