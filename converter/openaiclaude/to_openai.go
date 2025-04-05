@@ -2,7 +2,6 @@ package openaiclaude
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/yanolja/ogem/openai"
@@ -44,13 +43,18 @@ func toOpenAiMessage(claudeMessage *anthropic.Message) (*openai.Message, error) 
 		Role: "assistant",
 	}
 
-	content := strings.Builder{}
+	content := openai.MessageContent{}
 	toolCalls := make([]openai.ToolCall, 0)
 
 	for _, block := range claudeMessage.Content {
 		switch block := block.AsUnion().(type) {
 		case anthropic.TextBlock:
-			content.WriteString(" " + block.Text)
+			content.Parts = append(content.Parts, openai.Part{
+				Type: "text",
+				Content: openai.Content{
+					TextContent: &openai.TextContent{Text: block.Text},
+				},
+			})
 		case anthropic.ToolUseBlock:
 			toolCalls = append(toolCalls, openai.ToolCall{
 				Id:   block.ID,
@@ -63,9 +67,10 @@ func toOpenAiMessage(claudeMessage *anthropic.Message) (*openai.Message, error) 
 		}
 	}
 
-	if content.Len() > 0 {
-		contentStr := strings.TrimSpace(content.String())
-		message.Content = &openai.MessageContent{String: &contentStr}
+	if len(content.Parts) == 1 && content.Parts[0].Type == "text" {
+		message.Content = &openai.MessageContent{String: &content.Parts[0].Content.TextContent.Text}
+	} else if len(content.Parts) > 0 {
+		message.Content = &content
 	}
 
 	if len(toolCalls) > 0 {
