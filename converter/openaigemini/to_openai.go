@@ -69,23 +69,22 @@ func toOpenAiMessage(content *genai.Content, index int32) (*openai.Message, erro
 			return nil, fmt.Errorf("unsupported part type: %T", part)
 		}
 	}
-	if len(parts) > 0 {
-		if len(parts) == 1 && parts[0].Content.TextContent != nil {
-			message.Content = &openai.MessageContent{
-				String: &parts[0].Content.TextContent.Text,
-			}
-			return message, nil
+	if len(parts) <= 0 && len(toolCalls) <= 0 {
+		return nil, fmt.Errorf("message must have content or tool calls")
+	}
+	if len(parts) == 1 && parts[0].Content.TextContent != nil {
+		message.Content = &openai.MessageContent{
+			String: &parts[0].Content.TextContent.Text,
 		}
+	} else if len(parts) > 0 {
 		message.Content = &openai.MessageContent{
 			Parts: parts,
 		}
-		return message, nil
 	}
 	if len(toolCalls) > 0 {
 		message.ToolCalls = toolCalls
-		return message, nil
 	}
-	return nil, fmt.Errorf("message must have content or tool calls")
+	return message, nil
 }
 
 func toOpenAiPart(part genai.Part) openai.Part {
