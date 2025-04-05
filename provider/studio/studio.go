@@ -9,7 +9,7 @@ import (
 
 	"github.com/yanolja/ogem/openai"
 	"github.com/yanolja/ogem/utils"
-	"github.com/yanolja/ogem/converter/openaigeminiconverter"
+	"github.com/yanolja/ogem/converter/openaigemini"
 )
 
 // A unique identifier for the Gemini Studio provider
