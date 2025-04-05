@@ -12,6 +12,7 @@ import (
 	"github.com/yanolja/ogem/utils/orderedmap"
 )
 
+// TODO(#59): Change to use HTTP call to make request since some fields are not supported in the sdk.
 func GetModelFromOpenAiRequest(client *genai.Client, openAiRequest *openai.ChatCompletionRequest) (*genai.GenerativeModel, error) {
 	model := client.GenerativeModel(openAiRequest.Model)
 
