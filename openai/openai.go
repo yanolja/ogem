@@ -275,7 +275,7 @@ func (ic *ImageContent) UnmarshalJSON(data []byte) error {
 	var raw struct {
 		Url    string `json:"url"`
 		Detail string `json:"detail"`
-    }
+	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return fmt.Errorf("invalid image content: %v", err)
 	}
