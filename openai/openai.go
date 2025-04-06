@@ -276,15 +276,15 @@ func (ic *ImageContent) UnmarshalJSON(data []byte) error {
 		Url    string `json:"url"`
 		Detail string `json:"detail"`
     }
-    if err := json.Unmarshal(data, &raw); err != nil {
-        return fmt.Errorf("invalid image content: %v", err)
-    }
-    if raw.Url == "" {
-        return fmt.Errorf("empty url content")
-    }
-    ic.Url = raw.Url
-    ic.Detail = raw.Detail
-    return nil
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("invalid image content: %v", err)
+	}
+	if raw.Url == "" {
+		return fmt.Errorf("empty url content")
+	}
+	ic.Url = raw.Url
+	ic.Detail = raw.Detail
+	return nil
 }
 
 type ToolCall struct {
