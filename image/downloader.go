@@ -51,9 +51,7 @@ type downloaderImpl struct {
 func NewDownloader(stateManager state.Manager) Downloader {
 	return &downloaderImpl{
 		stateManager: stateManager,
-		httpClient: &http.Client{
-			Timeout: timeout,
-		},
+		httpClient:   &http.Client{Timeout: timeout},
 	}
 }
 
