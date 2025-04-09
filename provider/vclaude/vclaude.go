@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/anthropics/anthropic-sdk-go/vertex"
 
 	"github.com/yanolja/ogem/openai"
@@ -16,14 +17,18 @@ import (
 	"github.com/yanolja/ogem/utils/array"
 )
 
+type anthropicClient interface {
+	New(ctx context.Context, params anthropic.MessageNewParams, opts ...option.RequestOption) (*anthropic.Message, error)
+}
+
 type Endpoint struct {
-	client *anthropic.Client
+	client anthropicClient
 	region string
 }
 
 func NewEndpoint(projectId string, region string) (*Endpoint, error) {
 	client := anthropic.NewClient(vertex.WithGoogleAuth(context.Background(), region, projectId))
-	return &Endpoint{client: client, region: region}, nil
+	return &Endpoint{client: &client.Messages}, nil
 }
 
 func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
@@ -32,7 +37,7 @@ func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *o
 		return nil, err
 	}
 
-	claudeResponse, err := ep.client.Messages.New(ctx, *claudeParams)
+	claudeResponse, err := ep.client.New(ctx, *claudeParams)
 	if err != nil {
 		return nil, err
 	}
@@ -55,12 +60,12 @@ func (ep *Endpoint) Region() string {
 
 func (ep *Endpoint) Ping(ctx context.Context) (time.Duration, error) {
 	start := time.Now()
-	_, err := ep.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.F("claude-3-haiku@20240307"),
-		MaxTokens: anthropic.Int(1),
-		Messages: anthropic.F([]anthropic.MessageParam{
+	_, err := ep.client.New(ctx, anthropic.MessageNewParams{
+		Model:     anthropic.ModelClaude_3_Haiku_20240307,
+		MaxTokens: int64(1),
+		Messages: []anthropic.MessageParam{
 			anthropic.NewUserMessage(anthropic.NewTextBlock("Ping")),
-		}),
+		},
 	})
 	if err != nil {
 		return 0, err
@@ -79,52 +84,52 @@ func toClaudeParams(openaiRequest *openai.ChatCompletionRequest) (*anthropic.Mes
 	}
 
 	params := &anthropic.MessageNewParams{
-		Model:    anthropic.F(standardizeModelName(openaiRequest.Model)),
-		Messages: anthropic.F(messages),
+		Model:    standardizeModelName(openaiRequest.Model),
+		Messages: messages,
 	}
 
 	if openaiRequest.MaxTokens != nil {
-		params.MaxTokens = anthropic.Int(int64(*openaiRequest.MaxTokens))
+		params.MaxTokens = int64(*openaiRequest.MaxTokens)
 	}
 	if openaiRequest.MaxCompletionTokens != nil {
-		params.MaxTokens = anthropic.Int(int64(*openaiRequest.MaxCompletionTokens))
+		params.MaxTokens = int64(*openaiRequest.MaxCompletionTokens)
 	}
-	if !params.MaxTokens.Present {
+	if params.MaxTokens == 0 {
 		if standardizeModelName(openaiRequest.Model) == "claude-3-5-sonnet@20240620" {
-			params.MaxTokens = anthropic.Int(8192)
+			params.MaxTokens = 8192
 		} else {
-			params.MaxTokens = anthropic.Int(4096)
+			params.MaxTokens = 4096
 		}
 	}
 	if openaiRequest.StopSequences != nil {
-		params.StopSequences = anthropic.F(openaiRequest.StopSequences.Sequences)
+		params.StopSequences = openaiRequest.StopSequences.Sequences
 	}
 	systemMessage, err := toClaudeSystemMessage(openaiRequest)
 	if err != nil {
 		return nil, err
 	}
 	if systemMessage != nil {
-		params.System = anthropic.F(systemMessage)
+		params.System = systemMessage
 	}
 	if openaiRequest.Temperature != nil {
-		params.Temperature = anthropic.F(float64(*openaiRequest.Temperature))
+		params.Temperature = anthropic.Opt(float64(*openaiRequest.Temperature))
 	}
 	if openaiRequest.TopP != nil {
-		params.TopP = anthropic.F(float64(*openaiRequest.TopP))
+		params.TopP = anthropic.Opt(float64(*openaiRequest.TopP))
 	}
 	if openaiRequest.Tools != nil {
 		tools, err := toClaudeToolParams(openaiRequest.Tools)
 		if err != nil {
 			return nil, err
 		}
-		params.Tools = anthropic.F(tools)
+		params.Tools = tools
 	}
 	if openaiRequest.ToolChoice != nil {
 		toolChoice, err := toClaudeToolChoice(openaiRequest.ToolChoice)
 		if err != nil {
 			return nil, err
 		}
-		params.ToolChoice = anthropic.F(toolChoice)
+		params.ToolChoice = toolChoice
 	}
 	if openaiRequest.ResponseFormat != nil {
 		return nil, fmt.Errorf("response_format is not supported with Claude")
@@ -187,8 +192,8 @@ func toClaudeSystemMessage(openAiRequest *openai.ChatCompletionRequest) ([]anthr
 			}
 			textBlocks := make([]anthropic.TextBlockParam, 0, len(blocks))
 			for _, block := range blocks {
-				if textBlock, ok := block.(anthropic.TextBlockParam); ok {
-					textBlocks = append(textBlocks, textBlock)
+				if block.GetType() != nil && *block.GetType() == "text" {
+					textBlocks = append(textBlocks, *block.OfRequestTextBlock)
 				} else {
 					return nil, fmt.Errorf("system message must contain only text blocks with Claude models")
 				}
@@ -199,7 +204,7 @@ func toClaudeSystemMessage(openAiRequest *openai.ChatCompletionRequest) ([]anthr
 	return nil, nil
 }
 
-func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([]anthropic.MessageParamContentUnion, error) {
+func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([]anthropic.ContentBlockParamUnion, error) {
 	if message.Role == "tool" {
 		if message.Content == nil || message.Content.String == nil {
 			return nil, fmt.Errorf("tool message must contain a string content")
@@ -207,7 +212,7 @@ func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([
 		if message.ToolCallId == nil {
 			return nil, fmt.Errorf("tool message must contain the corresponding tool call ID")
 		}
-		return []anthropic.MessageParamContentUnion{
+		return []anthropic.ContentBlockParamUnion{
 			anthropic.NewToolResultBlock(*message.ToolCallId, *message.Content.String, false),
 		}, nil
 	}
@@ -222,17 +227,17 @@ func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([
 		if !exists {
 			return nil, fmt.Errorf("function message must contain the corresponding function name")
 		}
-		return []anthropic.MessageParamContentUnion{
+		return []anthropic.ContentBlockParamUnion{
 			anthropic.NewToolResultBlock(toolId, *message.Content.String, false),
 		}, nil
 	}
 	if message.Content != nil {
 		if message.Content.String != nil {
-			return []anthropic.MessageParamContentUnion{
+			return []anthropic.ContentBlockParamUnion{
 				anthropic.NewTextBlock(*message.Content.String),
 			}, nil
 		}
-		return array.Map(message.Content.Parts, func(part openai.Part) anthropic.MessageParamContentUnion {
+		return array.Map(message.Content.Parts, func(part openai.Part) anthropic.ContentBlockParamUnion {
 			if part.Content.TextContent != nil {
 				return anthropic.NewTextBlock(part.Content.TextContent.Text)
 			}
@@ -245,7 +250,7 @@ func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([
 		}), nil
 	}
 	if message.Refusal != nil {
-		return []anthropic.MessageParamContentUnion{
+		return []anthropic.ContentBlockParamUnion{
 			anthropic.NewTextBlock(*message.Refusal),
 		}, nil
 	}
@@ -258,12 +263,18 @@ func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([
 		if !exists {
 			return nil, fmt.Errorf("function message must contain the corresponding function name")
 		}
-		return []anthropic.MessageParamContentUnion{
-			anthropic.NewToolUseBlockParam(toolId, message.FunctionCall.Name, any(arguments)),
+		return []anthropic.ContentBlockParamUnion{
+			anthropic.ContentBlockParamUnion{
+				OfRequestToolUseBlock: &anthropic.ToolUseBlockParam{
+					ID:      toolId,
+					Name:    message.FunctionCall.Name,
+					Input:   arguments,
+				},
+			},
 		}, nil
 	}
 	if len(message.ToolCalls) > 0 {
-		toolCalls := make([]anthropic.MessageParamContentUnion, len(message.ToolCalls))
+		toolCalls := make([]anthropic.ContentBlockParamUnion, len(message.ToolCalls))
 		for index, toolCall := range message.ToolCalls {
 			if toolCall.Type != "function" {
 				return nil, fmt.Errorf("unsupported tool call type: %s", toolCall.Type)
@@ -272,15 +283,21 @@ func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse tool arguments: %v", err)
 			}
-			toolCalls[index] = anthropic.NewToolUseBlockParam(toolCall.Id, toolCall.Function.Name, any(arguments))
+			toolCalls[index] = anthropic.ContentBlockParamUnion{
+				OfRequestToolUseBlock: &anthropic.ToolUseBlockParam{
+					ID:      toolCall.Id,
+					Name:    toolCall.Function.Name,
+					Input:   arguments,
+				},
+			}
 		}
 		return toolCalls, nil
 	}
 	return nil, fmt.Errorf("message must have content, refusal, function_call, or tool_calls")
 }
 
-func toClaudeToolParams(openaiTools []openai.Tool) ([]anthropic.ToolParam, error) {
-	claudeTools := make([]anthropic.ToolParam, len(openaiTools))
+func toClaudeToolParams(openaiTools []openai.Tool) ([]anthropic.ToolUnionParam, error) {
+	claudeTools := make([]anthropic.ToolUnionParam, len(openaiTools))
 	for i, tool := range openaiTools {
 		if tool.Type != "function" {
 			return nil, fmt.Errorf("unsupported tool type: %s", tool.Type)
@@ -291,10 +308,14 @@ func toClaudeToolParams(openaiTools []openai.Tool) ([]anthropic.ToolParam, error
 		} else {
 			description = *tool.Function.Description
 		}
-		claudeTools[i] = anthropic.ToolParam{
-			Name:        anthropic.F(tool.Function.Name),
-			Description: anthropic.F(description),
-			InputSchema: anthropic.F(any(tool.Function.Parameters)),
+		claudeTools[i] = anthropic.ToolUnionParam{
+			OfTool: &anthropic.ToolParam{
+				Name:        tool.Function.Name,
+				Description: anthropic.String(description),
+				InputSchema: anthropic.ToolInputSchemaParam{
+					Properties: tool.Function.Parameters,
+				},
+			},
 		}
 	}
 	return claudeTools, nil
@@ -302,31 +323,32 @@ func toClaudeToolParams(openaiTools []openai.Tool) ([]anthropic.ToolParam, error
 
 func toClaudeToolChoice(toolChoice *openai.ToolChoice) (anthropic.ToolChoiceUnionParam, error) {
 	if toolChoice == nil {
-		return nil, nil
+		return anthropic.ToolChoiceUnionParam{}, nil
 	}
 	if toolChoice.Value != nil {
 		switch *toolChoice.Value {
-		case "auto":
-			return anthropic.ToolChoiceAutoParam{
-				Type: anthropic.F(anthropic.ToolChoiceAutoTypeAuto),
+		case openai.ToolChoiceAuto:
+			return anthropic.ToolChoiceUnionParam{
+				OfToolChoiceAuto: &anthropic.ToolChoiceAutoParam{},
 			}, nil
-		case "required":
-			return anthropic.ToolChoiceAnyParam{
-				Type: anthropic.F(anthropic.ToolChoiceAnyTypeAny),
+		case openai.ToolChoiceRequired:
+			return anthropic.ToolChoiceUnionParam{
+				OfToolChoiceAny: &anthropic.ToolChoiceAnyParam{},
 			}, nil
-		case "none":
-			return nil, fmt.Errorf("Claude does not support 'none' tool choice")
+		case openai.ToolChoiceNone:
+			return anthropic.ToolChoiceUnionParam{}, fmt.Errorf("claude does not support 'none' tool choice")
 		}
 	}
 	if toolChoice.Struct == nil {
-		return nil, fmt.Errorf("tool field must be set to either 'auto', 'required', 'none', or an object with a function name")
+		return anthropic.ToolChoiceUnionParam{}, fmt.Errorf("tool field must be set to either 'auto', 'required', 'none', or an object with a function name")
 	}
 	if toolChoice.Struct.Type != "function" {
-		return nil, fmt.Errorf("unsupported tool type: %s", toolChoice.Struct.Type)
+		return anthropic.ToolChoiceUnionParam{}, fmt.Errorf("unsupported tool type: %s", toolChoice.Struct.Type)
 	}
-	return anthropic.ToolChoiceParam{
-		Type: anthropic.F(anthropic.ToolChoiceTypeTool),
-		Name: anthropic.F(toolChoice.Struct.Function.Name),
+	return anthropic.ToolChoiceUnionParam{
+		OfToolChoiceTool: &anthropic.ToolChoiceToolParam{
+			Name: toolChoice.Struct.Function.Name,
+		},
 	}, nil
 }
 
@@ -340,9 +362,11 @@ func toClaudeToolParamsFromFunctions(openaiFunctions []openai.LegacyFunction) []
 			description = *function.Description
 		}
 		claudeTools[i] = anthropic.ToolParam{
-			Name:        anthropic.F(function.Name),
-			Description: anthropic.F(description),
-			InputSchema: anthropic.F(any(function.Parameters)),
+			Name:        function.Name,
+			Description: anthropic.String(description),
+			InputSchema: anthropic.ToolInputSchemaParam{
+				Properties: function.Parameters,
+			},
 		}
 	}
 	return claudeTools
@@ -379,10 +403,10 @@ func toOpenAiMessage(claudeMessage *anthropic.Message) (*openai.Message, error) 
 	toolCalls := make([]openai.ToolCall, 0)
 
 	for _, block := range claudeMessage.Content {
-		switch block := block.AsUnion().(type) {
-		case anthropic.TextBlock:
+		switch block.Type {
+		case "text":
 			content.WriteString(block.Text)
-		case anthropic.ToolUseBlock:
+		case "tool_use":
 			toolCalls = append(toolCalls, openai.ToolCall{
 				Id:   block.ID,
 				Type: "function",

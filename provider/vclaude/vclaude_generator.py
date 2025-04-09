@@ -8,7 +8,7 @@ def replace_content(content):
 
   content = content.replace('''package claude''', '''package vclaude''')
   content = content.replace('''"github.com/anthropics/anthropic-sdk-go/option"''',
-                            '''"github.com/anthropics/anthropic-sdk-go/vertex"''')
+                            '''"github.com/anthropics/anthropic-sdk-go/option"\n\t"github.com/anthropics/anthropic-sdk-go/vertex"''')
   content = content.replace(
       '''
 
@@ -16,9 +16,9 @@ def replace_content(content):
 const REGION = "claude"''', '''''')
   content = content.replace(
       '''type Endpoint struct {
-	client *anthropic.Client
+	client anthropicClient
 }''', '''type Endpoint struct {
-	client *anthropic.Client
+	client anthropicClient
 	region string
 }''')
   content = content.replace(
