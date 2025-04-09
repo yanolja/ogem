@@ -263,7 +263,7 @@ func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([
 			return nil, fmt.Errorf("function message must contain the corresponding function name")
 		}
 		return []anthropic.ContentBlockParamUnion{
-			anthropic.ContentBlockParamUnion{
+			{
 				OfRequestToolUseBlock: &anthropic.ToolUseBlockParam{
 					ID:      toolId,
 					Name:    message.FunctionCall.Name,
