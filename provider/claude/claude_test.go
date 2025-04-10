@@ -23,14 +23,14 @@ func (m *mockAnthropicClient) New(ctx context.Context, params anthropic.MessageN
 }
 
 func mockNewRequestReturnsValidResponse(ctx context.Context, params anthropic.MessageNewParams, opts ...option.RequestOption) (*anthropic.Message, error) {
-	var block anthropic.ContentBlock
+	var block anthropic.ContentBlockUnion
 	utils.Must0(json.Unmarshal([]byte(`{
 		"type": "text",
 		"text": "Pong"
 	}`), &block))
 	return &anthropic.Message{
 		ID:      "msg_abc123",
-		Content: []anthropic.ContentBlock{block},
+		Content: []anthropic.ContentBlockUnion{block},
 		Model:   "claude-3-haiku-20240307",
 		Role:    "assistant",
 	}, nil
