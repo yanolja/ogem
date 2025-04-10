@@ -46,7 +46,7 @@ func newMockEndpoint(client anthropicClient) *Endpoint {
 
 func TestEndpoint(t *testing.T) {
 	t.Run("new endpoint should succeed", func(t *testing.T) {
-		endpoint, err := NewEndpoint("test-api-key")
+		endpoint, err := NewEndpoint("test-api-key", nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, endpoint)
 	})
