@@ -86,7 +86,6 @@ func main() {
 	sugar.Infow("Server exited gracefully")
 }
 
-// SetupStateManager creates a new state manager based on the configuration
 func setupStateManager(config *config.Config) (state.Manager, func(), error) {
 	if config.ValkeyEndpoint == "" {
 		// Maximum memory usage of 2GB.
@@ -103,7 +102,6 @@ func setupStateManager(config *config.Config) (state.Manager, func(), error) {
 	return state.NewValkeyManager(valkeyClient), nil, nil
 }
 
-// SetupServer creates a new HTTP server with the given configuration
 func setupServer(config *config.Config, handler http.Handler) *http.Server {
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
