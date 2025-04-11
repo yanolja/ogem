@@ -256,6 +256,51 @@ func (s *ModelProxy) HandleChatCompletions(httpResponse http.ResponseWriter, htt
 	}
 }
 
+func (s *ModelProxy) HandleEmbeddings(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	defer httpRequest.Body.Close()
+
+	bodyBytes, err := io.ReadAll(httpRequest.Body)
+	if err != nil {
+		s.logger.Warnw("Failed to read request body", "error", err)
+		http.Error(httpResponse, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	var openAiRequest openai.EmbeddingRequest
+	if err := json.Unmarshal(bodyBytes, &openAiRequest); err != nil {
+		s.logger.Warnw("Invalid request body", "error", err, "body", string(bodyBytes))
+		http.Error(httpResponse, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	models := strings.Split(openAiRequest.Model, ",")
+	s.logger.Infow("Received embeddings request", "models", models)
+
+	var openAiResponse *openai.EmbeddingResponse
+	var lastError error
+	lastIndex := len(models) - 1
+	for index, model := range models {
+		openAiRequest.Model = strings.TrimSpace(model)
+		openAiResponse, err = s.generateEmbeddings(httpRequest.Context(), &openAiRequest, index == lastIndex)
+		if err != nil {
+			s.logger.Warnw("Failed to get embeddings", "error", err, "model", model)
+			lastError = err
+			continue
+		}
+	}
+
+	if openAiResponse == nil {
+		handleError(httpResponse, lastError)
+		return
+	}
+
+	httpResponse.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(httpResponse).Encode(openAiResponse); err != nil {
+		s.logger.Errorw("Failed to encode response", "error", err)
+		http.Error(httpResponse, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
 func (s *ModelProxy) HandleAuthentication(handler http.HandlerFunc) http.HandlerFunc {
 	return func(httpResponse http.ResponseWriter, httpRequest *http.Request) {
 		if s.config.OgemApiKey == "" {
@@ -411,6 +456,69 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 				if err != nil {
 					s.logger.Warnw("Failed to cache response", "error", err)
 				}
+			}
+			return openAiResponse, nil
+		}
+		if bestEndpoint == nil {
+			if keepRetry {
+				s.logger.Warnw("No available endpoints", "waiting", s.retryInterval)
+				time.Sleep(s.retryInterval)
+				continue
+			}
+			s.logger.Warn("No available endpoints")
+			return nil, UnavailableError{fmt.Errorf("no available endpoints")}
+		}
+		time.Sleep(shortestWaiting)
+	}
+}
+
+func (s *ModelProxy) generateEmbeddings(ctx context.Context, openAiRequest *openai.EmbeddingRequest, keepRetry bool) (*openai.EmbeddingResponse, error) {
+	endpointProvider, endpointRegion, modelOrAlias, err := parseModelIdentifier(openAiRequest.Model)
+	if err != nil {
+		s.logger.Warnw("Invalid model name", "error", err, "model", openAiRequest.Model)
+		return nil, BadRequestError{fmt.Errorf("invalid model name: %s", openAiRequest.Model)}
+	}
+
+	endpoints, err := s.sortedEndpoints(endpointProvider, endpointRegion, modelOrAlias)
+	if err != nil || len(endpoints) == 0 {
+		s.logger.Warnw("Failed to select endpoint", "error", err, "provider", endpointProvider, "region", endpointRegion, "model", modelOrAlias)
+		return nil, UnavailableError{fmt.Errorf("no available endpoints")}
+	}
+
+	for {
+		var bestEndpoint *endpointStatus
+		var shortestWaiting time.Duration
+		for _, endpoint := range endpoints {
+			if ctx.Err() != nil {
+				s.logger.Warn("Request canceled")
+				return nil, RequestTimeoutError{fmt.Errorf("request canceled")}
+			}
+
+			accepted, waiting, err := s.stateManager.Allow(
+				ctx,
+				endpoint.endpoint.Provider(),
+				endpoint.endpoint.Region(),
+				modelOrAlias,
+				requestInterval(endpoint.modelStatus),
+			)
+			if err != nil {
+				s.logger.Warnw("Failed to check rate limit", "error", err, "provider", endpoint.endpoint.Provider(), "region", endpoint.endpoint.Region(), "model", modelOrAlias)
+				return nil, InternalServerError{fmt.Errorf("rate limit check failed")}
+			}
+			if !accepted {
+				if bestEndpoint == nil || waiting < shortestWaiting {
+					bestEndpoint = endpoint
+					shortestWaiting = waiting
+				}
+				s.logger.Infow("Rate limit exceeded", "provider", endpoint.endpoint.Provider(), "region", endpoint.endpoint.Region(), "model", modelOrAlias, "waiting", waiting)
+				continue
+			}
+
+			openAiRequest.Model = endpoint.modelStatus.Name
+			openAiResponse, err := endpoint.endpoint.CreateEmbeddings(ctx, openAiRequest)
+			if err != nil {
+				s.logger.Warnw("Failed to generate embeddings", "error", err, "request", openAiRequest, "response", openAiResponse)
+				return nil, InternalServerError{fmt.Errorf("failed to generate embeddings")}
 			}
 			return openAiResponse, nil
 		}
