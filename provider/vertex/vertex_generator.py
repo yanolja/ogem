@@ -7,8 +7,6 @@ def replace_content(content):
   content = auto_generated_comment + content
 
   content = content.replace('''package studio''', '''package vertex''')
-  content = content.replace('''"github.com/google/generative-ai-go/genai"''',
-                            '''"cloud.google.com/go/vertexai/genai"''')
   content = content.replace('''
 	"google.golang.org/api/option"''', '''''')
   content = content.replace(
@@ -25,10 +23,16 @@ const REGION = "studio"''', '''''')
   content = content.replace(
       '''func NewEndpoint(apiKey string) (*Endpoint, error) {''',
       '''func NewEndpoint(projectId string, region string) (*Endpoint, error) {''')
-  content = content.replace('''client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))''',
-                            '''client, err := genai.NewClient(ctx, projectId, region)''')
-  content = content.replace('''return &Endpoint{client: client}, nil''',
-                            '''return &Endpoint{client: client, region: region}, nil''')
+  content = content.replace('''func NewEndpoint(apiKey string)''', '''func NewEndpoint(projectId string, region string)''')
+  content = content.replace('''&genai.ClientConfig{
+		APIKey: apiKey,
+		Backend: genai.BackendGeminiAPI,
+	}''', '''&genai.ClientConfig{
+		Project: projectId,
+		Location: region,
+		Backend: genai.BackendVertexAI,
+	}''')
+  content = content.replace('''return &Endpoint{client: client}, nil''', '''return &Endpoint{client: client, region: region}, nil''')
   content = content.replace('''return "studio"''', '''return "vertex"''')
   content = content.replace('''func (ep *Endpoint) Region() string {
 	return REGION

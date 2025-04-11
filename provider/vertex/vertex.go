@@ -8,12 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/vertexai/genai"
+	"google.golang.org/genai"
 
 	"github.com/yanolja/ogem/openai"
 	"github.com/yanolja/ogem/provider"
 	"github.com/yanolja/ogem/utils"
-	"github.com/yanolja/ogem/utils/array"
 	"github.com/yanolja/ogem/utils/orderedmap"
 )
 
@@ -24,7 +23,11 @@ type Endpoint struct {
 
 func NewEndpoint(projectId string, region string) (*Endpoint, error) {
 	ctx := context.Background()
-	client, err := genai.NewClient(ctx, projectId, region)
+	client, err := genai.NewClient(ctx, &genai.ClientConfig{
+		Project: projectId,
+		Location: region,
+		Backend: genai.BackendVertexAI,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -32,19 +35,27 @@ func NewEndpoint(projectId string, region string) (*Endpoint, error) {
 }
 
 func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
-	model, err := modelFromOpenAiRequest(ep.client, openaiRequest)
+	config, err := toGeminiConfig(openaiRequest)
 	if err != nil {
 		return nil, err
 	}
 
-	chat := model.StartChat()
-	var messageToSend *genai.Content
-	chat.History, messageToSend, err = toGeminiMessages(openaiRequest.Messages)
+	history, messageToSend, err := toGeminiMessages(openaiRequest.Messages)
 	if err != nil {
 		return nil, err
 	}
 
-	geminiResponse, err := chat.SendMessage(ctx, messageToSend.Parts...)
+	chat, err := ep.client.Chats.Create(ctx, openaiRequest.Model, config, history)
+	if err != nil {
+		return nil, err
+	}
+
+	parts := make([]genai.Part, len(messageToSend.Parts))
+	for i, part := range messageToSend.Parts {
+		parts[i] = *part
+	}
+
+	geminiResponse, err := chat.SendMessage(ctx, parts...)
 	if err != nil {
 		return nil, err
 	}
@@ -65,11 +76,14 @@ func (ep *Endpoint) Region() string {
 }
 
 func (ep *Endpoint) Ping(ctx context.Context) (time.Duration, error) {
-	genModel := ep.client.GenerativeModel("gemini-1.5-flash")
-	genModel.MaxOutputTokens = utils.ToPtr(int32(1))
+	config := &genai.GenerateContentConfig{MaxOutputTokens: 1}
+	content := &genai.Content{
+		Parts: []*genai.Part{{Text: "Ping"}},
+		Role:  "user",
+	}
 
 	start := time.Now()
-	_, err := genModel.GenerateContent(ctx, genai.Text("Ping"))
+	_, err := ep.client.Chats.Create(ctx, "gemini-1.5-flash", config, []*genai.Content{content})
 	if err != nil {
 		return 0, err
 	}
@@ -77,93 +91,92 @@ func (ep *Endpoint) Ping(ctx context.Context) (time.Duration, error) {
 }
 
 func (ep *Endpoint) Shutdown() error {
-	return ep.client.Close()
+	return nil
 }
 
-func modelFromOpenAiRequest(client *genai.Client, openAiRequest *openai.ChatCompletionRequest) (*genai.GenerativeModel, error) {
-	model := client.GenerativeModel(openAiRequest.Model)
+func toGeminiConfig(openaiRequest *openai.ChatCompletionRequest) (*genai.GenerateContentConfig, error) {
+	config := &genai.GenerateContentConfig{}
+	config.SystemInstruction = toGeminiSystemInstruction(openaiRequest)
+	config.Temperature = openaiRequest.Temperature
+	config.TopP = openaiRequest.TopP
 
-	model.SystemInstruction = toGeminiSystemInstruction(openAiRequest)
-	model.Temperature = openAiRequest.Temperature
-	model.TopP = openAiRequest.TopP
-
-	if openAiRequest.MaxTokens != nil {
-		model.MaxOutputTokens = openAiRequest.MaxTokens
-	} else if openAiRequest.MaxCompletionTokens != nil {
-		model.MaxOutputTokens = openAiRequest.MaxCompletionTokens
+	if openaiRequest.MaxTokens != nil {
+		config.MaxOutputTokens = *openaiRequest.MaxTokens
+	} else if openaiRequest.MaxCompletionTokens != nil {
+		config.MaxOutputTokens = *openaiRequest.MaxCompletionTokens
 	}
 
-	if openAiRequest.CandidateCount != nil && *openAiRequest.CandidateCount != 1 {
-		return nil, fmt.Errorf("unsupported candidate count: %d, only 1 is supported", *openAiRequest.CandidateCount)
+	if openaiRequest.CandidateCount != nil && *openaiRequest.CandidateCount != 1 {
+		return nil, fmt.Errorf("unsupported candidate count: %d, only 1 is supported", *openaiRequest.CandidateCount)
 	}
-	model.CandidateCount = openAiRequest.CandidateCount
+	config.CandidateCount = *openaiRequest.CandidateCount
 
-	if openAiRequest.StopSequences != nil {
-		model.StopSequences = openAiRequest.StopSequences.Sequences
-	}
-
-	model.SafetySettings = []*genai.SafetySetting{
-		{Category: genai.HarmCategoryHarassment, Threshold: genai.HarmBlockNone},
-		{Category: genai.HarmCategoryHateSpeech, Threshold: genai.HarmBlockNone},
-		{Category: genai.HarmCategorySexuallyExplicit, Threshold: genai.HarmBlockNone},
-		{Category: genai.HarmCategoryDangerousContent, Threshold: genai.HarmBlockNone},
+	if openaiRequest.StopSequences != nil {
+		config.StopSequences = openaiRequest.StopSequences.Sequences
 	}
 
-	if err := setToolsAndFunctions(model, openAiRequest); err != nil {
+	config.SafetySettings = []*genai.SafetySetting{
+		{Category: genai.HarmCategoryHarassment, Threshold: genai.HarmBlockThresholdBlockNone},
+		{Category: genai.HarmCategoryHateSpeech, Threshold: genai.HarmBlockThresholdBlockNone},
+		{Category: genai.HarmCategorySexuallyExplicit, Threshold: genai.HarmBlockThresholdBlockNone},
+		{Category: genai.HarmCategoryDangerousContent, Threshold: genai.HarmBlockThresholdBlockNone},
+	}
+
+	if err := setToolsAndFunctions(config, openaiRequest); err != nil {
 		return nil, err
 	}
 
-	if err := setResponseFormat(model, openAiRequest); err != nil {
+	if err := setResponseFormat(config, openaiRequest); err != nil {
 		return nil, err
 	}
 
-	return model, nil
+	return config, nil
 }
 
-func setToolsAndFunctions(model *genai.GenerativeModel, openAiRequest *openai.ChatCompletionRequest) error {
-	hasFunctions := len(openAiRequest.Functions) > 0
-	hasTools := len(openAiRequest.Tools) > 0
+func setToolsAndFunctions(config *genai.GenerateContentConfig, openaiRequest *openai.ChatCompletionRequest) error {
+	hasFunctions := len(openaiRequest.Functions) > 0
+	hasTools := len(openaiRequest.Tools) > 0
 
 	if hasFunctions && hasTools {
 		return fmt.Errorf("functions and tools are mutually exclusive")
 	}
 
 	if hasFunctions {
-		tools, err := toGeminiToolsFromFunctions(openAiRequest.Functions)
+		tools, err := toGeminiToolsFromFunctions(openaiRequest.Functions)
 		if err != nil {
 			return err
 		}
-		model.Tools = tools
+		config.Tools = tools
 
-		config, err := toGeminiToolConfigFromFunctions(openAiRequest.FunctionCall)
+		toolConfig, err := toGeminiToolConfigFromFunctions(openaiRequest.FunctionCall)
 		if err != nil {
 			return err
 		}
-		model.ToolConfig = config
+		config.ToolConfig = toolConfig
 	} else if hasTools {
-		tools, err := toGeminiTools(openAiRequest.Tools)
+		tools, err := toGeminiTools(openaiRequest.Tools)
 		if err != nil {
 			return err
 		}
-		model.Tools = tools
+		config.Tools = tools
 
-		config, err := toGeminiToolConfig(openAiRequest.ToolChoice)
+		toolConfig, err := toGeminiToolConfig(openaiRequest.ToolChoice)
 		if err != nil {
 			return err
 		}
-		model.ToolConfig = config
+		config.ToolConfig = toolConfig
 	}
 
 	return nil
 }
 
-func setResponseFormat(model *genai.GenerativeModel, openAiRequest *openai.ChatCompletionRequest) error {
-	mimeType, jsonSchema, err := provider.ToGeminiResponseMimeType(openAiRequest)
+func setResponseFormat(config *genai.GenerateContentConfig, openaiRequest *openai.ChatCompletionRequest) error {
+	mimeType, jsonSchema, err := provider.ToGeminiResponseMimeType(openaiRequest)
 	if err != nil {
 		return err
 	}
-	model.ResponseMIMEType = mimeType
-	model.ResponseSchema, err = toGeminiSchema(jsonSchema)
+	config.ResponseMIMEType = mimeType
+	config.ResponseSchema, err = toGeminiSchema(jsonSchema)
 	return err
 }
 
@@ -201,14 +214,14 @@ func toGeminiSystemInstruction(openAiRequest *openai.ChatCompletionRequest) *gen
 	for _, message := range openAiRequest.Messages {
 		if provider.ToGeminiRole(message.Role) == "system" {
 			return &genai.Content{
-				Parts: []genai.Part{genai.Text(*message.Content.String)},
+				Parts: []*genai.Part{{Text: *message.Content.String}},
 			}
 		}
 	}
 	return nil
 }
 
-func toGeminiParts(message openai.Message, toolMap map[string]string) ([]genai.Part, error) {
+func toGeminiParts(message openai.Message, toolMap map[string]string) ([]*genai.Part, error) {
 	if message.Role == "tool" {
 		response, err := utils.JsonToMap(*message.Content.String)
 		if err != nil {
@@ -218,52 +231,64 @@ func toGeminiParts(message openai.Message, toolMap map[string]string) ([]genai.P
 		if !exists {
 			return nil, fmt.Errorf("tool call ID %s not found in the previous messages", *message.ToolCallId)
 		}
-		return []genai.Part{&genai.FunctionResponse{
-			Name:     functionName,
-			Response: response,
-		}}, nil
+		return []*genai.Part{
+			{
+				FunctionResponse: &genai.FunctionResponse{
+					Name:     functionName,
+					Response: response,
+				},
+			},
+		}, nil
 	}
 	if message.Role == "function" {
 		response, err := utils.JsonToMap(*message.Content.String)
 		if err != nil {
 			return nil, fmt.Errorf("function response must be a valid JSON object: %v", err)
 		}
-		return []genai.Part{&genai.FunctionResponse{
-			Name:     *message.Name,
-			Response: response,
-		}}, nil
+		return []*genai.Part{
+			{
+				FunctionResponse: &genai.FunctionResponse{
+					Name:     *message.Name,
+					Response: response,
+				},
+			},
+		}, nil
 	}
 	if message.Content != nil {
 		if message.Content.String != nil {
-			return []genai.Part{genai.Text(*message.Content.String)}, nil
+			return []*genai.Part{{Text: *message.Content.String}}, nil
 		}
-		return array.Map(message.Content.Parts, func(part openai.Part) genai.Part {
+		parts := make([]*genai.Part, len(message.Content.Parts))
+		for i, part := range message.Content.Parts {
 			if part.Content.TextContent != nil {
-				return genai.Text(part.Content.TextContent.Text)
-			}
-			if part.Content.ImageContent != nil {
+				parts[i] = &genai.Part{Text: part.Content.TextContent.Text}
+			} else if part.Content.ImageContent != nil {
 				// TODO(seungduk): Implement image downloader and pass it from the main to this provider.
 				// It should support cache mechanism using Valkey.
-				return genai.Text("image content is not supported yet")
+				parts[i] = &genai.Part{Text: "image content is not supported yet"}
+			} else {
+				parts[i] = &genai.Part{Text: "unsupported content type"}
 			}
-			return genai.Text("unsupported content type")
-		}), nil
+		}
+		return parts, nil
 	}
 	if message.Refusal != nil {
-		return []genai.Part{genai.Text(*message.Refusal)}, nil
+		return []*genai.Part{{Text: *message.Refusal}}, nil
 	}
 	if message.FunctionCall != nil {
 		arguments, err := utils.JsonToMap(message.FunctionCall.Arguments)
 		if err != nil {
 			return nil, err
 		}
-		return []genai.Part{&genai.FunctionCall{
-			Name: message.FunctionCall.Name,
-			Args: arguments,
+		return []*genai.Part{{
+			FunctionCall: &genai.FunctionCall{
+				Name: message.FunctionCall.Name,
+				Args: arguments,
+			},
 		}}, nil
 	}
 	if len(message.ToolCalls) > 0 {
-		toolCalls := make([]genai.Part, len(message.ToolCalls))
+		toolCalls := make([]*genai.Part, len(message.ToolCalls))
 		for index, toolCall := range message.ToolCalls {
 			if toolCall.Type != "function" {
 				return nil, fmt.Errorf("unsupported tool call type: %s", toolCall.Type)
@@ -272,9 +297,11 @@ func toGeminiParts(message openai.Message, toolMap map[string]string) ([]genai.P
 			if err != nil {
 				return nil, err
 			}
-			toolCalls[index] = &genai.FunctionCall{
-				Name: toolCall.Function.Name,
-				Args: arguments,
+			toolCalls[index] = &genai.Part{
+				FunctionCall: &genai.FunctionCall{
+					Name: toolCall.Function.Name,
+					Args: arguments,
+				},
 			}
 		}
 		return toolCalls, nil
@@ -316,19 +343,19 @@ func toGeminiToolConfig(toolChoice *openai.ToolChoice) (*genai.ToolConfig, error
 		case "auto":
 			return &genai.ToolConfig{
 				FunctionCallingConfig: &genai.FunctionCallingConfig{
-					Mode: genai.FunctionCallingAuto,
+					Mode: genai.FunctionCallingConfigModeAuto,
 				},
 			}, nil
 		case "required":
 			return &genai.ToolConfig{
 				FunctionCallingConfig: &genai.FunctionCallingConfig{
-					Mode: genai.FunctionCallingAny,
+					Mode: genai.FunctionCallingConfigModeAny,
 				},
 			}, nil
 		case "none":
 			return &genai.ToolConfig{
 				FunctionCallingConfig: &genai.FunctionCallingConfig{
-					Mode: genai.FunctionCallingNone,
+					Mode: genai.FunctionCallingConfigModeNone,
 				},
 			}, nil
 		}
@@ -341,7 +368,7 @@ func toGeminiToolConfig(toolChoice *openai.ToolChoice) (*genai.ToolConfig, error
 	}
 	return &genai.ToolConfig{
 		FunctionCallingConfig: &genai.FunctionCallingConfig{
-			Mode:                 genai.FunctionCallingAny,
+			Mode:                 genai.FunctionCallingConfigModeAny,
 			AllowedFunctionNames: []string{toolChoice.Struct.Function.Name},
 		},
 	}, nil
@@ -378,19 +405,19 @@ func toGeminiToolConfigFromFunctions(functionCall *openai.LegacyFunctionChoice) 
 		case "auto":
 			return &genai.ToolConfig{
 				FunctionCallingConfig: &genai.FunctionCallingConfig{
-					Mode: genai.FunctionCallingAuto,
+					Mode: genai.FunctionCallingConfigModeAuto,
 				},
 			}, nil
 		case "any":
 			return &genai.ToolConfig{
 				FunctionCallingConfig: &genai.FunctionCallingConfig{
-					Mode: genai.FunctionCallingAny,
+					Mode: genai.FunctionCallingConfigModeAny,
 				},
 			}, nil
 		case "none":
 			return &genai.ToolConfig{
 				FunctionCallingConfig: &genai.FunctionCallingConfig{
-					Mode: genai.FunctionCallingNone,
+					Mode: genai.FunctionCallingConfigModeNone,
 				},
 			}, nil
 		}
@@ -400,7 +427,7 @@ func toGeminiToolConfigFromFunctions(functionCall *openai.LegacyFunctionChoice) 
 	}
 	return &genai.ToolConfig{
 		FunctionCallingConfig: &genai.FunctionCallingConfig{
-			Mode:                 genai.FunctionCallingAny,
+			Mode:                 genai.FunctionCallingConfigModeAny,
 			AllowedFunctionNames: []string{functionCall.Function.Name},
 		},
 	}, nil
@@ -435,7 +462,7 @@ func toGeminiSchemaObject(schema *orderedmap.Map, definitions map[string]*ordere
 		case "description":
 			geminiSchema.Description = entry.Value.(string)
 		case "nullable":
-			geminiSchema.Nullable = entry.Value.(bool)
+			geminiSchema.Nullable = utils.ToPtr(entry.Value.(bool))
 		case "enum":
 			openaiEnum := entry.Value.([]any)
 			geminiSchema.Enum = make([]string, len(openaiEnum))
@@ -556,26 +583,26 @@ func toOpenAiMessage(content *genai.Content, index int32) (*openai.Message, erro
 	parts := make([]openai.Part, 0, len(content.Parts))
 	toolCalls := make([]openai.ToolCall, 0, len(content.Parts))
 	for partIndex, part := range content.Parts {
-		switch part := part.(type) {
-		case genai.Text:
+		switch {
+		case part.Text != "":
 			parts = append(parts, openai.Part{
 				Type: "text",
 				Content: openai.Content{
 					TextContent: &openai.TextContent{
-						Text: strings.TrimSpace(fmt.Sprintf("%s", part)),
+						Text: strings.TrimSpace(fmt.Sprintf("%s", part.Text)),
 					},
 				},
 			})
-		case genai.FunctionCall:
-			jsonString, err := utils.MapToJson(part.Args)
+		case part.FunctionCall != nil:
+			jsonString, err := utils.MapToJson(part.FunctionCall.Args)
 			if err != nil {
 				return nil, err
 			}
 			toolCalls = append(toolCalls, openai.ToolCall{
-				Id:   fmt.Sprintf("tool-%s-%d-%d", part.Name, index, partIndex),
+				Id:   fmt.Sprintf("tool-%s-%d-%d", part.FunctionCall.Name, index, partIndex),
 				Type: "function",
 				Function: &openai.FunctionCall{
-					Name:      part.Name,
+					Name:      part.FunctionCall.Name,
 					Arguments: jsonString,
 				},
 			})
@@ -603,12 +630,12 @@ func toOpenAiMessage(content *genai.Content, index int32) (*openai.Message, erro
 }
 
 func toOpenAiPart(part genai.Part) openai.Part {
-	switch part := part.(type) {
-	case genai.Text:
+	switch {
+	case part.Text != "":
 		return openai.Part{
 			Content: openai.Content{
 				TextContent: &openai.TextContent{
-					Text: strings.TrimSpace(fmt.Sprintf("%s", part)),
+					Text: strings.TrimSpace(fmt.Sprintf("%s", part.Text)),
 				},
 			},
 		}

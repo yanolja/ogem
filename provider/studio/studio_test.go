@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/google/generative-ai-go/genai"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/genai"
 
+	"github.com/yanolja/ogem/utils"
 	"github.com/yanolja/ogem/utils/orderedmap"
 )
 
@@ -113,7 +114,7 @@ func TestToGeminiSchema(t *testing.T) {
 					"description": {
 						Type:        genai.TypeString,
 						Description: "A brief description",
-						Nullable:    true,
+						Nullable:    utils.ToPtr(true),
 					},
 				},
 			},
