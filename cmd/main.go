@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -19,7 +18,6 @@ import (
 	"github.com/yanolja/ogem/server"
 	"github.com/yanolja/ogem/state"
 	"github.com/yanolja/ogem/utils"
-	"github.com/yanolja/ogem/utils/env"
 )
 
 func main() {
@@ -34,7 +32,7 @@ func main() {
 		sugar.Fatalw("Failed to load config", "error", err)
 	}
 
-	stateManager, cleanup, err := setupStateManager(config)
+	stateManager, cleanup, err := setupStateManager(config.ValkeyEndpoint)
 	if err != nil {
 		sugar.Fatalw("Failed to setup state manager", "error", err)
 	}
@@ -49,7 +47,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/chat/completions", proxy.HandleAuthentication(proxy.HandleChatCompletions))
 
-	httpServer := setupServer(config, mux)
+	httpServer := setupServer(config.Port, mux)
 
 	shutdownSignal := make(chan os.Signal, 1)
 	signal.Notify(shutdownSignal, os.Interrupt, syscall.SIGTERM)
@@ -86,15 +84,15 @@ func main() {
 	sugar.Infow("Server exited gracefully")
 }
 
-func setupStateManager(config *config.Config) (state.Manager, func(), error) {
-	if config.ValkeyEndpoint == "" {
+func setupStateManager(valkeyEndpoint string) (state.Manager, func(), error) {
+	if valkeyEndpoint == "" {
 		// Maximum memory usage of 2GB.
 		memoryManager, cleanup := state.NewMemoryManager(2 * 1024 * 1024 * 1024)
 		return memoryManager, cleanup, nil
 	}
 
 	valkeyClient, err := valkey.NewClient(valkey.ClientOption{
-		InitAddress: []string{config.ValkeyEndpoint},
+		InitAddress: []string{valkeyEndpoint},
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create Valkey client: %v", err)
@@ -102,7 +100,7 @@ func setupStateManager(config *config.Config) (state.Manager, func(), error) {
 	return state.NewValkeyManager(valkeyClient), nil, nil
 }
 
-func setupServer(config *config.Config, handler http.Handler) *http.Server {
+func setupServer(port int, handler http.Handler) *http.Server {
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -110,8 +108,7 @@ func setupServer(config *config.Config, handler http.Handler) *http.Server {
 		Debug:          false,
 	})
 
-	port := env.OptionalStringVariable("PORT", strconv.Itoa(config.Port))
-	address := fmt.Sprintf(":%s", port)
+	address := fmt.Sprintf(":%d", port)
 
 	return &http.Server{
 		Addr:    address,
