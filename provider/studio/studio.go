@@ -63,6 +63,7 @@ func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *o
 	if err != nil {
 		return nil, err
 	}
+
 	return openai.FinalizeResponse(ep.Provider(), ep.Region(), openaiRequest.Model, openaiResponse), nil
 }
 
@@ -76,14 +77,15 @@ func (ep *Endpoint) Region() string {
 
 func (ep *Endpoint) Ping(ctx context.Context) (time.Duration, error) {
 	config := &genai.GenerateContentConfig{MaxOutputTokens: 1}
-	content := &genai.Content{
-		Parts: []*genai.Part{{Text: "Ping"}},
-		Role:  "user",
+	content := []*genai.Content{
+		{
+			Parts: []*genai.Part{{Text: "Ping"}},
+			Role:  "user",
+		},
 	}
 
 	start := time.Now()
-	_, err := ep.client.Chats.Create(ctx, "gemini-1.5-flash", config, []*genai.Content{content})
-	if err != nil {
+	if _, err := ep.client.Chats.Create(ctx, "gemini-1.5-flash", config, content); err != nil {
 		return 0, err
 	}
 	return time.Since(start), nil
