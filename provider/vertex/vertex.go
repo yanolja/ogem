@@ -64,6 +64,7 @@ func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *o
 	if err != nil {
 		return nil, err
 	}
+
 	return openai.FinalizeResponse(ep.Provider(), ep.Region(), openaiRequest.Model, openaiResponse), nil
 }
 
@@ -77,14 +78,15 @@ func (ep *Endpoint) Region() string {
 
 func (ep *Endpoint) Ping(ctx context.Context) (time.Duration, error) {
 	config := &genai.GenerateContentConfig{MaxOutputTokens: 1}
-	content := &genai.Content{
-		Parts: []*genai.Part{{Text: "Ping"}},
-		Role:  "user",
+	content := []*genai.Content{
+		{
+			Parts: []*genai.Part{{Text: "Ping"}},
+			Role:  "user",
+		},
 	}
 
 	start := time.Now()
-	_, err := ep.client.Chats.Create(ctx, "gemini-1.5-flash", config, []*genai.Content{content})
-	if err != nil {
+	if _, err := ep.client.Chats.Create(ctx, "gemini-2.0-flash-lite-001", config, content); err != nil {
 		return 0, err
 	}
 	return time.Since(start), nil
@@ -108,8 +110,9 @@ func toGeminiConfig(openaiRequest *openai.ChatCompletionRequest) (*genai.Generat
 
 	if openaiRequest.CandidateCount != nil && *openaiRequest.CandidateCount != 1 {
 		return nil, fmt.Errorf("unsupported candidate count: %d, only 1 is supported", *openaiRequest.CandidateCount)
+	} else if openaiRequest.CandidateCount != nil {
+		config.CandidateCount = *openaiRequest.CandidateCount
 	}
-	config.CandidateCount = *openaiRequest.CandidateCount
 
 	if openaiRequest.StopSequences != nil {
 		config.StopSequences = openaiRequest.StopSequences.Sequences

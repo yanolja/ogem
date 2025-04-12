@@ -85,7 +85,7 @@ func (ep *Endpoint) Ping(ctx context.Context) (time.Duration, error) {
 	}
 
 	start := time.Now()
-	if _, err := ep.client.Chats.Create(ctx, "gemini-1.5-flash", config, content); err != nil {
+	if _, err := ep.client.Chats.Create(ctx, "gemini-2.0-flash-lite-001", config, content); err != nil {
 		return 0, err
 	}
 	return time.Since(start), nil
