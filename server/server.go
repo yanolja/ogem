@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/yanolja/ogem"
+	"github.com/yanolja/ogem/config"
 	"github.com/yanolja/ogem/openai"
 	"github.com/yanolja/ogem/provider"
 	"github.com/yanolja/ogem/provider/claude"
@@ -37,40 +38,6 @@ type (
 	RequestTimeoutError struct{ error }
 	UnavailableError    struct{ error }
 )
-
-type Config struct {
-	// Valkey (open-source version of Redis) endpoint to store rate limiting information.
-	// E.g., localhost:6379
-	ValkeyEndpoint string `yaml:"valkey_endpoint"`
-
-	// API key to access the Ogem service. The user should provide this key in the Authorization header with the Bearer scheme.
-	OgemApiKey string
-
-	// Project ID of the Google Cloud project to use Vertex AI.
-	// E.g., my-project-12345
-	GoogleCloudProject string `yaml:"google_cloud_project"`
-
-	// API key to access the GenAI Studio service.
-	GenaiStudioApiKey string
-
-	// API key to access the OpenAI service.
-	OpenAiApiKey string
-
-	// API key to access the Claude service.
-	ClaudeApiKey string
-
-	// Interval to retry when no available endpoints are found. E.g., 10m
-	RetryInterval string `yaml:"retry_interval"`
-
-	// Interval to update the status of the providers. E.g., 1h30m
-	PingInterval string `yaml:"ping_interval"`
-
-	// Port to listen for incoming requests.
-	Port int `yaml:"port"`
-
-	// Configuration for each provider.
-	Providers ogem.ProvidersStatus `yaml:"providers"`
-}
 
 type endpointStatus struct {
 	// Endpoint to use for generating completions.
@@ -106,13 +73,13 @@ type ModelProxy struct {
 	pingInterval time.Duration
 
 	// Configuration for the proxy server.
-	config Config
+	config *config.Config
 
 	// Logger for the proxy server.
 	logger *zap.SugaredLogger
 }
 
-func newEndpoint(provider string, region string, config *Config) (provider.AiEndpoint, error) {
+func newEndpoint(provider string, region string, config *config.Config) (provider.AiEndpoint, error) {
 	switch provider {
 	case "claude":
 		if region != "claude" {
@@ -150,7 +117,7 @@ func newCustomEndpoint(providerName string, protocol string, baseUrl string, api
 	}
 }
 
-func NewProxyServer(stateManager state.Manager, cleanup func(), config Config, logger *zap.SugaredLogger) (*ModelProxy, error) {
+func NewProxyServer(stateManager state.Manager, cleanup func(), config *config.Config, logger *zap.SugaredLogger) (*ModelProxy, error) {
 	retryInterval, err := time.ParseDuration(config.RetryInterval)
 	if err != nil {
 		return nil, fmt.Errorf("invalid retry interval: %v", err)
@@ -177,7 +144,7 @@ func NewProxyServer(stateManager state.Manager, cleanup func(), config Config, l
 		var endpoint provider.AiEndpoint
 		var err error
 		if providerData.BaseUrl == "" {
-			endpoint, err = newEndpoint(providerName, region, &config)
+			endpoint, err = newEndpoint(providerName, region, config)
 		} else {
 			endpoint, err = newCustomEndpoint(
 				providerName,
