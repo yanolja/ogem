@@ -1,0 +1,80 @@
+{
+    "secrets": {
+        "OPEN_GEMINI_API_KEY": {
+            "description": "Ogem API Key"
+        },
+        "OPENAI_API_KEY": {
+            "description": "OpenAI API Key"
+        },
+        "CLAUDE_API_KEY": {
+            "description": "Claude API Key"
+        },
+        "GENAI_STUDIO_API_KEY": {
+            "description": "GenAI Studio API Key"
+        },
+        "GOOGLE_CLOUD_PROJECT": {
+            "description": "Google Cloud Project"
+        },
+        "VALKEY_ENDPOINT": {
+            "description": "Valkey Endpoint"
+        },
+        "RETRY_INTERVAL": {
+            "description": "Retry Interval"
+        },
+        "PING_INTERVAL": {
+            "description": "Ping Interval"
+        },
+        "CONFIG_SOURCE": {
+            "description": "Configuration Source Path"
+        },
+        "CONFIG_TOKEN": {
+            "description": "Configuration Token"
+        }
+    },
+    "name": "Ogem",
+    "dockerComposeFile": "../docker-compose.dev.yml",
+    "service": "app-dev",
+    "workspaceFolder": "/app",
+    "runServices": ["app-dev", "valkey"],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "golang.go",
+                "ms-azuretools.vscode-docker",
+                "redhat.vscode-yaml",
+                "streetsidesoftware.code-spell-checker",
+                "eamodio.gitlens",
+                "github.copilot"
+            ],
+            "settings": {
+                "go.toolsManagement.checkForUpdates": "local",
+                "go.useLanguageServer": true,
+                "go.gopath": "/go"
+            }
+        }
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/go:1": {
+            "version": "1.23"
+        },
+        "ghcr.io/devcontainers/features/git:1": {},
+        "ghcr.io/devcontainers/features/docker-from-docker:1": {
+            "version": "latest"        
+        }
+    },
+    "remoteEnv": {
+        "OPEN_GEMINI_API_KEY": "${localEnv:OPEN_GEMINI_API_KEY}",
+        "OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}",
+        "CLAUDE_API_KEY": "${localEnv:CLAUDE_API_KEY}",
+        "GENAI_STUDIO_API_KEY": "${localEnv:GENAI_STUDIO_API_KEY}",
+        "GOOGLE_CLOUD_PROJECT": "${localEnv:GOOGLE_CLOUD_PROJECT}",
+        "VALKEY_ENDPOINT": "${localEnv:VALKEY_ENDPOINT}",
+        "RETRY_INTERVAL": "${localEnv:RETRY_INTERVAL}",
+        "PING_INTERVAL": "${localEnv:PING_INTERVAL}",
+        "CONFIG_SOURCE": "${localEnv:CONFIG_SOURCE}",
+        "CONFIG_TOKEN": "${localEnv:CONFIG_TOKEN}"
+    },
+    "remoteUser": "dev",
+    "updateRemoteUserUID": true,
+    "initializeCommand": "if [ ! -f ${localWorkspaceFolder}/.env ] && [ -f ${localWorkspaceFolder}/.env.example ]; then cp ${localWorkspaceFolder}/.env.example ${localWorkspaceFolder}/.env; fi"
+}
