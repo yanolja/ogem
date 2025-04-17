@@ -1,0 +1,44 @@
+linters:
+  enable:
+    - asciicheck
+    - bodyclose
+    - copyloopvar
+    - dogsled
+    - durationcheck
+    - errcheck
+    - errorlint
+    - gci
+    - ginkgolinter
+    - gochecknoinits
+    - gofmt
+    - gofumpt
+    - goimports
+    - gosec
+    - gosimple
+    - govet
+    - importas
+    - ineffassign
+    - misspell
+    - nakedret
+    - nolintlint
+    - revive
+    - staticcheck
+    - testifylint
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - wastedassign
+
+linters-settings:
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(github.com/yanolja)
+
+  testifylint:
+    enable-all: true
+
+run:
+  timeout: 5m
