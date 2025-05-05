@@ -265,9 +265,9 @@ func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([
 		return []anthropic.ContentBlockParamUnion{
 			{
 				OfRequestToolUseBlock: &anthropic.ToolUseBlockParam{
-					ID:      toolId,
-					Name:    message.FunctionCall.Name,
-					Input:   arguments,
+					ID:    toolId,
+					Name:  message.FunctionCall.Name,
+					Input: arguments,
 				},
 			},
 		}, nil
@@ -284,9 +284,9 @@ func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([
 			}
 			toolCalls[index] = anthropic.ContentBlockParamUnion{
 				OfRequestToolUseBlock: &anthropic.ToolUseBlockParam{
-					ID:      toolCall.Id,
-					Name:    toolCall.Function.Name,
-					Input:   arguments,
+					ID:    toolCall.Id,
+					Name:  toolCall.Function.Name,
+					Input: arguments,
 				},
 			}
 		}
@@ -307,11 +307,13 @@ func toClaudeToolParams(openaiTools []openai.Tool) ([]anthropic.ToolUnionParam, 
 		} else {
 			description = *tool.Function.Description
 		}
+
 		claudeTools[i] = anthropic.ToolUnionParam{
 			OfTool: &anthropic.ToolParam{
 				Name:        tool.Function.Name,
 				Description: anthropic.String(description),
 				InputSchema: anthropic.ToolInputSchemaParam{
+					Type:       "object",
 					Properties: tool.Function.Parameters,
 				},
 			},
@@ -349,26 +351,6 @@ func toClaudeToolChoice(toolChoice *openai.ToolChoice) (anthropic.ToolChoiceUnio
 			Name: toolChoice.Struct.Function.Name,
 		},
 	}, nil
-}
-
-func toClaudeToolParamsFromFunctions(openaiFunctions []openai.LegacyFunction) []anthropic.ToolParam {
-	claudeTools := make([]anthropic.ToolParam, len(openaiFunctions))
-	for i, function := range openaiFunctions {
-		var description string
-		if function.Description == nil {
-			description = strings.TrimSpace(fmt.Sprintf("Function %s", function.Name))
-		} else {
-			description = *function.Description
-		}
-		claudeTools[i] = anthropic.ToolParam{
-			Name:        function.Name,
-			Description: anthropic.String(description),
-			InputSchema: anthropic.ToolInputSchemaParam{
-				Properties: function.Parameters,
-			},
-		}
-	}
-	return claudeTools
 }
 
 func toOpenAiResponse(claudeResponse *anthropic.Message) (*openai.ChatCompletionResponse, error) {
@@ -446,14 +428,12 @@ func toOpenAiFinishReason(claudeStopReason anthropic.MessageStopReason) string {
 
 func standardizeModelName(model string) string {
 	switch strings.TrimRight(model, "0123456789@-") {
-	case "claude-3-5-sonnet":
-		return "claude-3-5-sonnet-20240620"
 	case "claude-3-opus":
-		return "claude-3-opus-20240229"
+		return anthropic.ModelClaude_3_Opus_20240229
 	case "claude-3-sonnet":
-		return "claude-3-sonnet-20240229"
+		return anthropic.ModelClaude_3_Sonnet_20240229
 	case "claude-3-haiku":
-		return "claude-3-haiku-20240307"
+		return anthropic.ModelClaude_3_Haiku_20240307
 	}
 	return model
 }
