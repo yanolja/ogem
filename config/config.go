@@ -46,6 +46,9 @@ type Config struct {
 	// Port to listen for incoming requests.
 	Port int `yaml:"port"`
 
+	// Slack webhook URL for notifications.
+	SlackWebhookURL string `yaml:"slack_webhook_url"`
+
 	// Configuration for each provider.
 	Providers ogem.ProvidersStatus `yaml:"providers"`
 }

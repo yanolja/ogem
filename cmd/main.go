@@ -15,6 +15,7 @@ import (
 	"github.com/rs/cors"
 	"github.com/valkey-io/valkey-go"
 	"github.com/yanolja/ogem/config"
+	"github.com/yanolja/ogem/monitor/schema"
 	"github.com/yanolja/ogem/server"
 	"github.com/yanolja/ogem/state"
 	"github.com/yanolja/ogem/utils"
@@ -38,6 +39,16 @@ func main() {
 	}
 
 	sugar.Infow("Loaded config", "config", config)
+
+	// Initialize schema monitor
+	cache := schema.NewRedisCache(config.ValkeyEndpoint)
+	notifier := schema.NewSlackNotifier(config.SlackWebhookURL)
+	monitor := schema.NewMonitor(sugar, cache, notifier)
+	scheduler := schema.NewScheduler(monitor, sugar)
+
+	// Start schema monitor with daily checks
+	scheduler.Start(24 * time.Hour)
+	defer scheduler.Stop()
 
 	proxy, err := server.NewProxyServer(stateManager, cleanup, config, sugar)
 	if err != nil {
