@@ -428,6 +428,8 @@ func toOpenAiFinishReason(claudeStopReason anthropic.MessageStopReason) string {
 
 func standardizeModelName(model string) string {
 	switch strings.TrimRight(model, "0123456789@-") {
+	case "claude-3-5-sonnet":
+		return anthropic.ModelClaude_3_5_Sonnet_20240620
 	case "claude-3-opus":
 		return anthropic.ModelClaude_3_Opus_20240229
 	case "claude-3-sonnet":
