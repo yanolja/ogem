@@ -15,7 +15,6 @@ import (
 	"github.com/rs/cors"
 	"github.com/valkey-io/valkey-go"
 	"github.com/yanolja/ogem/config"
-	"github.com/yanolja/ogem/monitor/schema"
 	"github.com/yanolja/ogem/server"
 	"github.com/yanolja/ogem/state"
 	"github.com/yanolja/ogem/utils"
@@ -40,13 +39,6 @@ func main() {
 
 	sugar.Infow("Loaded config", "config", config)
 
-	// Initialize schema monitor
-	httpClient := &http.Client{Timeout: 30 * time.Second}
-	cache := schema.NewRedisCache(config.ValkeyEndpoint)
-	notifier := schema.NewSlackNotifier(config.SlackWebhookURL)
-	monitor := schema.NewMonitor(sugar, httpClient, cache, notifier)
-	scheduler := schema.NewScheduler(monitor, sugar, 24*time.Hour)
-
 	proxy, err := server.NewProxyServer(stateManager, cleanup, config, sugar)
 	if err != nil {
 		sugar.Fatalw("Failed to create proxy server", "error", err)
@@ -62,13 +54,6 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	// Start schema monitor with daily checks
-	go func() {
-		if err := scheduler.Start(ctx); err != nil && err != context.Canceled {
-			sugar.Errorw("Schema monitor scheduler failed", "error", err)
-		}
-	}()
 
 	if pingInterval := proxy.PingInterval(); pingInterval > 0 {
 		sugar.Infow("Starting ping loop", "interval", pingInterval)
