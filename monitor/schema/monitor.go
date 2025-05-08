@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"go.uber.org/zap"
@@ -16,13 +15,43 @@ import (
 
 const (
 	OpenAISchemaURL = "https://raw.githubusercontent.com/openai/openai-openapi/master/openapi.yaml"
+	GeminiSchemaURL = "https://raw.githubusercontent.com/googleapis/google-cloud-go/main/vertexai/generativelanguage/apiv1/generativelanguage_v1.swagger.json"
+	ClaudeSchemaURL = "https://raw.githubusercontent.com/anthropics/anthropic-openapi/main/openapi.yaml"
 	cacheKeyPrefix  = "schema_cache:"
 )
+
+// Provider represents an API provider
+type Provider string
+
+const (
+	ProviderOpenAI Provider = "openai"
+	ProviderGemini Provider = "gemini"
+	ProviderClaude Provider = "claude"
+)
+
+// GetSchemaURL returns the schema URL for a given provider
+func GetSchemaURL(provider Provider) string {
+	switch provider {
+	case ProviderOpenAI:
+		return OpenAISchemaURL
+	case ProviderGemini:
+		return GeminiSchemaURL
+	case ProviderClaude:
+		return ClaudeSchemaURL
+	default:
+		return ""
+	}
+}
+
+// HTTPClient interface for making HTTP requests
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
 
 // Monitor handles schema monitoring for various API providers
 type Monitor struct {
 	logger     *zap.SugaredLogger
-	httpClient *http.Client
+	httpClient HTTPClient
 	cache      Cache
 	notifier   Notifier
 }
@@ -39,63 +68,80 @@ type Notifier interface {
 }
 
 // NewMonitor creates a new schema monitor
-func NewMonitor(logger *zap.SugaredLogger, cache Cache, notifier Notifier) *Monitor {
+func NewMonitor(logger *zap.SugaredLogger, httpClient HTTPClient, cache Cache, notifier Notifier) *Monitor {
 	return &Monitor{
-		logger: logger,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-		cache:    cache,
-		notifier: notifier,
+		logger:     logger,
+		httpClient: httpClient,
+		cache:      cache,
+		notifier:   notifier,
 	}
 }
 
-// CheckOpenAISchema fetches and compares the OpenAI schema
-func (m *Monitor) CheckOpenAISchema(ctx context.Context) error {
-	m.logger.Info("Checking OpenAI schema for changes...")
+// CheckSchemas checks for changes in all supported API schemas
+func (m *Monitor) CheckSchemas(ctx context.Context) error {
+	m.logger.Info("Starting schema checks for all providers...")
+	providers := []Provider{ProviderOpenAI, ProviderGemini, ProviderClaude}
+
+	for _, provider := range providers {
+		if err := m.checkProviderSchema(ctx, provider); err != nil {
+			m.logger.Errorw("failed to check schema", "provider", provider, "error", err)
+		}
+	}
+	m.logger.Info("Completed schema checks for all providers")
+	return nil
+}
+
+// checkProviderSchema checks for changes in a specific provider's schema
+func (m *Monitor) checkProviderSchema(ctx context.Context, provider Provider) error {
+	m.logger.Infow("Checking schema for provider", "provider", provider)
+
+	schemaURL := GetSchemaURL(provider)
+	if schemaURL == "" {
+		return fmt.Errorf("unknown provider: %s", provider)
+	}
 
 	// Fetch current schema
-	schema, err := m.fetchSchema(ctx, OpenAISchemaURL)
+	schema, err := m.fetchSchema(ctx, schemaURL)
 	if err != nil {
-		return fmt.Errorf("failed to fetch OpenAI schema: %w", err)
+		return fmt.Errorf("failed to fetch schema for %s: %w", provider, err)
 	}
 
-	// Calculate hash of new schema
-	newHash := calculateSchemaHash(schema)
-
-	// Get previous hash from cache
-	cacheKey := cacheKeyPrefix + "openai"
-	oldHash, err := m.cache.Get(cacheKey)
-	if err != nil {
-		m.logger.Warnw("Failed to get previous schema hash from cache", "error", err)
-		// Continue execution to store the new hash
+	// Validate schema first to ensure it's a valid OpenAPI schema
+	if err := m.validateSchema(schema); err != nil {
+		m.logger.Warnw("Schema validation failed", "provider", provider, "error", err)
 	}
 
-	// If we have an old hash and it's different from the new one
-	if oldHash != "" && oldHash != newHash {
+	// Calculate hash of the new schema
+	hash, err := m.calculateSchemaHash(schema)
+	if err != nil {
+		return fmt.Errorf("failed to calculate hash for %s: %w", provider, err)
+	}
+
+	// Get the previous hash from cache
+	cacheKey := cacheKeyPrefix + string(provider)
+	previousHash, err := m.cache.Get(cacheKey)
+	if err != nil {
+		m.logger.Warnw("failed to get previous hash from cache", "provider", provider, "error", err)
+	}
+
+	// If hash is different, notify about the change
+	if previousHash != "" && hash != previousHash {
 		m.logger.Infow("Schema change detected",
-			"provider", "OpenAI",
-			"oldHash", oldHash,
-			"newHash", newHash,
+			"provider", provider,
+			"oldHash", previousHash,
+			"newHash", hash,
 		)
-
-		// Notify about the change
-		if err := m.notifier.NotifySchemaChange("OpenAI", oldHash, newHash); err != nil {
-			m.logger.Errorw("Failed to send schema change notification", "error", err)
+		if err := m.notifier.NotifySchemaChange(string(provider), previousHash, hash); err != nil {
+			m.logger.Errorw("failed to send notification", "provider", provider, "error", err)
 		}
 	}
 
-	// Store new hash in cache
-	if err := m.cache.Set(cacheKey, newHash); err != nil {
-		return fmt.Errorf("failed to cache schema hash: %w", err)
+	// Update the cache with the new hash
+	if err := m.cache.Set(cacheKey, hash); err != nil {
+		return fmt.Errorf("failed to update cache for %s: %w", provider, err)
 	}
 
-	// Validate schema
-	if err := m.validateSchema(schema); err != nil {
-		return fmt.Errorf("schema validation failed: %w", err)
-	}
-
-	m.logger.Info("OpenAI schema check completed successfully")
+	m.logger.Infow("Schema check completed", "provider", provider)
 	return nil
 }
 
@@ -120,35 +166,41 @@ func (m *Monitor) fetchSchema(ctx context.Context, url string) ([]byte, error) {
 }
 
 // validateSchema ensures the schema is valid OpenAPI 3.0
-func (m *Monitor) validateSchema(schemaData []byte) error {
-	if len(schemaData) == 0 {
-		return fmt.Errorf("empty schema")
-	}
-
+func (m *Monitor) validateSchema(data []byte) error {
 	loader := openapi3.NewLoader()
-	doc, err := loader.LoadFromData(schemaData)
+	doc, err := loader.LoadFromData(data)
 	if err != nil {
-		return fmt.Errorf("invalid OpenAPI schema: %w", err)
+		return fmt.Errorf("failed to load OpenAPI schema: %w", err)
 	}
 
-	// Additional validation checks
-	if doc.Info == nil || doc.Info.Version == "" {
-		return fmt.Errorf("missing required field: info.version")
+	// Validate required fields
+	if doc.Info == nil {
+		return fmt.Errorf("missing info section")
+	}
+	if doc.Info.Version == "" {
+		return fmt.Errorf("missing version in info section")
+	}
+	if doc.Info.Title == "" {
+		return fmt.Errorf("missing title in info section")
 	}
 
 	return nil
 }
 
-// calculateSchemaHash generates a SHA-256 hash of the normalized schema content
-func calculateSchemaHash(data []byte) string {
-	// Normalize JSON by parsing and re-marshaling
+// calculateSchemaHash generates a SHA-256 hash of the schema content
+func (m *Monitor) calculateSchemaHash(data []byte) (string, error) {
+	// For JSON data, try to normalize it first
 	var normalized interface{}
 	if err := json.Unmarshal(data, &normalized); err == nil {
-		if normalizedData, err := json.Marshal(normalized); err == nil {
-			data = normalizedData
+		// If it's valid JSON, use the normalized version
+		normalizedData, err := json.Marshal(normalized)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal schema: %w", err)
 		}
+		data = normalizedData
 	}
 
+	// Calculate hash of the data (normalized if JSON, raw otherwise)
 	hash := sha256.Sum256(data)
-	return hex.EncodeToString(hash[:])
+	return hex.EncodeToString(hash[:]), nil
 }

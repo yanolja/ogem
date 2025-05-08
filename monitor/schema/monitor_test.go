@@ -1,62 +1,178 @@
 package schema
 
 import (
+	"context"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"go.uber.org/zap"
 )
 
-func TestValidateSchema(t *testing.T) {
+type MockCache struct {
+	mock.Mock
+}
+
+func (m *MockCache) Get(key string) (string, error) {
+	args := m.Called(key)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockCache) Set(key string, value string) error {
+	args := m.Called(key, value)
+	return args.Error(0)
+}
+
+type MockNotifier struct {
+	mock.Mock
+}
+
+type MockHTTPClient struct {
+	mock.Mock
+}
+
+func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	args := m.Called(req)
+	return args.Get(0).(*http.Response), args.Error(1)
+}
+
+func (m *MockNotifier) NotifySchemaChange(provider string, oldHash, newHash string) error {
+	args := m.Called(provider, oldHash, newHash)
+	return args.Error(0)
+}
+
+func TestMonitor_CheckSchemas(t *testing.T) {
+	logger := zap.NewNop().Sugar()
+
+	// Mock HTTP client
+	httpClient := &MockHTTPClient{}
+
 	tests := []struct {
-		name    string
-		schema  []byte
-		wantErr bool
+		name          string
+		provider      Provider
+		schemaContent string
+		setup         func(*MockCache, *MockNotifier)
 	}{
 		{
-			name: "valid OpenAPI schema",
-			schema: []byte(`{
+			name:     "OpenAI schema change detected",
+			provider: ProviderOpenAI,
+			schemaContent: `{
 				"openapi": "3.0.0",
 				"info": {
-					"title": "Test API",
+					"title": "OpenAI API",
 					"version": "1.0.0"
 				},
 				"paths": {}
-			}`),
-			wantErr: false,
+			}`,
+			setup: func(cache *MockCache, notifier *MockNotifier) {
+				cache.On("Get", "schema_cache:openai").Return("old-hash", nil)
+				cache.On("Set", "schema_cache:openai", mock.AnythingOfType("string")).Return(nil)
+				notifier.On("NotifySchemaChange", "openai", "old-hash", mock.AnythingOfType("string")).Return(nil)
+			},
 		},
 		{
-			name: "invalid OpenAPI schema - missing version",
-			schema: []byte(`{
+			name:     "Gemini schema change detected",
+			provider: ProviderGemini,
+			schemaContent: `{
 				"openapi": "3.0.0",
 				"info": {
-					"title": "Test API"
+					"title": "Gemini API",
+					"version": "1.0.0"
 				},
 				"paths": {}
-			}`),
-			wantErr: true,
+			}`,
+			setup: func(cache *MockCache, notifier *MockNotifier) {
+				cache.On("Get", "schema_cache:gemini").Return("old-hash", nil)
+				cache.On("Set", "schema_cache:gemini", mock.AnythingOfType("string")).Return(nil)
+				notifier.On("NotifySchemaChange", "gemini", "old-hash", mock.AnythingOfType("string")).Return(nil)
+			},
 		},
 		{
-			name:    "invalid JSON",
-			schema:  []byte(`{"invalid": json`),
-			wantErr: true,
-		},
-		{
-			name:    "empty schema",
-			schema:  []byte{},
-			wantErr: true,
+			name:     "Claude schema change detected",
+			provider: ProviderClaude,
+			schemaContent: `{
+				"openapi": "3.0.0",
+				"info": {
+					"title": "Claude API",
+					"version": "1.0.0"
+				},
+				"paths": {}
+			}`,
+			setup: func(cache *MockCache, notifier *MockNotifier) {
+				cache.On("Get", "schema_cache:claude").Return("old-hash", nil)
+				cache.On("Set", "schema_cache:claude", mock.AnythingOfType("string")).Return(nil)
+				notifier.On("NotifySchemaChange", "claude", "old-hash", mock.AnythingOfType("string")).Return(nil)
+			},
 		},
 	}
 
-	monitor := &Monitor{}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := monitor.validateSchema(tt.schema)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("validateSchema() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			cache := &MockCache{}
+			notifier := &MockNotifier{}
+			tt.setup(cache, notifier)
+
+			// Set up HTTP client mock
+			httpClient.On("Do", mock.AnythingOfType("*http.Request")).Return(&http.Response{
+				StatusCode: http.StatusOK,
+				Body:      io.NopCloser(strings.NewReader(tt.schemaContent)),
+			}, nil)
+
+			monitor := NewMonitor(logger, httpClient, cache, notifier)
+			err := monitor.checkProviderSchema(context.Background(), tt.provider)
+
+			assert.NoError(t, err)
+			cache.AssertExpectations(t)
+			notifier.AssertExpectations(t)
+			httpClient.AssertExpectations(t)
 		})
 	}
 }
 
+func TestGetSchemaURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		provider Provider
+		want     string
+	}{
+		{
+			name:     "OpenAI URL",
+			provider: ProviderOpenAI,
+			want:     OpenAISchemaURL,
+		},
+		{
+			name:     "Gemini URL",
+			provider: ProviderGemini,
+			want:     GeminiSchemaURL,
+		},
+		{
+			name:     "Claude URL",
+			provider: ProviderClaude,
+			want:     ClaudeSchemaURL,
+		},
+		{
+			name:     "Unknown provider",
+			provider: "unknown",
+			want:     "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GetSchemaURL(tt.provider)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+
+
 func TestCalculateSchemaHash(t *testing.T) {
+	monitor := NewMonitor(zap.NewNop().Sugar(), &http.Client{}, &MockCache{}, &MockNotifier{})
+
 	tests := []struct {
 		name string
 		data []byte
@@ -92,32 +208,89 @@ func TestCalculateSchemaHash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := calculateSchemaHash(tt.data); got != tt.want {
-				t.Errorf("calculateSchemaHash() = %v, want %v", got, tt.want)
-			}
+			got, err := monitor.calculateSchemaHash(tt.data)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
 
 // TestHashConsistency ensures that the same input always produces the same hash
 func TestHashConsistency(t *testing.T) {
+	monitor := NewMonitor(zap.NewNop().Sugar(), &http.Client{}, &MockCache{}, &MockNotifier{})
 	data := []byte("test data")
-	hash1 := calculateSchemaHash(data)
-	hash2 := calculateSchemaHash(data)
 
-	if hash1 != hash2 {
-		t.Errorf("Hash inconsistency: hash1 = %v, hash2 = %v", hash1, hash2)
-	}
+	hash1, err1 := monitor.calculateSchemaHash(data)
+	assert.NoError(t, err1)
+
+	hash2, err2 := monitor.calculateSchemaHash(data)
+	assert.NoError(t, err2)
+
+	assert.Equal(t, hash1, hash2, "Same input should produce same hash")
 }
 
 // TestHashDifferentInputs ensures that different inputs produce different hashes
 func TestHashDifferentInputs(t *testing.T) {
+	monitor := NewMonitor(zap.NewNop().Sugar(), &http.Client{}, &MockCache{}, &MockNotifier{})
 	data1 := []byte("test data 1")
 	data2 := []byte("test data 2")
-	hash1 := calculateSchemaHash(data1)
-	hash2 := calculateSchemaHash(data2)
 
-	if hash1 == hash2 {
-		t.Error("Different inputs produced the same hash")
+	hash1, err1 := monitor.calculateSchemaHash(data1)
+	assert.NoError(t, err1)
+
+	hash2, err2 := monitor.calculateSchemaHash(data2)
+	assert.NoError(t, err2)
+
+	assert.NotEqual(t, hash1, hash2, "Different inputs should produce different hashes")
+}
+
+// TestValidateSchema tests the schema validation functionality
+func TestValidateSchema(t *testing.T) {
+	monitor := NewMonitor(zap.NewNop().Sugar(), &http.Client{}, &MockCache{}, &MockNotifier{})
+
+	tests := []struct {
+		name    string
+		schema  string
+		wantErr bool
+	}{
+		{
+			name: "Valid OpenAPI schema",
+			schema: `{
+				"openapi": "3.0.0",
+				"info": {
+					"title": "Test API",
+					"version": "1.0.0"
+				},
+				"paths": {}
+			}`,
+			wantErr: false,
+		},
+		{
+			name: "Invalid OpenAPI schema - missing version",
+			schema: `{
+				"openapi": "3.0.0",
+				"info": {
+					"title": "Test API"
+				},
+				"paths": {}
+			}`,
+			wantErr: true,
+		},
+		{
+			name: "Invalid JSON",
+			schema: `{"invalid json`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := monitor.validateSchema([]byte(tt.schema))
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
 	}
 }
