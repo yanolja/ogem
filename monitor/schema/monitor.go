@@ -25,8 +25,8 @@ type Provider string
 
 const (
 	ProviderOpenAI Provider = "openai"
-	ProviderGemini Provider = "gemini"
-	ProviderClaude Provider = "claude"
+	ProviderGoogle Provider = "google"
+	ProviderAnthropic Provider = "anthropic"
 )
 
 // GetSchemaURL returns the schema URL for a given provider
@@ -34,9 +34,9 @@ func GetSchemaURL(provider Provider) string {
 	switch provider {
 	case ProviderOpenAI:
 		return OpenAISchemaURL
-	case ProviderGemini:
+	case ProviderGoogle:
 		return GeminiSchemaURL
-	case ProviderClaude:
+	case ProviderAnthropic:
 		return ClaudeSchemaURL
 	default:
 		return ""
@@ -80,7 +80,7 @@ func NewMonitor(logger *zap.SugaredLogger, httpClient HTTPClient, cache Cache, n
 // CheckSchemas checks for changes in all supported API schemas
 func (m *Monitor) CheckSchemas(ctx context.Context) error {
 	m.logger.Info("Starting schema checks for all providers...")
-	providers := []Provider{ProviderOpenAI, ProviderGemini, ProviderClaude}
+	providers := []Provider{ProviderOpenAI, ProviderGoogle, ProviderAnthropic}
 
 	for _, provider := range providers {
 		if err := m.checkProviderSchema(ctx, provider); err != nil {

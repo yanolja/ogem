@@ -74,8 +74,8 @@ func TestMonitor_CheckSchemas(t *testing.T) {
 			},
 		},
 		{
-			name:     "Gemini schema change detected",
-			provider: ProviderGemini,
+			name:     "Google schema change detected",
+			provider: ProviderGoogle,
 			schemaContent: `{
 				"openapi": "3.0.0",
 				"info": {
@@ -85,14 +85,14 @@ func TestMonitor_CheckSchemas(t *testing.T) {
 				"paths": {}
 			}`,
 			setup: func(cache *MockCache, notifier *MockNotifier) {
-				cache.On("Get", "schema_cache:gemini").Return("old-hash", nil)
-				cache.On("Set", "schema_cache:gemini", mock.AnythingOfType("string")).Return(nil)
-				notifier.On("NotifySchemaChange", "gemini", "old-hash", mock.AnythingOfType("string")).Return(nil)
+				cache.On("Get", "schema_cache:google").Return("old-hash", nil)
+				cache.On("Set", "schema_cache:google", mock.AnythingOfType("string")).Return(nil)
+				notifier.On("NotifySchemaChange", "google", "old-hash", mock.AnythingOfType("string")).Return(nil)
 			},
 		},
 		{
-			name:     "Claude schema change detected",
-			provider: ProviderClaude,
+			name:     "Anthropic schema change detected",
+			provider: ProviderAnthropic,
 			schemaContent: `{
 				"openapi": "3.0.0",
 				"info": {
@@ -102,9 +102,9 @@ func TestMonitor_CheckSchemas(t *testing.T) {
 				"paths": {}
 			}`,
 			setup: func(cache *MockCache, notifier *MockNotifier) {
-				cache.On("Get", "schema_cache:claude").Return("old-hash", nil)
-				cache.On("Set", "schema_cache:claude", mock.AnythingOfType("string")).Return(nil)
-				notifier.On("NotifySchemaChange", "claude", "old-hash", mock.AnythingOfType("string")).Return(nil)
+				cache.On("Get", "schema_cache:anthropic").Return("old-hash", nil)
+				cache.On("Set", "schema_cache:anthropic", mock.AnythingOfType("string")).Return(nil)
+				notifier.On("NotifySchemaChange", "anthropic", "old-hash", mock.AnythingOfType("string")).Return(nil)
 			},
 		},
 	}
@@ -144,13 +144,13 @@ func TestGetSchemaURL(t *testing.T) {
 			want:     OpenAISchemaURL,
 		},
 		{
-			name:     "Gemini URL",
-			provider: ProviderGemini,
+			name:     "Google URL",
+			provider: ProviderGoogle,
 			want:     GeminiSchemaURL,
 		},
 		{
-			name:     "Claude URL",
-			provider: ProviderClaude,
+			name:     "Anthropic URL",
+			provider: ProviderAnthropic,
 			want:     ClaudeSchemaURL,
 		},
 		{
