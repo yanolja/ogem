@@ -35,8 +35,7 @@ func main() {
 	monitor := schema.NewMonitor(sugar, httpClient, cache, notifier)
 
 	// Run a single check
-	ctx := context.Background()
-	if err := monitor.CheckSchemas(ctx); err != nil {
+	if err := monitor.CheckSchemas(context.Background()); err != nil {
 		sugar.Fatalw("Schema check failed", "error", err)
 	}
 
