@@ -7,7 +7,12 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// RedisCache implements Cache interface using Redis
+// RedisCache provides persistent storage for schema version tracking.
+// Redis was chosen over alternatives because:
+// - Fast key-value lookups for quick schema comparisons
+// - Built-in TTL support to prevent stale schema accumulation
+// - Atomic operations to handle concurrent schema checks
+// - Minimal memory footprint by storing only hashes
 type RedisCache struct {
 	client *redis.Client
 }
@@ -26,7 +31,11 @@ func (c *RedisCache) Get(key string) (string, error) {
 	return c.client.Get(ctx, key).Result()
 }
 
-// Set stores a value in Redis with 30-day expiration
+// Set stores a value in Redis with 30-day expiration.
+// The 30-day retention period balances:
+// - Keeping enough history for trend analysis
+// - Preventing unbounded storage growth
+// - Maintaining reasonable backup sizes
 func (c *RedisCache) Set(key string, value string) error {
 	ctx := context.Background()
 	return c.client.Set(ctx, key, value, 30*24*time.Hour).Err()

@@ -13,6 +13,11 @@ import (
 	"go.uber.org/zap"
 )
 
+// Schema URLs point to official GitHub repositories rather than API endpoints because:
+// - They provide versioned, trackable schema history
+// - Changes are publicly visible and documented
+// - No authentication required, reducing security concerns
+// - Raw GitHub content has reliable availability
 const (
 	OpenAISchemaURL = "https://raw.githubusercontent.com/openai/openai-openapi/master/openapi.yaml"
 	GeminiSchemaURL = "https://raw.githubusercontent.com/googleapis/google-cloud-go/main/vertexai/generativelanguage/apiv1/generativelanguage_v1.swagger.json"
@@ -20,7 +25,12 @@ const (
 	cacheKeyPrefix  = "schema_cache:"
 )
 
-// Provider represents an API provider
+// Provider represents supported LLM API providers.
+// These specific providers were chosen because:
+// - They offer production-ready, stable APIs
+// - Maintain public OpenAPI specifications
+// - Have significant market adoption
+// - Provide complementary capabilities
 type Provider string
 
 const (
@@ -43,7 +53,11 @@ func GetSchemaURL(provider Provider) string {
 	}
 }
 
-// HTTPClient interface for making HTTP requests
+// HTTPClient abstracts HTTP operations to enable:
+// - Mocking in tests without real network calls
+// - Custom timeout and retry policies
+// - Request/response logging and monitoring
+// - Circuit breaking for fault tolerance
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
@@ -91,7 +105,12 @@ func (m *Monitor) CheckSchemas(ctx context.Context) error {
 	return nil
 }
 
-// checkProviderSchema checks for changes in a specific provider's schema
+// checkProviderSchema implements a robust schema monitoring process:
+// 1. Fetches latest schema from provider's GitHub
+// 2. Validates schema structure to catch malformed updates
+// 3. Uses hash comparison to detect any changes efficiently
+// 4. Maintains state in Redis for persistence across runs
+// 5. Notifies team when breaking changes might affect integration
 func (m *Monitor) checkProviderSchema(ctx context.Context, provider Provider) error {
 	m.logger.Infow("Checking schema for provider", "provider", provider)
 
@@ -187,7 +206,11 @@ func (m *Monitor) validateSchema(data []byte) error {
 	return nil
 }
 
-// calculateSchemaHash generates a SHA-256 hash of the schema content
+// calculateSchemaHash uses SHA-256 for schema comparison because:
+// - Fast computation for large schemas
+// - Extremely low collision probability
+// - JSON normalization handles formatting differences
+// - Fixed size output saves storage space
 func (m *Monitor) calculateSchemaHash(data []byte) (string, error) {
 	// For JSON data, try to normalize it first
 	var normalized interface{}
