@@ -10,7 +10,6 @@ require (
 	github.com/getkin/kin-openapi v0.132.0
 	github.com/goccy/go-json v0.10.3
 	github.com/google/uuid v1.6.0
-	github.com/redis/go-redis/v9 v9.8.0
 	github.com/rs/cors v1.11.1
 	github.com/stretchr/testify v1.10.0
 	github.com/valkey-io/valkey-go v1.0.57
@@ -26,9 +25,7 @@ require (
 	cloud.google.com/go/auth v0.14.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.7 // indirect
 	cloud.google.com/go/compute/metadata v0.6.0 // indirect
-	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
