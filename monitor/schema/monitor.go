@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/yanolja/ogem/state"
 	"go.uber.org/zap"
 )
 
@@ -60,23 +62,24 @@ type HTTPClient interface {
 type Monitor struct {
 	logger     *zap.SugaredLogger
 	httpClient HTTPClient
-	cache      Cache
+	state      state.Manager
 	notifier   Notifier
 }
 
-type Cache interface {
-	Get(key string) (string, error)
-	Set(key string, value string) error
+// getCacheKey returns the cache key for a provider's schema
+func getCacheKey(provider Provider) string {
+	return fmt.Sprintf("%s%s", cacheKeyPrefix, provider)
 }
+
 type Notifier interface {
 	NotifySchemaChange(provider string, oldHash, newHash string) error
 }
 
-func NewMonitor(logger *zap.SugaredLogger, httpClient HTTPClient, cache Cache, notifier Notifier) *Monitor {
+func NewMonitor(logger *zap.SugaredLogger, httpClient HTTPClient, state state.Manager, notifier Notifier) *Monitor {
 	return &Monitor{
 		logger:     logger,
 		httpClient: httpClient,
-		cache:      cache,
+		state:      state,
 		notifier:   notifier,
 	}
 }
@@ -121,11 +124,13 @@ func (m *Monitor) checkProviderSchema(ctx context.Context, provider Provider) er
 	if err != nil {
 		return fmt.Errorf("failed to calculate hash for %s: %w", provider, err)
 	}
-	cacheKey := cacheKeyPrefix + string(provider)
-	previousHash, err := m.cache.Get(cacheKey)
+
+	cacheKey := getCacheKey(provider)
+	data, err := m.state.LoadCache(ctx, cacheKey)
 	if err != nil {
-		m.logger.Warnw("failed to get previous hash from cache", "provider", provider, "error", err)
+		return fmt.Errorf("failed to get previous hash from cache: %w", err)
 	}
+	previousHash := string(data)
 
 	if previousHash != "" && hash != previousHash {
 		m.logger.Infow("Schema change detected",
@@ -138,7 +143,7 @@ func (m *Monitor) checkProviderSchema(ctx context.Context, provider Provider) er
 		}
 	}
 
-	if err := m.cache.Set(cacheKey, hash); err != nil {
+	if err := m.state.SaveCache(ctx, cacheKey, []byte(hash), 30*24*time.Hour); err != nil {
 		return fmt.Errorf("failed to update cache for %s: %w", provider, err)
 	}
 

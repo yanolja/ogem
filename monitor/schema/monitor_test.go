@@ -6,25 +6,14 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
 )
 
-type MockCache struct {
-	mock.Mock
-}
 
-func (m *MockCache) Get(key string) (string, error) {
-	args := m.Called(key)
-	return args.String(0), args.Error(1)
-}
-
-func (m *MockCache) Set(key string, value string) error {
-	args := m.Called(key, value)
-	return args.Error(0)
-}
 
 type MockNotifier struct {
 	mock.Mock
@@ -54,7 +43,7 @@ func TestMonitor_CheckSchemas(t *testing.T) {
 		name          string
 		provider      Provider
 		schemaContent string
-		setup         func(*MockCache, *MockNotifier)
+		setup         func(*MockManager, *MockNotifier)
 	}{
 		{
 			name:     "OpenAI schema change detected",
@@ -67,9 +56,9 @@ func TestMonitor_CheckSchemas(t *testing.T) {
 				},
 				"paths": {}
 			}`,
-			setup: func(cache *MockCache, notifier *MockNotifier) {
-				cache.On("Get", "schema_cache:openai").Return("old-hash", nil)
-				cache.On("Set", "schema_cache:openai", mock.AnythingOfType("string")).Return(nil)
+			setup: func(manager *MockManager, notifier *MockNotifier) {
+				manager.On("LoadCache", mock.Anything, "schema_cache:openai").Return([]byte("old-hash"), nil)
+				manager.On("SaveCache", mock.Anything, "schema_cache:openai", mock.AnythingOfType("[]uint8"), 30*24*time.Hour).Return(nil)
 				notifier.On("NotifySchemaChange", "openai", "old-hash", mock.AnythingOfType("string")).Return(nil)
 			},
 		},
@@ -84,9 +73,9 @@ func TestMonitor_CheckSchemas(t *testing.T) {
 				},
 				"paths": {}
 			}`,
-			setup: func(cache *MockCache, notifier *MockNotifier) {
-				cache.On("Get", "schema_cache:google").Return("old-hash", nil)
-				cache.On("Set", "schema_cache:google", mock.AnythingOfType("string")).Return(nil)
+			setup: func(manager *MockManager, notifier *MockNotifier) {
+				manager.On("LoadCache", mock.Anything, "schema_cache:google").Return([]byte("old-hash"), nil)
+				manager.On("SaveCache", mock.Anything, "schema_cache:google", mock.AnythingOfType("[]uint8"), 30*24*time.Hour).Return(nil)
 				notifier.On("NotifySchemaChange", "google", "old-hash", mock.AnythingOfType("string")).Return(nil)
 			},
 		},
@@ -101,9 +90,9 @@ func TestMonitor_CheckSchemas(t *testing.T) {
 				},
 				"paths": {}
 			}`,
-			setup: func(cache *MockCache, notifier *MockNotifier) {
-				cache.On("Get", "schema_cache:anthropic").Return("old-hash", nil)
-				cache.On("Set", "schema_cache:anthropic", mock.AnythingOfType("string")).Return(nil)
+			setup: func(manager *MockManager, notifier *MockNotifier) {
+				manager.On("LoadCache", mock.Anything, "schema_cache:anthropic").Return([]byte("old-hash"), nil)
+				manager.On("SaveCache", mock.Anything, "schema_cache:anthropic", mock.AnythingOfType("[]uint8"), 30*24*time.Hour).Return(nil)
 				notifier.On("NotifySchemaChange", "anthropic", "old-hash", mock.AnythingOfType("string")).Return(nil)
 			},
 		},
@@ -111,9 +100,9 @@ func TestMonitor_CheckSchemas(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cache := &MockCache{}
+			manager := &MockManager{}
 			notifier := &MockNotifier{}
-			tt.setup(cache, notifier)
+			tt.setup(manager, notifier)
 
 			// Set up HTTP client mock
 			httpClient.On("Do", mock.AnythingOfType("*http.Request")).Return(&http.Response{
@@ -121,11 +110,11 @@ func TestMonitor_CheckSchemas(t *testing.T) {
 				Body:      io.NopCloser(strings.NewReader(tt.schemaContent)),
 			}, nil)
 
-			monitor := NewMonitor(logger, httpClient, cache, notifier)
+			monitor := NewMonitor(logger, httpClient, manager, notifier)
 			err := monitor.checkProviderSchema(context.Background(), tt.provider)
 
 			assert.NoError(t, err)
-			cache.AssertExpectations(t)
+			manager.AssertExpectations(t)
 			notifier.AssertExpectations(t)
 			httpClient.AssertExpectations(t)
 		})
@@ -171,7 +160,7 @@ func TestGetSchemaURL(t *testing.T) {
 
 
 func TestCalculateSchemaHash(t *testing.T) {
-	monitor := NewMonitor(zap.NewNop().Sugar(), &http.Client{}, &MockCache{}, &MockNotifier{})
+	monitor := NewMonitor(zap.NewNop().Sugar(), &http.Client{}, &MockManager{}, &MockNotifier{})
 
 	tests := []struct {
 		name string
@@ -217,7 +206,7 @@ func TestCalculateSchemaHash(t *testing.T) {
 
 // TestHashConsistency ensures that the same input always produces the same hash
 func TestHashConsistency(t *testing.T) {
-	monitor := NewMonitor(zap.NewNop().Sugar(), &http.Client{}, &MockCache{}, &MockNotifier{})
+	monitor := NewMonitor(zap.NewNop().Sugar(), &http.Client{}, &MockManager{}, &MockNotifier{})
 	data := []byte("test data")
 
 	hash1, err1 := monitor.calculateSchemaHash(data)
@@ -231,7 +220,7 @@ func TestHashConsistency(t *testing.T) {
 
 // TestHashDifferentInputs ensures that different inputs produce different hashes
 func TestHashDifferentInputs(t *testing.T) {
-	monitor := NewMonitor(zap.NewNop().Sugar(), &http.Client{}, &MockCache{}, &MockNotifier{})
+	monitor := NewMonitor(zap.NewNop().Sugar(), &http.Client{}, &MockManager{}, &MockNotifier{})
 	data1 := []byte("test data 1")
 	data2 := []byte("test data 2")
 
@@ -246,7 +235,7 @@ func TestHashDifferentInputs(t *testing.T) {
 
 // TestValidateSchema tests the schema validation functionality
 func TestValidateSchema(t *testing.T) {
-	monitor := NewMonitor(zap.NewNop().Sugar(), &http.Client{}, &MockCache{}, &MockNotifier{})
+	monitor := NewMonitor(zap.NewNop().Sugar(), &http.Client{}, &MockManager{}, &MockNotifier{})
 
 	tests := []struct {
 		name    string
