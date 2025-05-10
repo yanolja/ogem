@@ -13,11 +13,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// Schema URLs point to official GitHub repositories rather than API endpoints because:
-// - They provide versioned, trackable schema history
-// - Changes are publicly visible and documented
-// - No authentication required, reducing security concerns
-// - Raw GitHub content has reliable availability
 const (
 	OpenAISchemaURL = "https://raw.githubusercontent.com/openai/openai-openapi/master/openapi.yaml"
 	GeminiSchemaURL = "https://raw.githubusercontent.com/googleapis/google-cloud-go/main/vertexai/generativelanguage/apiv1/generativelanguage_v1.swagger.json"
@@ -34,12 +29,11 @@ const (
 type Provider string
 
 const (
-	ProviderOpenAI Provider = "openai"
-	ProviderGoogle Provider = "google"
+	ProviderOpenAI    Provider = "openai"
+	ProviderGoogle    Provider = "google"
 	ProviderAnthropic Provider = "anthropic"
 )
 
-// GetSchemaURL returns the schema URL for a given provider
 func GetSchemaURL(provider Provider) string {
 	switch provider {
 	case ProviderOpenAI:
@@ -70,18 +64,14 @@ type Monitor struct {
 	notifier   Notifier
 }
 
-// Cache interface for storing schema hashes
 type Cache interface {
 	Get(key string) (string, error)
 	Set(key string, value string) error
 }
-
-// Notifier interface for sending notifications about schema changes
 type Notifier interface {
 	NotifySchemaChange(provider string, oldHash, newHash string) error
 }
 
-// NewMonitor creates a new schema monitor
 func NewMonitor(logger *zap.SugaredLogger, httpClient HTTPClient, cache Cache, notifier Notifier) *Monitor {
 	return &Monitor{
 		logger:     logger,
@@ -119,31 +109,24 @@ func (m *Monitor) checkProviderSchema(ctx context.Context, provider Provider) er
 		return fmt.Errorf("unknown provider: %s", provider)
 	}
 
-	// Fetch current schema
 	schema, err := m.fetchSchema(ctx, schemaURL)
 	if err != nil {
 		return fmt.Errorf("failed to fetch schema for %s: %w", provider, err)
 	}
-
-	// Validate schema first to ensure it's a valid OpenAPI schema
 	if err := m.validateSchema(schema); err != nil {
 		m.logger.Warnw("Schema validation failed", "provider", provider, "error", err)
 	}
 
-	// Calculate hash of the new schema
 	hash, err := m.calculateSchemaHash(schema)
 	if err != nil {
 		return fmt.Errorf("failed to calculate hash for %s: %w", provider, err)
 	}
-
-	// Get the previous hash from cache
 	cacheKey := cacheKeyPrefix + string(provider)
 	previousHash, err := m.cache.Get(cacheKey)
 	if err != nil {
 		m.logger.Warnw("failed to get previous hash from cache", "provider", provider, "error", err)
 	}
 
-	// If hash is different, notify about the change
 	if previousHash != "" && hash != previousHash {
 		m.logger.Infow("Schema change detected",
 			"provider", provider,
@@ -155,7 +138,6 @@ func (m *Monitor) checkProviderSchema(ctx context.Context, provider Provider) er
 		}
 	}
 
-	// Update the cache with the new hash
 	if err := m.cache.Set(cacheKey, hash); err != nil {
 		return fmt.Errorf("failed to update cache for %s: %w", provider, err)
 	}
@@ -164,7 +146,6 @@ func (m *Monitor) checkProviderSchema(ctx context.Context, provider Provider) er
 	return nil
 }
 
-// fetchSchema downloads the OpenAPI schema from the given URL
 func (m *Monitor) fetchSchema(ctx context.Context, url string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -184,7 +165,6 @@ func (m *Monitor) fetchSchema(ctx context.Context, url string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-// validateSchema ensures the schema is valid OpenAPI 3.0
 func (m *Monitor) validateSchema(data []byte) error {
 	loader := openapi3.NewLoader()
 	doc, err := loader.LoadFromData(data)
@@ -192,7 +172,6 @@ func (m *Monitor) validateSchema(data []byte) error {
 		return fmt.Errorf("failed to load OpenAPI schema: %w", err)
 	}
 
-	// Validate required fields
 	if doc.Info == nil {
 		return fmt.Errorf("missing info section")
 	}
@@ -206,16 +185,9 @@ func (m *Monitor) validateSchema(data []byte) error {
 	return nil
 }
 
-// calculateSchemaHash uses SHA-256 for schema comparison because:
-// - Fast computation for large schemas
-// - Extremely low collision probability
-// - JSON normalization handles formatting differences
-// - Fixed size output saves storage space
 func (m *Monitor) calculateSchemaHash(data []byte) (string, error) {
-	// For JSON data, try to normalize it first
 	var normalized interface{}
 	if err := json.Unmarshal(data, &normalized); err == nil {
-		// If it's valid JSON, use the normalized version
 		normalizedData, err := json.Marshal(normalized)
 		if err != nil {
 			return "", fmt.Errorf("failed to marshal schema: %w", err)
@@ -223,7 +195,6 @@ func (m *Monitor) calculateSchemaHash(data []byte) (string, error) {
 		data = normalizedData
 	}
 
-	// Calculate hash of the data (normalized if JSON, raw otherwise)
 	hash := sha256.Sum256(data)
 	return hex.EncodeToString(hash[:]), nil
 }

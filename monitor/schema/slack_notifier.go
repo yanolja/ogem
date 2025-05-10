@@ -7,17 +7,10 @@ import (
 	"net/http"
 )
 
-// SlackNotifier delivers real-time API schema change alerts via Slack.
-// Slack was chosen as the notification platform because:
-// - Universal team adoption for immediate visibility
-// - Rich message formatting for clear change presentation
-// - Webhook simplicity avoiding auth complexity
-// - Channel-based filtering for targeted notifications
 type SlackNotifier struct {
 	webhookURL string
 }
 
-// NewSlackNotifier creates a new Slack notifier
 func NewSlackNotifier(webhookURL string) *SlackNotifier {
 	return &SlackNotifier{webhookURL: webhookURL}
 }
