@@ -46,8 +46,14 @@ Example config.yaml:
 ```yaml
 # Amount of time to wait before retrying the request when there are no available endpoints due to rate limiting.
 retry_interval: "1m"
+
 # How frequently to check the health of the providers. If you don't want to check the health, set it to 0.
 ping_interval: "1h"
+
+# Slack webhook URL for receiving API schema change notifications
+# Create a webhook URL at: https://api.slack.com/apps -> Your App -> Incoming Webhooks
+slack_webhook_url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+
 providers:
   openai:
     regions:
