@@ -331,7 +331,7 @@ func (p *Endpoint) uploadFileFromBuffer(buffer *bytes.Buffer, fileName string, p
 	}
 	writer.Close()
 
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/files", body)
+	req, err := http.NewRequest("POST", p.baseUrl.String()+"/v1/files", body)
 	if err != nil {
 		return "", err
 	}
@@ -367,7 +367,7 @@ func (p *Endpoint) createBatchJob(inputFileId string) (string, error) {
 	}
 	bodyBytes, _ := json.Marshal(requestBody)
 
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/batches", bytes.NewReader(bodyBytes))
+	req, err := http.NewRequest("POST", p.baseUrl.String()+"/v1/batches", bytes.NewReader(bodyBytes))
 	if err != nil {
 		return "", err
 	}
@@ -434,7 +434,7 @@ func (p *Endpoint) monitorBatchJob(batchId string, batch []*BatchJob) {
 }
 
 func (p *Endpoint) checkBatchStatus(batchID string) (status BatchJobStatus, outputFileId string, err error) {
-	req, err := http.NewRequest("GET", "https://api.openai.com/v1/batches/"+batchID, nil)
+	req, err := http.NewRequest("GET", p.baseUrl.String()+"/v1/batches/"+batchID, nil)
 	if err != nil {
 		return "", "", err
 	}
@@ -496,7 +496,7 @@ func (p *Endpoint) retrieveBatchResults(batch []*BatchJob, outputFileID string) 
 }
 
 func (p *Endpoint) downloadFileContent(fileID string) ([]byte, error) {
-	req, err := http.NewRequest("GET", "https://api.openai.com/v1/files/"+fileID+"/content", nil)
+	req, err := http.NewRequest("GET", p.baseUrl.String()+"/v1/files/"+fileID+"/content", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -526,8 +526,11 @@ func (p *Endpoint) handleBatchError(batch []*BatchJob, err error) {
 	defer p.batchJobMutex.Unlock()
 
 	for _, job := range batch {
+		if job == nil {
+			continue
+		}
 		log.Printf("Batch job %s failed: %v", job.Id, err)
-		job.Status = "failed"
+		job.Status = BatchJobStatusFailed
 		job.Error = err
 		for _, waiter := range job.Waiters {
 			close(waiter)
@@ -545,7 +548,17 @@ func (p *Endpoint) Region() string {
 }
 
 func (p *Endpoint) Ping(ctx context.Context) (time.Duration, error) {
-	return 0, nil
+	start := time.Now()
+	req, err := http.NewRequestWithContext(ctx, "GET", p.baseUrl.String(), nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create request: %v", err)
+	}
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+	return time.Since(start), nil
 }
 
 func (p *Endpoint) Shutdown() error {
