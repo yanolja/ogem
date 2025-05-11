@@ -28,7 +28,7 @@ type Endpoint struct {
 
 func NewEndpoint(projectId string, region string) (*Endpoint, error) {
 	client := anthropic.NewClient(vertex.WithGoogleAuth(context.Background(), region, projectId))
-	return &Endpoint{client: &client.Messages}, nil
+	return &Endpoint{client: &client.Messages, region: region}, nil
 }
 
 func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
@@ -186,6 +186,9 @@ func toClaudeMessage(openaiMessage openai.Message, toolMap map[string]string) (*
 func toClaudeSystemMessage(openAiRequest *openai.ChatCompletionRequest) ([]anthropic.TextBlockParam, error) {
 	for _, message := range openAiRequest.Messages {
 		if message.Role == "system" {
+			if message.Content != nil && message.Content.String != nil {
+				return []anthropic.TextBlockParam{{Text: *message.Content.String}}, nil
+			}
 			blocks, err := toClaudeMessageBlocks(message, nil)
 			if err != nil {
 				return nil, err
@@ -292,6 +295,11 @@ func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([
 			}
 		}
 		return toolCalls, nil
+	}
+	if message.Role == "system" {
+		return []anthropic.ContentBlockParamUnion{
+			anthropic.NewTextBlock(""),
+		}, nil
 	}
 	return nil, fmt.Errorf("message must have content, refusal, function_call, or tool_calls")
 }
@@ -439,18 +447,21 @@ func toOpenAiFinishReason(claudeStopReason anthropic.MessageStopReason) string {
 	case anthropic.MessageStopReasonStopSequence:
 		fallthrough
 	case anthropic.MessageStopReasonToolUse:
+		fallthrough
+	default:
 		return "stop"
 	}
-	// Never happens because Claude only returns "length" or "stop".
-	return "content_filter"
 }
 
 func standardizeModelName(model string) string {
+	if strings.Contains(model, "@") {
+		return model
+	}
 	switch strings.TrimRight(model, "0123456789@-") {
 	case "claude-3-5-sonnet":
 		return "claude-3-5-sonnet@20240620"
 	case "claude-3-opus":
-		return "claude-3-opus@20240229"
+		return "claude-3-opus@20240307"
 	case "claude-3-sonnet":
 		return "claude-3-sonnet@20240229"
 	case "claude-3-haiku":
