@@ -46,6 +46,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/chat/completions", proxy.HandleAuthentication(proxy.HandleChatCompletions))
+	mux.HandleFunc("/v1/embeddings", proxy.HandleAuthentication(proxy.HandleEmbeddings))
 
 	httpServer := setupServer(config.Port, mux)
 

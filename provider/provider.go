@@ -13,6 +13,7 @@ import (
 type AiEndpoint interface {
 	GenerateChatCompletion(ctx context.Context, request *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error)
 	GenerateChatCompletionStream(ctx context.Context, request *openai.ChatCompletionRequest) (<-chan *openai.ChatCompletionStreamResponse, <-chan error)
+	GenerateEmbedding(ctx context.Context, request *openai.EmbeddingRequest) (*openai.EmbeddingResponse, error)
 	Ping(ctx context.Context) (time.Duration, error)
 	Provider() string
 	Region() string

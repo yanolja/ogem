@@ -367,3 +367,29 @@ func FinalizeStreamResponse(provider string, region string, model string, respon
 	response.Object = "chat.completion.chunk"
 	return response
 }
+
+type EmbeddingRequest struct {
+	Input          []string  `json:"input"`
+	Model          string    `json:"model"`
+	EncodingFormat *string   `json:"encoding_format,omitempty"`
+	Dimensions     *int32    `json:"dimensions,omitempty"`
+	User           *string   `json:"user,omitempty"`
+}
+
+type EmbeddingResponse struct {
+	Object string            `json:"object"`
+	Data   []EmbeddingObject `json:"data"`
+	Model  string            `json:"model"`
+	Usage  EmbeddingUsage    `json:"usage"`
+}
+
+type EmbeddingObject struct {
+	Object    string    `json:"object"`
+	Embedding []float32 `json:"embedding"`
+	Index     int32     `json:"index"`
+}
+
+type EmbeddingUsage struct {
+	PromptTokens int32 `json:"prompt_tokens"`
+	TotalTokens  int32 `json:"total_tokens"`
+}

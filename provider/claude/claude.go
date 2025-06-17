@@ -142,6 +142,10 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 	return responseCh, errorCh
 }
 
+func (ep *Endpoint) GenerateEmbedding(ctx context.Context, embeddingRequest *openai.EmbeddingRequest) (*openai.EmbeddingResponse, error) {
+	return nil, fmt.Errorf("embeddings not supported by Claude provider")
+}
+
 func (ep *Endpoint) Provider() string {
 	return "claude"
 }

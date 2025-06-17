@@ -231,6 +231,53 @@ func (p *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiReque
 	return responseCh, errorCh
 }
 
+func (p *Endpoint) GenerateEmbedding(ctx context.Context, embeddingRequest *openai.EmbeddingRequest) (*openai.EmbeddingResponse, error) {
+	jsonData, err := json.Marshal(embeddingRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %v", err)
+	}
+
+	endpointPath, err := url.JoinPath(p.baseUrl.String(), "embeddings")
+	if err != nil {
+		return nil, fmt.Errorf("failed to build endpoint path: %v", err)
+	}
+
+	httpRequest, err := http.NewRequestWithContext(ctx, "POST", endpointPath, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %v", err)
+	}
+
+	httpRequest.Header.Set("Content-Type", "application/json")
+	httpRequest.Header.Set("Authorization", "Bearer "+p.apiKey)
+
+	log.Printf("Sending %s request to %s with body: %s", httpRequest.Method, endpointPath, string(jsonData))
+
+	httpResponse, err := p.client.Do(httpRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %v", err)
+	}
+	defer httpResponse.Body.Close()
+
+	body, err := io.ReadAll(httpResponse.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %v", err)
+	}
+
+	if httpResponse.StatusCode != http.StatusOK {
+		if httpResponse.StatusCode == http.StatusTooManyRequests {
+			return nil, fmt.Errorf("quota exceeded: %s", string(body))
+		}
+		return nil, fmt.Errorf("unexpected status code: %d, body: %s", httpResponse.StatusCode, string(body))
+	}
+
+	var embeddingResponse openai.EmbeddingResponse
+	if err := json.Unmarshal(body, &embeddingResponse); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	return &embeddingResponse, nil
+}
+
 func (p *Endpoint) GenerateBatchChatCompletion(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
 	jobId, err := p.createOrGetBatchJob(ctx, openaiRequest)
 	if err != nil {
