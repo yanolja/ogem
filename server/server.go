@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/yanolja/ogem"
+	"github.com/yanolja/ogem/auth"
 	"github.com/yanolja/ogem/config"
 	"github.com/yanolja/ogem/openai"
 	"github.com/yanolja/ogem/provider"
@@ -77,6 +78,9 @@ type ModelProxy struct {
 
 	// Logger for the proxy server.
 	logger *zap.SugaredLogger
+
+	// Auth manager for virtual keys
+	authManager auth.Manager
 }
 
 func newEndpoint(provider string, region string, config *config.Config) (provider.AiEndpoint, error) {
@@ -117,7 +121,7 @@ func newCustomEndpoint(providerName string, protocol string, baseUrl string, api
 	}
 }
 
-func NewProxyServer(stateManager state.Manager, cleanup func(), config *config.Config, logger *zap.SugaredLogger) (*ModelProxy, error) {
+func NewProxyServer(stateManager state.Manager, cleanup func(), config *config.Config, authManager auth.Manager, logger *zap.SugaredLogger) (*ModelProxy, error) {
 	retryInterval, err := time.ParseDuration(config.RetryInterval)
 	if err != nil {
 		return nil, fmt.Errorf("invalid retry interval: %v", err)
@@ -171,6 +175,7 @@ func NewProxyServer(stateManager state.Manager, cleanup func(), config *config.C
 		pingInterval:   pingInterval,
 		config:         config,
 		logger:         logger,
+		authManager:    authManager,
 	}, nil
 }
 
@@ -437,6 +442,15 @@ func (s *ModelProxy) generateEmbedding(ctx context.Context, embeddingRequest *op
 		return nil, BadRequestError{fmt.Errorf("no input provided")}
 	}
 
+	// Check virtual key permissions if using virtual key authentication
+	if virtualKey := ctx.Value("virtual_key"); virtualKey != nil {
+		key := virtualKey.(*auth.VirtualKey)
+		if _, err := s.authManager.ValidateKey(ctx, key.Key, embeddingRequest.Model); err != nil {
+			s.logger.Warnw("Virtual key validation failed", "error", err, "key_id", key.ID, "model", embeddingRequest.Model)
+			return nil, BadRequestError{fmt.Errorf("key validation failed: %v", err)}
+		}
+	}
+
 	endpoints, err := s.sortedEndpoints(endpointProvider, endpointRegion, modelOrAlias)
 	if err != nil || len(endpoints) == 0 {
 		s.logger.Warnw("Failed to select endpoint", "error", err, "provider", endpointProvider, "region", endpointRegion, "model", modelOrAlias)
@@ -488,6 +502,16 @@ func (s *ModelProxy) generateEmbedding(ctx context.Context, embeddingRequest *op
 				return nil, InternalServerError{fmt.Errorf("failed to generate embedding")}
 			}
 
+			// Update virtual key usage if using virtual key authentication
+			if virtualKey := ctx.Value("virtual_key"); virtualKey != nil {
+				key := virtualKey.(*auth.VirtualKey)
+				tokens := int64(embeddingResponse.Usage.TotalTokens)
+				cost := 0.0 // TODO: Calculate actual cost based on model and tokens
+				if err := s.authManager.UpdateUsage(ctx, key.Key, tokens, cost); err != nil {
+					s.logger.Warnw("Failed to update virtual key usage", "error", err, "key_id", key.ID)
+				}
+			}
+
 			return embeddingResponse, nil
 		}
 		if bestEndpoint == nil {
@@ -505,21 +529,179 @@ func (s *ModelProxy) generateEmbedding(ctx context.Context, embeddingRequest *op
 
 func (s *ModelProxy) HandleAuthentication(handler http.HandlerFunc) http.HandlerFunc {
 	return func(httpResponse http.ResponseWriter, httpRequest *http.Request) {
-		if s.config.OgemApiKey == "" {
+		// Extract authorization header
+		authHeader := httpRequest.Header.Get("Authorization")
+		if authHeader == "" {
+			if s.config.OgemApiKey == "" && !s.config.EnableVirtualKeys {
+				handler(httpResponse, httpRequest)
+				return
+			}
+			http.Error(httpResponse, "Authorization header required", http.StatusUnauthorized)
+			return
+		}
+
+		headerSplit := strings.Split(authHeader, " ")
+		if len(headerSplit) != 2 || strings.ToLower(headerSplit[0]) != "bearer" {
+			http.Error(httpResponse, "Invalid authorization header format", http.StatusUnauthorized)
+			return
+		}
+
+		token := headerSplit[1]
+
+		// If virtual keys are enabled, try to validate as virtual key first
+		if s.config.EnableVirtualKeys && s.authManager != nil {
+			virtualKey, err := s.authManager.GetKeyByValue(httpRequest.Context(), token)
+			if err == nil {
+				// Valid virtual key - add to request context
+				ctx := context.WithValue(httpRequest.Context(), "virtual_key", virtualKey)
+				httpRequest = httpRequest.WithContext(ctx)
+				handler(httpResponse, httpRequest)
+				return
+			}
+		}
+
+		// Fall back to master API key authentication
+		if s.config.OgemApiKey != "" && token == s.config.OgemApiKey {
 			handler(httpResponse, httpRequest)
 			return
 		}
 
-		headerSplit := strings.Split(httpRequest.Header.Get("Authorization"), " ")
-		if len(headerSplit) != 2 ||
-			strings.ToLower(headerSplit[0]) != "bearer" ||
-			(headerSplit[1] != "" && headerSplit[1] != s.config.OgemApiKey) {
-			http.Error(httpResponse, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		handler(httpResponse, httpRequest)
+		http.Error(httpResponse, "Unauthorized", http.StatusUnauthorized)
 	}
+}
+
+func (s *ModelProxy) HandleCreateKey(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	defer httpRequest.Body.Close()
+
+	// Only allow master key to create virtual keys
+	if !s.isMasterKeyRequest(httpRequest) {
+		http.Error(httpResponse, "Master key required", http.StatusForbidden)
+		return
+	}
+
+	bodyBytes, err := io.ReadAll(httpRequest.Body)
+	if err != nil {
+		s.logger.Warnw("Failed to read request body", "error", err)
+		http.Error(httpResponse, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	var keyRequest auth.KeyRequest
+	if err := json.Unmarshal(bodyBytes, &keyRequest); err != nil {
+		s.logger.Warnw("Invalid request body", "error", err, "body", string(bodyBytes))
+		http.Error(httpResponse, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	virtualKey, err := s.authManager.CreateKey(httpRequest.Context(), &keyRequest)
+	if err != nil {
+		s.logger.Errorw("Failed to create virtual key", "error", err)
+		http.Error(httpResponse, "Failed to create key", http.StatusInternalServerError)
+		return
+	}
+
+	response := auth.KeyResponse{
+		ID:          virtualKey.ID,
+		Key:         virtualKey.Key,
+		Name:        virtualKey.Name,
+		Description: virtualKey.Description,
+		Models:      virtualKey.Models,
+		MaxTokens:   virtualKey.MaxTokens,
+		MaxRequests: virtualKey.MaxRequests,
+		Budget:      virtualKey.Budget,
+		Metadata:    virtualKey.Metadata,
+		CreatedAt:   virtualKey.CreatedAt,
+		ExpiresAt:   virtualKey.ExpiresAt,
+		IsActive:    virtualKey.IsActive,
+		UsageStats:  virtualKey.UsageStats,
+	}
+
+	httpResponse.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(httpResponse).Encode(response); err != nil {
+		s.logger.Errorw("Failed to encode response", "error", err)
+		http.Error(httpResponse, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+func (s *ModelProxy) HandleListKeys(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	// Only allow master key to list virtual keys
+	if !s.isMasterKeyRequest(httpRequest) {
+		http.Error(httpResponse, "Master key required", http.StatusForbidden)
+		return
+	}
+
+	keys, err := s.authManager.ListKeys(httpRequest.Context())
+	if err != nil {
+		s.logger.Errorw("Failed to list virtual keys", "error", err)
+		http.Error(httpResponse, "Failed to list keys", http.StatusInternalServerError)
+		return
+	}
+
+	responses := make([]auth.KeyResponse, len(keys))
+	for i, key := range keys {
+		responses[i] = auth.KeyResponse{
+			ID:          key.ID,
+			Key:         key.Key,
+			Name:        key.Name,
+			Description: key.Description,
+			Models:      key.Models,
+			MaxTokens:   key.MaxTokens,
+			MaxRequests: key.MaxRequests,
+			Budget:      key.Budget,
+			Metadata:    key.Metadata,
+			CreatedAt:   key.CreatedAt,
+			ExpiresAt:   key.ExpiresAt,
+			IsActive:    key.IsActive,
+			UsageStats:  key.UsageStats,
+		}
+	}
+
+	httpResponse.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(httpResponse).Encode(responses); err != nil {
+		s.logger.Errorw("Failed to encode response", "error", err)
+		http.Error(httpResponse, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+func (s *ModelProxy) HandleDeleteKey(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	// Only allow master key to delete virtual keys
+	if !s.isMasterKeyRequest(httpRequest) {
+		http.Error(httpResponse, "Master key required", http.StatusForbidden)
+		return
+	}
+
+	keyID := strings.TrimPrefix(httpRequest.URL.Path, "/v1/keys/")
+	if keyID == "" {
+		http.Error(httpResponse, "Key ID required", http.StatusBadRequest)
+		return
+	}
+
+	err := s.authManager.DeleteKey(httpRequest.Context(), keyID)
+	if err != nil {
+		s.logger.Errorw("Failed to delete virtual key", "error", err, "key_id", keyID)
+		http.Error(httpResponse, "Failed to delete key", http.StatusInternalServerError)
+		return
+	}
+
+	httpResponse.WriteHeader(http.StatusNoContent)
+}
+
+func (s *ModelProxy) isMasterKeyRequest(httpRequest *http.Request) bool {
+	if s.config.MasterApiKey == "" {
+		return false
+	}
+
+	authHeader := httpRequest.Header.Get("Authorization")
+	if authHeader == "" {
+		return false
+	}
+
+	headerSplit := strings.Split(authHeader, " ")
+	if len(headerSplit) != 2 || strings.ToLower(headerSplit[0]) != "bearer" {
+		return false
+	}
+
+	return headerSplit[1] == s.config.MasterApiKey
 }
 
 func (s *ModelProxy) PingInterval() time.Duration {
@@ -587,6 +769,15 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 	if len(openAiRequest.Messages) == 0 {
 		s.logger.Warn("No messages provided")
 		return nil, BadRequestError{fmt.Errorf("no messages provided")}
+	}
+
+	// Check virtual key permissions if using virtual key authentication
+	if virtualKey := ctx.Value("virtual_key"); virtualKey != nil {
+		key := virtualKey.(*auth.VirtualKey)
+		if _, err := s.authManager.ValidateKey(ctx, key.Key, openAiRequest.Model); err != nil {
+			s.logger.Warnw("Virtual key validation failed", "error", err, "key_id", key.ID, "model", openAiRequest.Model)
+			return nil, BadRequestError{fmt.Errorf("key validation failed: %v", err)}
+		}
 	}
 
 	cacheable := openAiRequest.Temperature != nil && math.Abs(float64(*openAiRequest.Temperature)-float64(0)) < math.SmallestNonzeroFloat32
@@ -659,6 +850,17 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 					s.logger.Warnw("Failed to cache response", "error", err)
 				}
 			}
+
+			// Update virtual key usage if using virtual key authentication
+			if virtualKey := ctx.Value("virtual_key"); virtualKey != nil {
+				key := virtualKey.(*auth.VirtualKey)
+				tokens := int64(openAiResponse.Usage.TotalTokens)
+				cost := 0.0 // TODO: Calculate actual cost based on model and tokens
+				if err := s.authManager.UpdateUsage(ctx, key.Key, tokens, cost); err != nil {
+					s.logger.Warnw("Failed to update virtual key usage", "error", err, "key_id", key.ID)
+				}
+			}
+
 			return openAiResponse, nil
 		}
 		if bestEndpoint == nil {
