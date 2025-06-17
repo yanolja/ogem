@@ -194,6 +194,12 @@ func (s *ModelProxy) HandleChatCompletions(httpResponse http.ResponseWriter, htt
 	models := strings.Split(openAiRequest.Model, ",")
 	s.logger.Infow("Received chat completions request", "models", models)
 
+	// Check if streaming is requested
+	if openAiRequest.Stream != nil && *openAiRequest.Stream {
+		s.handleStreamingChatCompletions(httpResponse, httpRequest, &openAiRequest, models)
+		return
+	}
+
 	var openAiResponse *openai.ChatCompletionResponse
 	var lastError error
 	lastIndex := len(models) - 1
@@ -220,6 +226,156 @@ func (s *ModelProxy) HandleChatCompletions(httpResponse http.ResponseWriter, htt
 	if err := json.NewEncoder(httpResponse).Encode(openAiResponse); err != nil {
 		s.logger.Errorw("Failed to encode response", "error", err)
 		http.Error(httpResponse, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+func (s *ModelProxy) handleStreamingChatCompletions(httpResponse http.ResponseWriter, httpRequest *http.Request, openAiRequest *openai.ChatCompletionRequest, models []string) {
+	// Set SSE headers
+	httpResponse.Header().Set("Content-Type", "text/event-stream")
+	httpResponse.Header().Set("Cache-Control", "no-cache")
+	httpResponse.Header().Set("Connection", "keep-alive")
+	httpResponse.Header().Set("Access-Control-Allow-Origin", "*")
+
+	flusher, ok := httpResponse.(http.Flusher)
+	if !ok {
+		http.Error(httpResponse, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	var lastError error
+	lastIndex := len(models) - 1
+	for index, model := range models {
+		openAiRequest.Model = strings.TrimSpace(model)
+		success, err := s.generateStreamingChatCompletion(httpRequest.Context(), openAiRequest, httpResponse, flusher, index == lastIndex)
+		if err != nil {
+			s.logger.Warnw("Failed to get streaming chat completions", "error", err, "model", model)
+			lastError = err
+			continue
+		}
+		if success {
+			break
+		}
+	}
+
+	if lastError != nil {
+		// Write error as SSE event
+		errorData := fmt.Sprintf(`{"error": {"message": "%s", "type": "server_error"}}`, lastError.Error())
+		fmt.Fprintf(httpResponse, "data: %s\n\n", errorData)
+		flusher.Flush()
+	}
+
+	// Send termination signal
+	fmt.Fprintf(httpResponse, "data: [DONE]\n\n")
+	flusher.Flush()
+}
+
+func (s *ModelProxy) generateStreamingChatCompletion(ctx context.Context, openAiRequest *openai.ChatCompletionRequest, httpResponse http.ResponseWriter, flusher http.Flusher, keepRetry bool) (bool, error) {
+	endpointProvider, endpointRegion, modelOrAlias, err := parseModelIdentifier(openAiRequest.Model)
+	if err != nil {
+		s.logger.Warnw("Invalid model name", "error", err, "model", openAiRequest.Model)
+		return false, BadRequestError{fmt.Errorf("invalid model name: %s", openAiRequest.Model)}
+	}
+
+	if len(openAiRequest.Messages) == 0 {
+		s.logger.Warn("No messages provided")
+		return false, BadRequestError{fmt.Errorf("no messages provided")}
+	}
+
+	endpoints, err := s.sortedEndpoints(endpointProvider, endpointRegion, modelOrAlias)
+	if err != nil || len(endpoints) == 0 {
+		s.logger.Warnw("Failed to select endpoint", "error", err, "provider", endpointProvider, "region", endpointRegion, "model", modelOrAlias)
+		return false, UnavailableError{fmt.Errorf("no available endpoints")}
+	}
+
+	for {
+		var bestEndpoint *endpointStatus
+		var shortestWaiting time.Duration
+		for _, endpoint := range endpoints {
+			if ctx.Err() != nil {
+				s.logger.Warn("Request canceled")
+				return false, RequestTimeoutError{fmt.Errorf("request canceled")}
+			}
+
+			accepted, waiting, err := s.stateManager.Allow(
+				ctx,
+				endpoint.endpoint.Provider(),
+				endpoint.endpoint.Region(),
+				modelOrAlias,
+				requestInterval(endpoint.modelStatus),
+			)
+			if err != nil {
+				s.logger.Warnw("Failed to check rate limit", "error", err, "provider", endpoint.endpoint.Provider(), "region", endpoint.endpoint.Region(), "model", modelOrAlias)
+				return false, InternalServerError{fmt.Errorf("rate limit check failed")}
+			}
+			if !accepted {
+				if bestEndpoint == nil || waiting < shortestWaiting {
+					bestEndpoint = endpoint
+					shortestWaiting = waiting
+				}
+				s.logger.Infow("Rate limit exceeded", "provider", endpoint.endpoint.Provider(), "region", endpoint.endpoint.Region(), "model", modelOrAlias, "waiting", waiting)
+				continue
+			}
+
+			openAiRequest.Model = endpoint.modelStatus.Name
+			responseCh, errorCh := endpoint.endpoint.GenerateChatCompletionStream(ctx, openAiRequest)
+
+			// Stream the response
+			for {
+				select {
+				case streamResponse, ok := <-responseCh:
+					if !ok {
+						// Channel closed, streaming finished successfully
+						return true, nil
+					}
+
+					// Finalize the stream response
+					finalizedResponse := openai.FinalizeStreamResponse(endpoint.endpoint.Provider(), endpoint.endpoint.Region(), openAiRequest.Model, streamResponse)
+
+					responseData, err := json.Marshal(finalizedResponse)
+					if err != nil {
+						s.logger.Warnw("Failed to marshal stream response", "error", err)
+						continue
+					}
+
+					fmt.Fprintf(httpResponse, "data: %s\n\n", string(responseData))
+					flusher.Flush()
+
+				case err, ok := <-errorCh:
+					if !ok {
+						// Error channel closed
+						return true, nil
+					}
+					if err != nil {
+						loweredError := strings.ToLower(err.Error())
+						if strings.Contains(loweredError, "429") ||
+							strings.Contains(loweredError, "quota") ||
+							strings.Contains(loweredError, "exceeded") ||
+							strings.Contains(loweredError, "throughput") ||
+							strings.Contains(loweredError, "exhausted") {
+							s.stateManager.Disable(ctx, endpoint.endpoint.Provider(), endpoint.endpoint.Region(), modelOrAlias, 1*time.Minute)
+							return false, err
+						}
+						s.logger.Warnw("Failed to generate streaming completion", "error", err)
+						return false, InternalServerError{fmt.Errorf("failed to generate streaming completion")}
+					}
+
+				case <-ctx.Done():
+					s.logger.Warn("Request canceled during streaming")
+					return false, RequestTimeoutError{fmt.Errorf("request canceled")}
+				}
+			}
+		}
+
+		if bestEndpoint == nil {
+			if keepRetry {
+				s.logger.Warnw("No available endpoints", "waiting", s.retryInterval)
+				time.Sleep(s.retryInterval)
+				continue
+			}
+			s.logger.Warn("No available endpoints")
+			return false, UnavailableError{fmt.Errorf("no available endpoints")}
+		}
+		time.Sleep(shortestWaiting)
 	}
 }
 

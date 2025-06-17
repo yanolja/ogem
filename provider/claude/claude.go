@@ -49,6 +49,99 @@ func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *o
 	return openai.FinalizeResponse(ep.Provider(), ep.Region(), openaiRequest.Model, openaiResponse), nil
 }
 
+func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (<-chan *openai.ChatCompletionStreamResponse, <-chan error) {
+	responseCh := make(chan *openai.ChatCompletionStreamResponse)
+	errorCh := make(chan error, 1)
+
+	go func() {
+		defer close(responseCh)
+		defer close(errorCh)
+
+		// For now, convert streaming to non-streaming by getting the full response and emitting it as chunks
+		openaiResponse, err := ep.GenerateChatCompletion(ctx, openaiRequest)
+		if err != nil {
+			errorCh <- err
+			return
+		}
+
+		// Convert the response to streaming format
+		if len(openaiResponse.Choices) > 0 {
+			choice := openaiResponse.Choices[0]
+			
+			// Send role chunk
+			roleChunk := &openai.ChatCompletionStreamResponse{
+				Id:      openaiResponse.Id,
+				Object:  "chat.completion.chunk",
+				Created: openaiResponse.Created,
+				Model:   openaiResponse.Model,
+				Choices: []openai.ChoiceDelta{
+					{
+						Index: 0,
+						Delta: openai.MessageDelta{
+							Role: &choice.Message.Role,
+						},
+					},
+				},
+			}
+			
+			select {
+			case responseCh <- roleChunk:
+			case <-ctx.Done():
+				return
+			}
+
+			// Send content chunk(s)
+			if choice.Message.Content != nil && choice.Message.Content.String != nil {
+				content := *choice.Message.Content.String
+				contentChunk := &openai.ChatCompletionStreamResponse{
+					Id:      openaiResponse.Id,
+					Object:  "chat.completion.chunk", 
+					Created: openaiResponse.Created,
+					Model:   openaiResponse.Model,
+					Choices: []openai.ChoiceDelta{
+						{
+							Index: 0,
+							Delta: openai.MessageDelta{
+								Content: &content,
+							},
+						},
+					},
+				}
+				
+				select {
+				case responseCh <- contentChunk:
+				case <-ctx.Done():
+					return
+				}
+			}
+
+			// Send final chunk with finish_reason
+			finalChunk := &openai.ChatCompletionStreamResponse{
+				Id:      openaiResponse.Id,
+				Object:  "chat.completion.chunk",
+				Created: openaiResponse.Created,
+				Model:   openaiResponse.Model,
+				Choices: []openai.ChoiceDelta{
+					{
+						Index:        0,
+						Delta:        openai.MessageDelta{},
+						FinishReason: &choice.FinishReason,
+					},
+				},
+				Usage: &openaiResponse.Usage,
+			}
+			
+			select {
+			case responseCh <- finalChunk:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return responseCh, errorCh
+}
+
 func (ep *Endpoint) Provider() string {
 	return "claude"
 }

@@ -311,6 +311,39 @@ type StreamOptions struct {
 	IncludeUsage *bool `json:"include_usage,omitempty"`
 }
 
+type ChatCompletionStreamResponse struct {
+	Id                string               `json:"id"`
+	Object            string               `json:"object"`
+	Created           int64                `json:"created"`
+	Model             string               `json:"model"`
+	ServiceTier       *string              `json:"service_tier,omitempty"`
+	SystemFingerprint string               `json:"system_fingerprint"`
+	Choices           []ChoiceDelta        `json:"choices"`
+	Usage             *Usage               `json:"usage,omitempty"`
+}
+
+type ChoiceDelta struct {
+	Index        int32         `json:"index"`
+	Delta        MessageDelta  `json:"delta"`
+	Logprobs     *Logprobs     `json:"logprobs,omitempty"`
+	FinishReason *string       `json:"finish_reason"`
+}
+
+type MessageDelta struct {
+	Role         *string         `json:"role,omitempty"`
+	Content      *string         `json:"content,omitempty"`
+	Refusal      *string         `json:"refusal,omitempty"`
+	ToolCalls    []ToolCallDelta `json:"tool_calls,omitempty"`
+	FunctionCall *FunctionCall   `json:"function_call,omitempty"`
+}
+
+type ToolCallDelta struct {
+	Index    *int32        `json:"index,omitempty"`
+	Id       *string       `json:"id,omitempty"`
+	Type     *string       `json:"type,omitempty"`
+	Function *FunctionCall `json:"function,omitempty"`
+}
+
 func FinalizeResponse(provider string, region string, model string, response *ChatCompletionResponse) *ChatCompletionResponse {
 	response.Id = "chatcmpl-" + strings.ReplaceAll(uuid.New().String(), "-", "")
 	response.Created = time.Now().Unix()
@@ -318,5 +351,19 @@ func FinalizeResponse(provider string, region string, model string, response *Ch
 	response.ServiceTier = nil
 	response.SystemFingerprint = fmt.Sprintf("open-gemini/%s/%s/%s", provider, region, model)
 	response.Object = "chat.completion"
+	return response
+}
+
+func FinalizeStreamResponse(provider string, region string, model string, response *ChatCompletionStreamResponse) *ChatCompletionStreamResponse {
+	if response.Id == "" {
+		response.Id = "chatcmpl-" + strings.ReplaceAll(uuid.New().String(), "-", "")
+	}
+	if response.Created == 0 {
+		response.Created = time.Now().Unix()
+	}
+	response.Model = model
+	response.ServiceTier = nil
+	response.SystemFingerprint = fmt.Sprintf("open-gemini/%s/%s/%s", provider, region, model)
+	response.Object = "chat.completion.chunk"
 	return response
 }
