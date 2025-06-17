@@ -14,6 +14,7 @@ import (
 
 	"github.com/rs/cors"
 	"github.com/valkey-io/valkey-go"
+	"github.com/yanolja/ogem/auth"
 	"github.com/yanolja/ogem/config"
 	"github.com/yanolja/ogem/server"
 	"github.com/yanolja/ogem/state"
@@ -39,7 +40,14 @@ func main() {
 
 	sugar.Infow("Loaded config", "config", config)
 
-	proxy, err := server.NewProxyServer(stateManager, cleanup, config, sugar)
+	// Setup auth manager
+	var authManager auth.Manager
+	if config.EnableVirtualKeys {
+		authManager = auth.NewMemoryManager()
+		sugar.Infow("Virtual keys authentication enabled")
+	}
+
+	proxy, err := server.NewProxyServer(stateManager, cleanup, config, authManager, sugar)
 	if err != nil {
 		sugar.Fatalw("Failed to create proxy server", "error", err)
 	}
@@ -47,6 +55,28 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/chat/completions", proxy.HandleAuthentication(proxy.HandleChatCompletions))
 	mux.HandleFunc("/v1/embeddings", proxy.HandleAuthentication(proxy.HandleEmbeddings))
+	
+	// Virtual key management endpoints (only available if virtual keys are enabled)
+	if config.EnableVirtualKeys {
+		mux.HandleFunc("/v1/keys", func(w http.ResponseWriter, r *http.Request) {
+			switch r.Method {
+			case http.MethodPost:
+				proxy.HandleCreateKey(w, r)
+			case http.MethodGet:
+				proxy.HandleListKeys(w, r)
+			default:
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		})
+		mux.HandleFunc("/v1/keys/", func(w http.ResponseWriter, r *http.Request) {
+			switch r.Method {
+			case http.MethodDelete:
+				proxy.HandleDeleteKey(w, r)
+			default:
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		})
+	}
 
 	httpServer := setupServer(config.Port, mux)
 

@@ -48,6 +48,12 @@ type Config struct {
 
 	// Configuration for each provider.
 	Providers ogem.ProvidersStatus `yaml:"providers"`
+
+	// Enable virtual key authentication system
+	EnableVirtualKeys bool `yaml:"enable_virtual_keys"`
+
+	// Master API key for managing virtual keys
+	MasterApiKey string
 }
 
 // LoadConfig loads the configuration from the specified path
@@ -95,6 +101,8 @@ func LoadConfig(path string, logger *zap.SugaredLogger) (*Config, error) {
 	config.RetryInterval = env.OptionalStringVariable("RETRY_INTERVAL", config.RetryInterval)
 	config.PingInterval = env.OptionalStringVariable("PING_INTERVAL", config.PingInterval)
 	config.Port = env.OptionalIntVariable("PORT", config.Port)
+	config.EnableVirtualKeys = env.OptionalBoolVariable("ENABLE_VIRTUAL_KEYS", config.EnableVirtualKeys)
+	config.MasterApiKey = env.OptionalStringVariable("MASTER_API_KEY", config.MasterApiKey)
 
 	return &config, nil
 }

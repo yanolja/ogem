@@ -34,6 +34,18 @@ func OptionalIntVariable(name string, defaultValue int) int {
 	return intValue
 }
 
+func OptionalBoolVariable(name string, defaultValue bool) bool {
+	if !HasEnv(name) {
+		return defaultValue
+	}
+	value := os.Getenv(name)
+	boolValue, err := strconv.ParseBool(value)
+	if err != nil {
+		logFatalf("Environment variable (%s) is not a valid bool.", name)
+	}
+	return boolValue
+}
+
 func HasEnv(name string) bool {
 	_, ok := os.LookupEnv(name)
 	return ok
