@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -134,6 +135,100 @@ func (p *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *op
 	}
 
 	return &openAiResponse, nil
+}
+
+func (p *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (<-chan *openai.ChatCompletionStreamResponse, <-chan error) {
+	responseCh := make(chan *openai.ChatCompletionStreamResponse)
+	errorCh := make(chan error, 1)
+
+	go func() {
+		defer close(responseCh)
+		defer close(errorCh)
+
+		// Create a copy of the request and enable streaming
+		streamRequest := *openaiRequest
+		streamingEnabled := true
+		streamRequest.Stream = &streamingEnabled
+
+		jsonData, err := json.Marshal(streamRequest)
+		if err != nil {
+			errorCh <- fmt.Errorf("failed to marshal request: %v", err)
+			return
+		}
+
+		endpointPath, err := url.JoinPath(p.baseUrl.String(), "chat/completions")
+		if err != nil {
+			errorCh <- fmt.Errorf("failed to build endpoint path: %v", err)
+			return
+		}
+
+		httpRequest, err := http.NewRequestWithContext(ctx, "POST", endpointPath, strings.NewReader(string(jsonData)))
+		if err != nil {
+			errorCh <- fmt.Errorf("failed to create request: %v", err)
+			return
+		}
+
+		httpRequest.Header.Set("Content-Type", "application/json")
+		httpRequest.Header.Set("Authorization", "Bearer "+p.apiKey)
+		httpRequest.Header.Set("Accept", "text/event-stream")
+
+		log.Printf("Sending streaming %s request to %s", httpRequest.Method, endpointPath)
+
+		httpResponse, err := p.client.Do(httpRequest)
+		if err != nil {
+			errorCh <- fmt.Errorf("failed to send request: %v", err)
+			return
+		}
+		defer httpResponse.Body.Close()
+
+		if httpResponse.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(httpResponse.Body)
+			if httpResponse.StatusCode == http.StatusTooManyRequests {
+				errorCh <- fmt.Errorf("quota exceeded: %s", string(body))
+			} else {
+				errorCh <- fmt.Errorf("unexpected status code: %d, body: %s", httpResponse.StatusCode, string(body))
+			}
+			return
+		}
+
+		scanner := bufio.NewScanner(httpResponse.Body)
+		for scanner.Scan() {
+			line := scanner.Text()
+			
+			// Skip empty lines and comments
+			if line == "" || strings.HasPrefix(line, ":") {
+				continue
+			}
+
+			// Parse SSE format: "data: {...}"
+			if strings.HasPrefix(line, "data: ") {
+				data := strings.TrimPrefix(line, "data: ")
+				
+				// Handle termination signal
+				if data == "[DONE]" {
+					break
+				}
+
+				var streamResponse openai.ChatCompletionStreamResponse
+				if err := json.Unmarshal([]byte(data), &streamResponse); err != nil {
+					log.Printf("Failed to parse streaming response: %v, data: %s", err, data)
+					continue
+				}
+
+				select {
+				case responseCh <- &streamResponse:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+
+		if err := scanner.Err(); err != nil {
+			errorCh <- fmt.Errorf("error reading stream: %v", err)
+		}
+	}()
+
+	return responseCh, errorCh
 }
 
 func (p *Endpoint) GenerateBatchChatCompletion(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
