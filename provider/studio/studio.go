@@ -8,6 +8,7 @@ import (
 
 	"google.golang.org/genai"
 
+	"github.com/yanolja/ogem/image"
 	"github.com/yanolja/ogem/openai"
 	"github.com/yanolja/ogem/provider"
 	"github.com/yanolja/ogem/utils"
@@ -18,7 +19,8 @@ import (
 const REGION = "studio"
 
 type Endpoint struct {
-	client *genai.Client
+	client          *genai.Client
+	imageDownloader *image.Downloader
 }
 
 func NewEndpoint(apiKey string) (*Endpoint, error) {
@@ -33,13 +35,159 @@ func NewEndpoint(apiKey string) (*Endpoint, error) {
 	return &Endpoint{client: client}, nil
 }
 
+func (ep *Endpoint) SetImageDownloader(downloader *image.Downloader) {
+	ep.imageDownloader = downloader
+}
+
+func (ep *Endpoint) processImageContent(ctx context.Context, imageContent *openai.ImageContent) (*genai.Part, error) {
+	if ep.imageDownloader == nil {
+		return &genai.Part{Text: "image content is not supported yet"}, nil
+	}
+
+	imageData, err := ep.imageDownloader.ProcessImageURL(ctx, imageContent.Url)
+	if err != nil {
+		return &genai.Part{Text: fmt.Sprintf("failed to process image: %v", err)}, nil
+	}
+
+	if !image.IsImageMimeType(imageData.MimeType) {
+		return &genai.Part{Text: "invalid image format"}, nil
+	}
+
+	return &genai.Part{
+		InlineData: &genai.Blob{
+			MIMEType: imageData.MimeType,
+			Data:     imageData.Data,
+		},
+	}, nil
+}
+
+func (ep *Endpoint) toGeminiMessages(ctx context.Context, openAiMessages []openai.Message) ([]*genai.Content, *genai.Content, error) {
+	messageCount := len(openAiMessages)
+	if messageCount == 0 {
+		return nil, nil, nil
+	}
+
+	toolMap := make(map[string]string)
+	geminiMessages := make([]*genai.Content, 0, messageCount)
+	for _, message := range openAiMessages {
+		if message.Role == "system" {
+			continue
+		}
+
+		for _, toolCall := range message.ToolCalls {
+			toolMap[toolCall.Id] = toolCall.Function.Name
+		}
+		parts, err := ep.toGeminiParts(ctx, message, toolMap)
+		if err != nil {
+			return nil, nil, err
+		}
+		geminiMessages = append(geminiMessages, &genai.Content{
+			Role:  provider.ToGeminiRole(message.Role),
+			Parts: parts,
+		})
+	}
+	lastIndex := len(geminiMessages) - 1
+	geminiMessages, last := geminiMessages[:lastIndex], geminiMessages[lastIndex]
+	return geminiMessages, last, nil
+}
+
+func (ep *Endpoint) toGeminiParts(ctx context.Context, message openai.Message, toolMap map[string]string) ([]*genai.Part, error) {
+	if message.Role == "tool" {
+		response, err := utils.JsonToMap(*message.Content.String)
+		if err != nil {
+			return nil, fmt.Errorf("tool response must be a valid JSON object: %v", err)
+		}
+		functionName, exists := toolMap[*message.ToolCallId]
+		if !exists {
+			return nil, fmt.Errorf("tool call ID %s not found in the previous messages", *message.ToolCallId)
+		}
+		return []*genai.Part{
+			{
+				FunctionResponse: &genai.FunctionResponse{
+					Name:     functionName,
+					Response: response,
+				},
+			},
+		}, nil
+	}
+	if message.Role == "function" {
+		response, err := utils.JsonToMap(*message.Content.String)
+		if err != nil {
+			return nil, fmt.Errorf("function response must be a valid JSON object: %v", err)
+		}
+		return []*genai.Part{
+			{
+				FunctionResponse: &genai.FunctionResponse{
+					Name:     *message.Name,
+					Response: response,
+				},
+			},
+		}, nil
+	}
+	if message.Content != nil {
+		if message.Content.String != nil {
+			return []*genai.Part{{Text: *message.Content.String}}, nil
+		}
+		parts := make([]*genai.Part, len(message.Content.Parts))
+		for i, part := range message.Content.Parts {
+			if part.Content.TextContent != nil {
+				parts[i] = &genai.Part{Text: part.Content.TextContent.Text}
+			} else if part.Content.ImageContent != nil {
+				imagePart, err := ep.processImageContent(ctx, part.Content.ImageContent)
+				if err != nil {
+					return nil, fmt.Errorf("failed to process image content: %v", err)
+				}
+				parts[i] = imagePart
+			} else {
+				parts[i] = &genai.Part{Text: "unsupported content type"}
+			}
+		}
+		return parts, nil
+	}
+	if message.Refusal != nil {
+		return []*genai.Part{{Text: *message.Refusal}}, nil
+	}
+	if message.FunctionCall != nil {
+		arguments, err := utils.JsonToMap(message.FunctionCall.Arguments)
+		if err != nil {
+			return nil, err
+		}
+		return []*genai.Part{{
+			FunctionCall: &genai.FunctionCall{
+				Name: message.FunctionCall.Name,
+				Args: arguments,
+			},
+		}}, nil
+	}
+	if len(message.ToolCalls) > 0 {
+		toolCalls := make([]*genai.Part, len(message.ToolCalls))
+		for index, toolCall := range message.ToolCalls {
+			if toolCall.Type != "function" {
+				return nil, fmt.Errorf("unsupported tool call type: %s", toolCall.Type)
+			}
+			arguments, err := utils.JsonToMap(toolCall.Function.Arguments)
+			if err != nil {
+				return nil, err
+			}
+			toolCalls[index] = &genai.Part{
+				FunctionCall: &genai.FunctionCall{
+					Name: toolCall.Function.Name,
+					Args: arguments,
+				},
+			}
+		}
+		return toolCalls, nil
+	}
+	return nil, fmt.Errorf("message must have content, refusal, function_call, or tool_calls")
+}
+
 func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
 	config, err := toGeminiConfig(openaiRequest)
 	if err != nil {
 		return nil, err
 	}
 
-	history, messageToSend, err := toGeminiMessages(openaiRequest.Messages)
+	history, messageToSend, err := ep.toGeminiMessages(ctx, openaiRequest.Messages)
 	if err != nil {
 		return nil, err
 	}
@@ -162,6 +310,42 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 
 func (ep *Endpoint) GenerateEmbedding(ctx context.Context, embeddingRequest *openai.EmbeddingRequest) (*openai.EmbeddingResponse, error) {
 	return nil, fmt.Errorf("embeddings not yet implemented for Studio provider")
+}
+
+func (ep *Endpoint) GenerateImage(ctx context.Context, imageRequest *openai.ImageGenerationRequest) (*openai.ImageGenerationResponse, error) {
+	return nil, fmt.Errorf("image generation not yet implemented for Studio provider")
+}
+
+func (ep *Endpoint) TranscribeAudio(ctx context.Context, request *openai.AudioTranscriptionRequest) (*openai.AudioTranscriptionResponse, error) {
+	return nil, fmt.Errorf("audio transcription not supported by Studio provider")
+}
+
+func (ep *Endpoint) TranslateAudio(ctx context.Context, request *openai.AudioTranslationRequest) (*openai.AudioTranslationResponse, error) {
+	return nil, fmt.Errorf("audio translation not supported by Studio provider")
+}
+
+func (ep *Endpoint) GenerateSpeech(ctx context.Context, request *openai.TextToSpeechRequest) (*openai.TextToSpeechResponse, error) {
+	return nil, fmt.Errorf("speech generation not supported by Studio provider")
+}
+
+func (ep *Endpoint) ModerateContent(ctx context.Context, request *openai.ModerationRequest) (*openai.ModerationResponse, error) {
+	return nil, fmt.Errorf("content moderation not supported by Studio provider")
+}
+
+func (ep *Endpoint) CreateFineTuningJob(ctx context.Context, request *openai.FineTuningJobRequest) (*openai.FineTuningJob, error) {
+	return nil, fmt.Errorf("fine-tuning not supported by Studio provider")
+}
+
+func (ep *Endpoint) GetFineTuningJob(ctx context.Context, jobID string) (*openai.FineTuningJob, error) {
+	return nil, fmt.Errorf("fine-tuning not supported by Studio provider")
+}
+
+func (ep *Endpoint) ListFineTuningJobs(ctx context.Context, after *string, limit *int32) (*openai.FineTuningJobList, error) {
+	return nil, fmt.Errorf("fine-tuning not supported by Studio provider")
+}
+
+func (ep *Endpoint) CancelFineTuningJob(ctx context.Context, jobID string) (*openai.FineTuningJob, error) {
+	return nil, fmt.Errorf("fine-tuning not supported by Studio provider")
 }
 
 func (ep *Endpoint) Provider() string {

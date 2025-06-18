@@ -55,6 +55,12 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/chat/completions", proxy.HandleAuthentication(proxy.HandleChatCompletions))
 	mux.HandleFunc("/v1/embeddings", proxy.HandleAuthentication(proxy.HandleEmbeddings))
+	mux.HandleFunc("/v1/images/generations", proxy.HandleAuthentication(proxy.HandleImages))
+	mux.HandleFunc("/v1/audio/transcriptions", proxy.HandleAuthentication(proxy.HandleAudioTranscriptions))
+	mux.HandleFunc("/v1/audio/translations", proxy.HandleAuthentication(proxy.HandleAudioTranslations))
+	mux.HandleFunc("/v1/audio/speech", proxy.HandleAuthentication(proxy.HandleAudioSpeech))
+	mux.HandleFunc("/v1/moderations", proxy.HandleAuthentication(proxy.HandleModerations))
+	mux.HandleFunc("/v1/cost/estimate", proxy.HandleCostEstimate) // No authentication required for cost estimation
 	
 	// Virtual key management endpoints (only available if virtual keys are enabled)
 	if config.EnableVirtualKeys {
@@ -70,6 +76,8 @@ func main() {
 		})
 		mux.HandleFunc("/v1/keys/", func(w http.ResponseWriter, r *http.Request) {
 			switch r.Method {
+			case http.MethodGet:
+				proxy.HandleGetKey(w, r)
 			case http.MethodDelete:
 				proxy.HandleDeleteKey(w, r)
 			default:

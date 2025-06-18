@@ -9,6 +9,7 @@ import (
 	"math"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -19,6 +20,8 @@ import (
 	"github.com/yanolja/ogem"
 	"github.com/yanolja/ogem/auth"
 	"github.com/yanolja/ogem/config"
+	"github.com/yanolja/ogem/cost"
+	"github.com/yanolja/ogem/image"
 	"github.com/yanolja/ogem/openai"
 	"github.com/yanolja/ogem/provider"
 	"github.com/yanolja/ogem/provider/claude"
@@ -81,6 +84,9 @@ type ModelProxy struct {
 
 	// Auth manager for virtual keys
 	authManager auth.Manager
+
+	// Image downloader for vision support
+	imageDownloader *image.Downloader
 }
 
 func newEndpoint(provider string, region string, config *config.Config) (provider.AiEndpoint, error) {
@@ -137,6 +143,9 @@ func NewProxyServer(stateManager state.Manager, cleanup func(), config *config.C
 		return nil, fmt.Errorf("failed to deep copy provider status: %v", err)
 	}
 
+	imageCache := image.NewStateCacheManager(stateManager)
+	imageDownloader := image.NewDownloader(imageCache)
+
 	endpoints := []provider.AiEndpoint{}
 	endpointStatus.ForEach(func(
 		providerName string,
@@ -162,20 +171,30 @@ func NewProxyServer(stateManager state.Manager, cleanup func(), config *config.C
 			logger.Warnw("Failed to create endpoint", "provider", providerName, "region", region, "error", err)
 			return false
 		}
+
+		// Set image downloader for vision support
+		if claudeEndpoint, ok := endpoint.(*claude.Endpoint); ok {
+			claudeEndpoint.SetImageDownloader(imageDownloader)
+		}
+		if studioEndpoint, ok := endpoint.(*studio.Endpoint); ok {
+			studioEndpoint.SetImageDownloader(imageDownloader)
+		}
+
 		endpoints = append(endpoints, endpoint)
 		return false
 	})
 
 	return &ModelProxy{
-		endpoints:      endpoints,
-		endpointStatus: endpointStatus,
-		stateManager:   stateManager,
-		cleanup:        cleanup,
-		retryInterval:  retryInterval,
-		pingInterval:   pingInterval,
-		config:         config,
-		logger:         logger,
-		authManager:    authManager,
+		endpoints:       endpoints,
+		endpointStatus:  endpointStatus,
+		stateManager:    stateManager,
+		cleanup:         cleanup,
+		retryInterval:   retryInterval,
+		pingInterval:    pingInterval,
+		config:          config,
+		logger:          logger,
+		authManager:     authManager,
+		imageDownloader: imageDownloader,
 	}, nil
 }
 
@@ -384,6 +403,58 @@ func (s *ModelProxy) generateStreamingChatCompletion(ctx context.Context, openAi
 	}
 }
 
+func (s *ModelProxy) HandleImages(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	defer httpRequest.Body.Close()
+
+	bodyBytes, err := io.ReadAll(httpRequest.Body)
+	if err != nil {
+		s.logger.Warnw("Failed to read request body", "error", err)
+		http.Error(httpResponse, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	var imageRequest openai.ImageGenerationRequest
+	if err := json.Unmarshal(bodyBytes, &imageRequest); err != nil {
+		s.logger.Warnw("Invalid request body", "error", err, "body", string(bodyBytes))
+		http.Error(httpResponse, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Set default model if not specified
+	if imageRequest.Model == nil {
+		defaultModel := "dall-e-3"
+		imageRequest.Model = &defaultModel
+	}
+
+	models := strings.Split(*imageRequest.Model, ",")
+	s.logger.Infow("Received image generation request", "models", models)
+
+	var imageResponse *openai.ImageGenerationResponse
+	var lastError error
+	lastIndex := len(models) - 1
+	for index, model := range models {
+		*imageRequest.Model = strings.TrimSpace(model)
+		imageResponse, err = s.generateImage(httpRequest.Context(), &imageRequest, index == lastIndex)
+		if err != nil {
+			s.logger.Warnw("Failed to generate image", "error", err, "model", model)
+			lastError = err
+			continue
+		}
+		break
+	}
+
+	if imageResponse == nil {
+		handleError(httpResponse, lastError)
+		return
+	}
+
+	httpResponse.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(httpResponse).Encode(imageResponse); err != nil {
+		s.logger.Errorw("Failed to encode response", "error", err)
+		http.Error(httpResponse, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
 func (s *ModelProxy) HandleEmbeddings(httpResponse http.ResponseWriter, httpRequest *http.Request) {
 	defer httpRequest.Body.Close()
 
@@ -506,13 +577,481 @@ func (s *ModelProxy) generateEmbedding(ctx context.Context, embeddingRequest *op
 			if virtualKey := ctx.Value("virtual_key"); virtualKey != nil {
 				key := virtualKey.(*auth.VirtualKey)
 				tokens := int64(embeddingResponse.Usage.TotalTokens)
-				cost := 0.0 // TODO: Calculate actual cost based on model and tokens
-				if err := s.authManager.UpdateUsage(ctx, key.Key, tokens, cost); err != nil {
+				calculatedCost := cost.CalculateEmbeddingCost(embeddingRequest.Model, embeddingResponse.Usage)
+				if err := s.authManager.UpdateUsage(ctx, key.Key, tokens, calculatedCost); err != nil {
 					s.logger.Warnw("Failed to update virtual key usage", "error", err, "key_id", key.ID)
 				}
 			}
 
 			return embeddingResponse, nil
+		}
+		if bestEndpoint == nil {
+			if keepRetry {
+				s.logger.Warnw("No available endpoints", "waiting", s.retryInterval)
+				time.Sleep(s.retryInterval)
+				continue
+			}
+			s.logger.Warn("No available endpoints")
+			return nil, UnavailableError{fmt.Errorf("no available endpoints")}
+		}
+		time.Sleep(shortestWaiting)
+	}
+}
+
+func (s *ModelProxy) generateImage(ctx context.Context, imageRequest *openai.ImageGenerationRequest, keepRetry bool) (*openai.ImageGenerationResponse, error) {
+	endpointProvider, endpointRegion, modelOrAlias, err := parseModelIdentifier(*imageRequest.Model)
+	if err != nil {
+		s.logger.Warnw("Invalid model name", "error", err, "model", *imageRequest.Model)
+		return nil, BadRequestError{fmt.Errorf("invalid model name: %s", *imageRequest.Model)}
+	}
+
+	// Check virtual key permissions if using virtual key authentication
+	if virtualKey := ctx.Value("virtual_key"); virtualKey != nil {
+		key := virtualKey.(*auth.VirtualKey)
+		if _, err := s.authManager.ValidateKey(ctx, key.Key, *imageRequest.Model); err != nil {
+			s.logger.Warnw("Virtual key validation failed", "error", err, "key_id", key.ID, "model", *imageRequest.Model)
+			return nil, BadRequestError{fmt.Errorf("key validation failed: %v", err)}
+		}
+	}
+
+	endpoints, err := s.sortedEndpoints(endpointProvider, endpointRegion, modelOrAlias)
+	if err != nil || len(endpoints) == 0 {
+		s.logger.Warnw("Failed to select endpoint", "error", err, "provider", endpointProvider, "region", endpointRegion, "model", modelOrAlias)
+		return nil, UnavailableError{fmt.Errorf("no available endpoints")}
+	}
+
+	for {
+		var bestEndpoint *endpointStatus
+		var shortestWaiting time.Duration
+		for _, endpoint := range endpoints {
+			if ctx.Err() != nil {
+				s.logger.Warn("Request canceled")
+				return nil, RequestTimeoutError{fmt.Errorf("request canceled")}
+			}
+
+			accepted, waiting, err := s.stateManager.Allow(
+				ctx,
+				endpoint.endpoint.Provider(),
+				endpoint.endpoint.Region(),
+				modelOrAlias,
+				requestInterval(endpoint.modelStatus),
+			)
+			if err != nil {
+				s.logger.Warnw("Failed to check rate limit", "error", err, "provider", endpoint.endpoint.Provider(), "region", endpoint.endpoint.Region(), "model", modelOrAlias)
+				return nil, InternalServerError{fmt.Errorf("rate limit check failed")}
+			}
+			if !accepted {
+				if bestEndpoint == nil || waiting < shortestWaiting {
+					bestEndpoint = endpoint
+					shortestWaiting = waiting
+				}
+				s.logger.Infow("Rate limit exceeded", "provider", endpoint.endpoint.Provider(), "region", endpoint.endpoint.Region(), "model", modelOrAlias, "waiting", waiting)
+				continue
+			}
+
+			*imageRequest.Model = endpoint.modelStatus.Name
+			imageResponse, err := endpoint.endpoint.GenerateImage(ctx, imageRequest)
+			if err != nil {
+				loweredError := strings.ToLower(err.Error())
+				if strings.Contains(loweredError, "429") ||
+					strings.Contains(loweredError, "quota") ||
+					strings.Contains(loweredError, "exceeded") ||
+					strings.Contains(loweredError, "throughput") ||
+					strings.Contains(loweredError, "exhausted") {
+					s.stateManager.Disable(ctx, endpoint.endpoint.Provider(), endpoint.endpoint.Region(), modelOrAlias, 1*time.Minute)
+					continue
+				}
+				s.logger.Warnw("Failed to generate image", "error", err, "request", imageRequest, "response", imageResponse)
+				return nil, InternalServerError{fmt.Errorf("failed to generate image")}
+			}
+
+			// Update virtual key usage if using virtual key authentication
+			if virtualKey := ctx.Value("virtual_key"); virtualKey != nil {
+				key := virtualKey.(*auth.VirtualKey)
+				numImages := len(imageResponse.Data)
+				tokens := int64(numImages) // Use number of images as token count for simplicity
+				calculatedCost := cost.CalculateImageCost(*imageRequest.Model, imageRequest, numImages)
+				if err := s.authManager.UpdateUsage(ctx, key.Key, tokens, calculatedCost); err != nil {
+					s.logger.Warnw("Failed to update virtual key usage", "error", err, "key_id", key.ID)
+				}
+			}
+
+			return imageResponse, nil
+		}
+		if bestEndpoint == nil {
+			if keepRetry {
+				s.logger.Warnw("No available endpoints", "waiting", s.retryInterval)
+				time.Sleep(s.retryInterval)
+				continue
+			}
+			s.logger.Warn("No available endpoints")
+			return nil, UnavailableError{fmt.Errorf("no available endpoints")}
+		}
+		time.Sleep(shortestWaiting)
+	}
+}
+
+func (s *ModelProxy) transcribeAudio(ctx context.Context, audioRequest *openai.AudioTranscriptionRequest, keepRetry bool) (*openai.AudioTranscriptionResponse, error) {
+	endpointProvider, endpointRegion, modelOrAlias, err := parseModelIdentifier(audioRequest.Model)
+	if err != nil {
+		s.logger.Warnw("Invalid model name", "error", err, "model", audioRequest.Model)
+		return nil, BadRequestError{fmt.Errorf("invalid model name: %s", audioRequest.Model)}
+	}
+
+	// Check virtual key permissions if using virtual key authentication
+	if virtualKey := ctx.Value("virtual_key"); virtualKey != nil {
+		key := virtualKey.(*auth.VirtualKey)
+		if _, err := s.authManager.ValidateKey(ctx, key.Key, audioRequest.Model); err != nil {
+			s.logger.Warnw("Virtual key validation failed", "error", err, "key_id", key.ID, "model", audioRequest.Model)
+			return nil, BadRequestError{fmt.Errorf("key validation failed: %v", err)}
+		}
+	}
+
+	endpoints, err := s.sortedEndpoints(endpointProvider, endpointRegion, modelOrAlias)
+	if err != nil || len(endpoints) == 0 {
+		s.logger.Warnw("Failed to select endpoint", "error", err, "provider", endpointProvider, "region", endpointRegion, "model", modelOrAlias)
+		return nil, UnavailableError{fmt.Errorf("no available endpoints")}
+	}
+
+	for {
+		var bestEndpoint *endpointStatus
+		var shortestWaiting time.Duration
+		for _, endpoint := range endpoints {
+			if ctx.Err() != nil {
+				s.logger.Warn("Request canceled")
+				return nil, RequestTimeoutError{fmt.Errorf("request canceled")}
+			}
+
+			accepted, waiting, err := s.stateManager.Allow(
+				ctx,
+				endpoint.endpoint.Provider(),
+				endpoint.endpoint.Region(),
+				modelOrAlias,
+				requestInterval(endpoint.modelStatus),
+			)
+			if err != nil {
+				s.logger.Warnw("Failed to check rate limit", "error", err, "provider", endpoint.endpoint.Provider(), "region", endpoint.endpoint.Region(), "model", modelOrAlias)
+				return nil, InternalServerError{fmt.Errorf("rate limit check failed")}
+			}
+			if !accepted {
+				if bestEndpoint == nil || waiting < shortestWaiting {
+					bestEndpoint = endpoint
+					shortestWaiting = waiting
+				}
+				s.logger.Infow("Rate limit exceeded", "provider", endpoint.endpoint.Provider(), "region", endpoint.endpoint.Region(), "model", modelOrAlias, "waiting", waiting)
+				continue
+			}
+
+			audioRequest.Model = endpoint.modelStatus.Name
+			audioResponse, err := endpoint.endpoint.TranscribeAudio(ctx, audioRequest)
+			if err != nil {
+				loweredError := strings.ToLower(err.Error())
+				if strings.Contains(loweredError, "429") ||
+					strings.Contains(loweredError, "quota") ||
+					strings.Contains(loweredError, "exceeded") ||
+					strings.Contains(loweredError, "throughput") ||
+					strings.Contains(loweredError, "exhausted") {
+					s.stateManager.Disable(ctx, endpoint.endpoint.Provider(), endpoint.endpoint.Region(), modelOrAlias, 1*time.Minute)
+					continue
+				}
+				s.logger.Warnw("Failed to transcribe audio", "error", err, "request", audioRequest, "response", audioResponse)
+				return nil, InternalServerError{fmt.Errorf("failed to transcribe audio")}
+			}
+
+			// Update virtual key usage if using virtual key authentication
+			if virtualKey := ctx.Value("virtual_key"); virtualKey != nil {
+				key := virtualKey.(*auth.VirtualKey)
+				tokens := int64(100) // Approximate token usage for audio transcription
+				calculatedCost := cost.CalculateChatCost(audioRequest.Model, openai.Usage{PromptTokens: int32(tokens)})
+				if err := s.authManager.UpdateUsage(ctx, key.Key, tokens, calculatedCost); err != nil {
+					s.logger.Warnw("Failed to update virtual key usage", "error", err, "key_id", key.ID)
+				}
+			}
+
+			return audioResponse, nil
+		}
+		if bestEndpoint == nil {
+			if keepRetry {
+				s.logger.Warnw("No available endpoints", "waiting", s.retryInterval)
+				time.Sleep(s.retryInterval)
+				continue
+			}
+			s.logger.Warn("No available endpoints")
+			return nil, UnavailableError{fmt.Errorf("no available endpoints")}
+		}
+		time.Sleep(shortestWaiting)
+	}
+}
+
+func (s *ModelProxy) translateAudio(ctx context.Context, audioRequest *openai.AudioTranslationRequest, keepRetry bool) (*openai.AudioTranslationResponse, error) {
+	endpointProvider, endpointRegion, modelOrAlias, err := parseModelIdentifier(audioRequest.Model)
+	if err != nil {
+		s.logger.Warnw("Invalid model name", "error", err, "model", audioRequest.Model)
+		return nil, BadRequestError{fmt.Errorf("invalid model name: %s", audioRequest.Model)}
+	}
+
+	// Check virtual key permissions if using virtual key authentication
+	if virtualKey := ctx.Value("virtual_key"); virtualKey != nil {
+		key := virtualKey.(*auth.VirtualKey)
+		if _, err := s.authManager.ValidateKey(ctx, key.Key, audioRequest.Model); err != nil {
+			s.logger.Warnw("Virtual key validation failed", "error", err, "key_id", key.ID, "model", audioRequest.Model)
+			return nil, BadRequestError{fmt.Errorf("key validation failed: %v", err)}
+		}
+	}
+
+	endpoints, err := s.sortedEndpoints(endpointProvider, endpointRegion, modelOrAlias)
+	if err != nil || len(endpoints) == 0 {
+		s.logger.Warnw("Failed to select endpoint", "error", err, "provider", endpointProvider, "region", endpointRegion, "model", modelOrAlias)
+		return nil, UnavailableError{fmt.Errorf("no available endpoints")}
+	}
+
+	for {
+		var bestEndpoint *endpointStatus
+		var shortestWaiting time.Duration
+		for _, endpoint := range endpoints {
+			if ctx.Err() != nil {
+				s.logger.Warn("Request canceled")
+				return nil, RequestTimeoutError{fmt.Errorf("request canceled")}
+			}
+
+			accepted, waiting, err := s.stateManager.Allow(
+				ctx,
+				endpoint.endpoint.Provider(),
+				endpoint.endpoint.Region(),
+				modelOrAlias,
+				requestInterval(endpoint.modelStatus),
+			)
+			if err != nil {
+				s.logger.Warnw("Failed to check rate limit", "error", err, "provider", endpoint.endpoint.Provider(), "region", endpoint.endpoint.Region(), "model", modelOrAlias)
+				return nil, InternalServerError{fmt.Errorf("rate limit check failed")}
+			}
+			if !accepted {
+				if bestEndpoint == nil || waiting < shortestWaiting {
+					bestEndpoint = endpoint
+					shortestWaiting = waiting
+				}
+				s.logger.Infow("Rate limit exceeded", "provider", endpoint.endpoint.Provider(), "region", endpoint.endpoint.Region(), "model", modelOrAlias, "waiting", waiting)
+				continue
+			}
+
+			audioRequest.Model = endpoint.modelStatus.Name
+			audioResponse, err := endpoint.endpoint.TranslateAudio(ctx, audioRequest)
+			if err != nil {
+				loweredError := strings.ToLower(err.Error())
+				if strings.Contains(loweredError, "429") ||
+					strings.Contains(loweredError, "quota") ||
+					strings.Contains(loweredError, "exceeded") ||
+					strings.Contains(loweredError, "throughput") ||
+					strings.Contains(loweredError, "exhausted") {
+					s.stateManager.Disable(ctx, endpoint.endpoint.Provider(), endpoint.endpoint.Region(), modelOrAlias, 1*time.Minute)
+					continue
+				}
+				s.logger.Warnw("Failed to translate audio", "error", err, "request", audioRequest, "response", audioResponse)
+				return nil, InternalServerError{fmt.Errorf("failed to translate audio")}
+			}
+
+			// Update virtual key usage if using virtual key authentication
+			if virtualKey := ctx.Value("virtual_key"); virtualKey != nil {
+				key := virtualKey.(*auth.VirtualKey)
+				tokens := int64(100) // Approximate token usage for audio translation
+				calculatedCost := cost.CalculateChatCost(audioRequest.Model, openai.Usage{PromptTokens: int32(tokens)})
+				if err := s.authManager.UpdateUsage(ctx, key.Key, tokens, calculatedCost); err != nil {
+					s.logger.Warnw("Failed to update virtual key usage", "error", err, "key_id", key.ID)
+				}
+			}
+
+			return audioResponse, nil
+		}
+		if bestEndpoint == nil {
+			if keepRetry {
+				s.logger.Warnw("No available endpoints", "waiting", s.retryInterval)
+				time.Sleep(s.retryInterval)
+				continue
+			}
+			s.logger.Warn("No available endpoints")
+			return nil, UnavailableError{fmt.Errorf("no available endpoints")}
+		}
+		time.Sleep(shortestWaiting)
+	}
+}
+
+func (s *ModelProxy) generateSpeech(ctx context.Context, speechRequest *openai.TextToSpeechRequest, keepRetry bool) (*openai.TextToSpeechResponse, error) {
+	endpointProvider, endpointRegion, modelOrAlias, err := parseModelIdentifier(speechRequest.Model)
+	if err != nil {
+		s.logger.Warnw("Invalid model name", "error", err, "model", speechRequest.Model)
+		return nil, BadRequestError{fmt.Errorf("invalid model name: %s", speechRequest.Model)}
+	}
+
+	// Check virtual key permissions if using virtual key authentication
+	if virtualKey := ctx.Value("virtual_key"); virtualKey != nil {
+		key := virtualKey.(*auth.VirtualKey)
+		if _, err := s.authManager.ValidateKey(ctx, key.Key, speechRequest.Model); err != nil {
+			s.logger.Warnw("Virtual key validation failed", "error", err, "key_id", key.ID, "model", speechRequest.Model)
+			return nil, BadRequestError{fmt.Errorf("key validation failed: %v", err)}
+		}
+	}
+
+	endpoints, err := s.sortedEndpoints(endpointProvider, endpointRegion, modelOrAlias)
+	if err != nil || len(endpoints) == 0 {
+		s.logger.Warnw("Failed to select endpoint", "error", err, "provider", endpointProvider, "region", endpointRegion, "model", modelOrAlias)
+		return nil, UnavailableError{fmt.Errorf("no available endpoints")}
+	}
+
+	for {
+		var bestEndpoint *endpointStatus
+		var shortestWaiting time.Duration
+		for _, endpoint := range endpoints {
+			if ctx.Err() != nil {
+				s.logger.Warn("Request canceled")
+				return nil, RequestTimeoutError{fmt.Errorf("request canceled")}
+			}
+
+			accepted, waiting, err := s.stateManager.Allow(
+				ctx,
+				endpoint.endpoint.Provider(),
+				endpoint.endpoint.Region(),
+				modelOrAlias,
+				requestInterval(endpoint.modelStatus),
+			)
+			if err != nil {
+				s.logger.Warnw("Failed to check rate limit", "error", err, "provider", endpoint.endpoint.Provider(), "region", endpoint.endpoint.Region(), "model", modelOrAlias)
+				return nil, InternalServerError{fmt.Errorf("rate limit check failed")}
+			}
+			if !accepted {
+				if bestEndpoint == nil || waiting < shortestWaiting {
+					bestEndpoint = endpoint
+					shortestWaiting = waiting
+				}
+				s.logger.Infow("Rate limit exceeded", "provider", endpoint.endpoint.Provider(), "region", endpoint.endpoint.Region(), "model", modelOrAlias, "waiting", waiting)
+				continue
+			}
+
+			speechRequest.Model = endpoint.modelStatus.Name
+			speechResponse, err := endpoint.endpoint.GenerateSpeech(ctx, speechRequest)
+			if err != nil {
+				loweredError := strings.ToLower(err.Error())
+				if strings.Contains(loweredError, "429") ||
+					strings.Contains(loweredError, "quota") ||
+					strings.Contains(loweredError, "exceeded") ||
+					strings.Contains(loweredError, "throughput") ||
+					strings.Contains(loweredError, "exhausted") {
+					s.stateManager.Disable(ctx, endpoint.endpoint.Provider(), endpoint.endpoint.Region(), modelOrAlias, 1*time.Minute)
+					continue
+				}
+				s.logger.Warnw("Failed to generate speech", "error", err, "request", speechRequest, "response", speechResponse)
+				return nil, InternalServerError{fmt.Errorf("failed to generate speech")}
+			}
+
+			// Update virtual key usage if using virtual key authentication
+			if virtualKey := ctx.Value("virtual_key"); virtualKey != nil {
+				key := virtualKey.(*auth.VirtualKey)
+				// Estimate token usage based on input text length
+				inputLength := len(speechRequest.Input)
+				tokens := int64(inputLength) // Approximate token usage
+				calculatedCost := cost.CalculateChatCost(speechRequest.Model, openai.Usage{PromptTokens: int32(tokens)})
+				if err := s.authManager.UpdateUsage(ctx, key.Key, tokens, calculatedCost); err != nil {
+					s.logger.Warnw("Failed to update virtual key usage", "error", err, "key_id", key.ID)
+				}
+			}
+
+			return speechResponse, nil
+		}
+		if bestEndpoint == nil {
+			if keepRetry {
+				s.logger.Warnw("No available endpoints", "waiting", s.retryInterval)
+				time.Sleep(s.retryInterval)
+				continue
+			}
+			s.logger.Warn("No available endpoints")
+			return nil, UnavailableError{fmt.Errorf("no available endpoints")}
+		}
+		time.Sleep(shortestWaiting)
+	}
+}
+
+func (s *ModelProxy) moderateContent(ctx context.Context, moderationRequest *openai.ModerationRequest, keepRetry bool) (*openai.ModerationResponse, error) {
+	endpointProvider, endpointRegion, modelOrAlias, err := parseModelIdentifier(*moderationRequest.Model)
+	if err != nil {
+		s.logger.Warnw("Invalid model name", "error", err, "model", *moderationRequest.Model)
+		return nil, BadRequestError{fmt.Errorf("invalid model name: %s", *moderationRequest.Model)}
+	}
+
+	// Check virtual key permissions if using virtual key authentication
+	if virtualKey := ctx.Value("virtual_key"); virtualKey != nil {
+		key := virtualKey.(*auth.VirtualKey)
+		if _, err := s.authManager.ValidateKey(ctx, key.Key, *moderationRequest.Model); err != nil {
+			s.logger.Warnw("Virtual key validation failed", "error", err, "key_id", key.ID, "model", *moderationRequest.Model)
+			return nil, BadRequestError{fmt.Errorf("key validation failed: %v", err)}
+		}
+	}
+
+	endpoints, err := s.sortedEndpoints(endpointProvider, endpointRegion, modelOrAlias)
+	if err != nil || len(endpoints) == 0 {
+		s.logger.Warnw("Failed to select endpoint", "error", err, "provider", endpointProvider, "region", endpointRegion, "model", modelOrAlias)
+		return nil, UnavailableError{fmt.Errorf("no available endpoints")}
+	}
+
+	for {
+		var bestEndpoint *endpointStatus
+		var shortestWaiting time.Duration
+		for _, endpoint := range endpoints {
+			if ctx.Err() != nil {
+				s.logger.Warn("Request canceled")
+				return nil, RequestTimeoutError{fmt.Errorf("request canceled")}
+			}
+
+			accepted, waiting, err := s.stateManager.Allow(
+				ctx,
+				endpoint.endpoint.Provider(),
+				endpoint.endpoint.Region(),
+				modelOrAlias,
+				requestInterval(endpoint.modelStatus),
+			)
+			if err != nil {
+				s.logger.Warnw("Failed to check rate limit", "error", err, "provider", endpoint.endpoint.Provider(), "region", endpoint.endpoint.Region(), "model", modelOrAlias)
+				return nil, InternalServerError{fmt.Errorf("rate limit check failed")}
+			}
+			if !accepted {
+				if bestEndpoint == nil || waiting < shortestWaiting {
+					bestEndpoint = endpoint
+					shortestWaiting = waiting
+				}
+				s.logger.Infow("Rate limit exceeded", "provider", endpoint.endpoint.Provider(), "region", endpoint.endpoint.Region(), "model", modelOrAlias, "waiting", waiting)
+				continue
+			}
+
+			*moderationRequest.Model = endpoint.modelStatus.Name
+			moderationResponse, err := endpoint.endpoint.ModerateContent(ctx, moderationRequest)
+			if err != nil {
+				loweredError := strings.ToLower(err.Error())
+				if strings.Contains(loweredError, "429") ||
+					strings.Contains(loweredError, "quota") ||
+					strings.Contains(loweredError, "exceeded") ||
+					strings.Contains(loweredError, "throughput") ||
+					strings.Contains(loweredError, "exhausted") {
+					s.stateManager.Disable(ctx, endpoint.endpoint.Provider(), endpoint.endpoint.Region(), modelOrAlias, 1*time.Minute)
+					continue
+				}
+				s.logger.Warnw("Failed to moderate content", "error", err, "request", moderationRequest, "response", moderationResponse)
+				return nil, InternalServerError{fmt.Errorf("failed to moderate content")}
+			}
+
+			// Update virtual key usage if using virtual key authentication
+			if virtualKey := ctx.Value("virtual_key"); virtualKey != nil {
+				key := virtualKey.(*auth.VirtualKey)
+				// Estimate token usage based on input text length
+				totalInputLength := 0
+				for _, input := range moderationRequest.Input {
+					totalInputLength += len(input)
+				}
+				tokens := int64(totalInputLength / 4) // Rough token estimate (4 chars per token)
+				calculatedCost := cost.CalculateChatCost(*moderationRequest.Model, openai.Usage{PromptTokens: int32(tokens)})
+				if err := s.authManager.UpdateUsage(ctx, key.Key, tokens, calculatedCost); err != nil {
+					s.logger.Warnw("Failed to update virtual key usage", "error", err, "key_id", key.ID)
+				}
+			}
+
+			return moderationResponse, nil
 		}
 		if bestEndpoint == nil {
 			if keepRetry {
@@ -663,6 +1202,105 @@ func (s *ModelProxy) HandleListKeys(httpResponse http.ResponseWriter, httpReques
 	}
 }
 
+func (s *ModelProxy) HandleGetKey(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	// Allow both master key and the key owner to view key details
+	keyID := strings.TrimPrefix(httpRequest.URL.Path, "/v1/keys/")
+	if keyID == "" {
+		http.Error(httpResponse, "Key ID required", http.StatusBadRequest)
+		return
+	}
+
+	// Check if it's master key or the key itself
+	isMasterKey := s.isMasterKeyRequest(httpRequest)
+	var requestKey *auth.VirtualKey
+	if !isMasterKey {
+		// Try to validate this request as the key itself
+		authHeader := httpRequest.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(httpResponse, "Authorization required", http.StatusUnauthorized)
+			return
+		}
+		headerSplit := strings.Split(authHeader, " ")
+		if len(headerSplit) != 2 || strings.ToLower(headerSplit[0]) != "bearer" {
+			http.Error(httpResponse, "Invalid authorization header format", http.StatusUnauthorized)
+			return
+		}
+		token := headerSplit[1]
+		
+		var err error
+		requestKey, err = s.authManager.GetKeyByValue(httpRequest.Context(), token)
+		if err != nil || requestKey.ID != keyID {
+			http.Error(httpResponse, "Forbidden", http.StatusForbidden)
+			return
+		}
+	}
+
+	key, err := s.authManager.GetKey(httpRequest.Context(), keyID)
+	if err != nil {
+		s.logger.Errorw("Failed to get virtual key", "error", err, "key_id", keyID)
+		http.Error(httpResponse, "Key not found", http.StatusNotFound)
+		return
+	}
+
+	response := auth.KeyResponse{
+		ID:          key.ID,
+		Key:         key.Key,
+		Name:        key.Name,
+		Description: key.Description,
+		Models:      key.Models,
+		MaxTokens:   key.MaxTokens,
+		MaxRequests: key.MaxRequests,
+		Budget:      key.Budget,
+		Metadata:    key.Metadata,
+		CreatedAt:   key.CreatedAt,
+		ExpiresAt:   key.ExpiresAt,
+		IsActive:    key.IsActive,
+		UsageStats:  key.UsageStats,
+	}
+
+	httpResponse.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(httpResponse).Encode(response); err != nil {
+		s.logger.Errorw("Failed to encode response", "error", err)
+		http.Error(httpResponse, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+func (s *ModelProxy) HandleCostEstimate(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	defer httpRequest.Body.Close()
+
+	bodyBytes, err := io.ReadAll(httpRequest.Body)
+	if err != nil {
+		s.logger.Warnw("Failed to read request body", "error", err)
+		http.Error(httpResponse, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	var costRequest cost.CostEstimateRequest
+	if err := json.Unmarshal(bodyBytes, &costRequest); err != nil {
+		s.logger.Warnw("Invalid request body", "error", err, "body", string(bodyBytes))
+		http.Error(httpResponse, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if costRequest.Model == "" {
+		http.Error(httpResponse, "Model is required", http.StatusBadRequest)
+		return
+	}
+
+	costResponse, err := cost.EstimateCost(costRequest)
+	if err != nil {
+		s.logger.Warnw("Failed to estimate cost", "error", err, "model", costRequest.Model)
+		http.Error(httpResponse, fmt.Sprintf("Failed to estimate cost: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	httpResponse.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(httpResponse).Encode(costResponse); err != nil {
+		s.logger.Errorw("Failed to encode response", "error", err)
+		http.Error(httpResponse, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
 func (s *ModelProxy) HandleDeleteKey(httpResponse http.ResponseWriter, httpRequest *http.Request) {
 	// Only allow master key to delete virtual keys
 	if !s.isMasterKeyRequest(httpRequest) {
@@ -684,6 +1322,256 @@ func (s *ModelProxy) HandleDeleteKey(httpResponse http.ResponseWriter, httpReque
 	}
 
 	httpResponse.WriteHeader(http.StatusNoContent)
+}
+
+func (s *ModelProxy) HandleAudioTranscriptions(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	defer httpRequest.Body.Close()
+
+	// Parse multipart form
+	err := httpRequest.ParseMultipartForm(32 << 20) // 32MB
+	if err != nil {
+		s.logger.Warnw("Failed to parse multipart form", "error", err)
+		http.Error(httpResponse, "Invalid multipart form", http.StatusBadRequest)
+		return
+	}
+
+	// Extract form values
+	audioRequest := &openai.AudioTranscriptionRequest{
+		Model: httpRequest.FormValue("model"),
+	}
+
+	if language := httpRequest.FormValue("language"); language != "" {
+		audioRequest.Language = &language
+	}
+	if prompt := httpRequest.FormValue("prompt"); prompt != "" {
+		audioRequest.Prompt = &prompt
+	}
+	if responseFormat := httpRequest.FormValue("response_format"); responseFormat != "" {
+		audioRequest.ResponseFormat = &responseFormat
+	}
+	if tempStr := httpRequest.FormValue("temperature"); tempStr != "" {
+		if temp, err := strconv.ParseFloat(tempStr, 32); err == nil {
+			tempFloat := float32(temp)
+			audioRequest.Temperature = &tempFloat
+		}
+	}
+
+	// Handle file upload - for now just get the filename
+	file, handler, err := httpRequest.FormFile("file")
+	if err != nil {
+		s.logger.Warnw("Failed to get file from form", "error", err)
+		http.Error(httpResponse, "File required", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+	audioRequest.File = handler.Filename
+
+	// Set default model if not specified
+	if audioRequest.Model == "" {
+		audioRequest.Model = "whisper-1"
+	}
+
+	models := strings.Split(audioRequest.Model, ",")
+	s.logger.Infow("Received audio transcription request", "models", models)
+
+	var audioResponse *openai.AudioTranscriptionResponse
+	var lastError error
+	lastIndex := len(models) - 1
+	for index, model := range models {
+		audioRequest.Model = strings.TrimSpace(model)
+		audioResponse, err = s.transcribeAudio(httpRequest.Context(), audioRequest, index == lastIndex)
+		if err != nil {
+			s.logger.Warnw("Failed to transcribe audio", "error", err, "model", model)
+			lastError = err
+			continue
+		}
+		break
+	}
+
+	if audioResponse == nil {
+		handleError(httpResponse, lastError)
+		return
+	}
+
+	httpResponse.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(httpResponse).Encode(audioResponse); err != nil {
+		s.logger.Errorw("Failed to encode response", "error", err)
+		http.Error(httpResponse, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+func (s *ModelProxy) HandleAudioTranslations(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	defer httpRequest.Body.Close()
+
+	// Parse multipart form
+	err := httpRequest.ParseMultipartForm(32 << 20) // 32MB
+	if err != nil {
+		s.logger.Warnw("Failed to parse multipart form", "error", err)
+		http.Error(httpResponse, "Invalid multipart form", http.StatusBadRequest)
+		return
+	}
+
+	// Extract form values
+	audioRequest := &openai.AudioTranslationRequest{
+		Model: httpRequest.FormValue("model"),
+	}
+
+	if prompt := httpRequest.FormValue("prompt"); prompt != "" {
+		audioRequest.Prompt = &prompt
+	}
+	if responseFormat := httpRequest.FormValue("response_format"); responseFormat != "" {
+		audioRequest.ResponseFormat = &responseFormat
+	}
+	if tempStr := httpRequest.FormValue("temperature"); tempStr != "" {
+		if temp, err := strconv.ParseFloat(tempStr, 32); err == nil {
+			tempFloat := float32(temp)
+			audioRequest.Temperature = &tempFloat
+		}
+	}
+
+	// Handle file upload - for now just get the filename
+	file, handler, err := httpRequest.FormFile("file")
+	if err != nil {
+		s.logger.Warnw("Failed to get file from form", "error", err)
+		http.Error(httpResponse, "File required", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+	audioRequest.File = handler.Filename
+
+	// Set default model if not specified
+	if audioRequest.Model == "" {
+		audioRequest.Model = "whisper-1"
+	}
+
+	models := strings.Split(audioRequest.Model, ",")
+	s.logger.Infow("Received audio translation request", "models", models)
+
+	var audioResponse *openai.AudioTranslationResponse
+	var lastError error
+	lastIndex := len(models) - 1
+	for index, model := range models {
+		audioRequest.Model = strings.TrimSpace(model)
+		audioResponse, err = s.translateAudio(httpRequest.Context(), audioRequest, index == lastIndex)
+		if err != nil {
+			s.logger.Warnw("Failed to translate audio", "error", err, "model", model)
+			lastError = err
+			continue
+		}
+		break
+	}
+
+	if audioResponse == nil {
+		handleError(httpResponse, lastError)
+		return
+	}
+
+	httpResponse.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(httpResponse).Encode(audioResponse); err != nil {
+		s.logger.Errorw("Failed to encode response", "error", err)
+		http.Error(httpResponse, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+func (s *ModelProxy) HandleAudioSpeech(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	defer httpRequest.Body.Close()
+
+	bodyBytes, err := io.ReadAll(httpRequest.Body)
+	if err != nil {
+		s.logger.Warnw("Failed to read request body", "error", err)
+		http.Error(httpResponse, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	var speechRequest openai.TextToSpeechRequest
+	if err := json.Unmarshal(bodyBytes, &speechRequest); err != nil {
+		s.logger.Warnw("Invalid request body", "error", err, "body", string(bodyBytes))
+		http.Error(httpResponse, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Set default model if not specified
+	if speechRequest.Model == "" {
+		speechRequest.Model = "tts-1"
+	}
+
+	models := strings.Split(speechRequest.Model, ",")
+	s.logger.Infow("Received speech generation request", "models", models)
+
+	var speechResponse *openai.TextToSpeechResponse
+	var lastError error
+	lastIndex := len(models) - 1
+	for index, model := range models {
+		speechRequest.Model = strings.TrimSpace(model)
+		speechResponse, err = s.generateSpeech(httpRequest.Context(), &speechRequest, index == lastIndex)
+		if err != nil {
+			s.logger.Warnw("Failed to generate speech", "error", err, "model", model)
+			lastError = err
+			continue
+		}
+		break
+	}
+
+	if speechResponse == nil {
+		handleError(httpResponse, lastError)
+		return
+	}
+
+	// Return raw audio data
+	httpResponse.Header().Set("Content-Type", "audio/mpeg")
+	httpResponse.Write(speechResponse.Data)
+}
+
+func (s *ModelProxy) HandleModerations(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	defer httpRequest.Body.Close()
+
+	bodyBytes, err := io.ReadAll(httpRequest.Body)
+	if err != nil {
+		s.logger.Warnw("Failed to read request body", "error", err)
+		http.Error(httpResponse, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	var moderationRequest openai.ModerationRequest
+	if err := json.Unmarshal(bodyBytes, &moderationRequest); err != nil {
+		s.logger.Warnw("Invalid request body", "error", err, "body", string(bodyBytes))
+		http.Error(httpResponse, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Set default model if not specified
+	if moderationRequest.Model == nil {
+		defaultModel := "text-moderation-latest"
+		moderationRequest.Model = &defaultModel
+	}
+
+	models := strings.Split(*moderationRequest.Model, ",")
+	s.logger.Infow("Received moderation request", "models", models)
+
+	var moderationResponse *openai.ModerationResponse
+	var lastError error
+	lastIndex := len(models) - 1
+	for index, model := range models {
+		*moderationRequest.Model = strings.TrimSpace(model)
+		moderationResponse, err = s.moderateContent(httpRequest.Context(), &moderationRequest, index == lastIndex)
+		if err != nil {
+			s.logger.Warnw("Failed to moderate content", "error", err, "model", model)
+			lastError = err
+			continue
+		}
+		break
+	}
+
+	if moderationResponse == nil {
+		handleError(httpResponse, lastError)
+		return
+	}
+
+	httpResponse.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(httpResponse).Encode(moderationResponse); err != nil {
+		s.logger.Errorw("Failed to encode response", "error", err)
+		http.Error(httpResponse, "Internal server error", http.StatusInternalServerError)
+	}
 }
 
 func (s *ModelProxy) isMasterKeyRequest(httpRequest *http.Request) bool {
@@ -855,8 +1743,8 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 			if virtualKey := ctx.Value("virtual_key"); virtualKey != nil {
 				key := virtualKey.(*auth.VirtualKey)
 				tokens := int64(openAiResponse.Usage.TotalTokens)
-				cost := 0.0 // TODO: Calculate actual cost based on model and tokens
-				if err := s.authManager.UpdateUsage(ctx, key.Key, tokens, cost); err != nil {
+				calculatedCost := cost.CalculateChatCost(openAiRequest.Model, openAiResponse.Usage)
+				if err := s.authManager.UpdateUsage(ctx, key.Key, tokens, calculatedCost); err != nil {
 					s.logger.Warnw("Failed to update virtual key usage", "error", err, "key_id", key.ID)
 				}
 			}

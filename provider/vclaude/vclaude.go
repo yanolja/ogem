@@ -147,6 +147,42 @@ func (ep *Endpoint) GenerateEmbedding(ctx context.Context, embeddingRequest *ope
 	return nil, fmt.Errorf("embeddings not supported by Claude provider")
 }
 
+func (ep *Endpoint) GenerateImage(ctx context.Context, imageRequest *openai.ImageGenerationRequest) (*openai.ImageGenerationResponse, error) {
+	return nil, fmt.Errorf("image generation not supported by Claude provider")
+}
+
+func (ep *Endpoint) TranscribeAudio(ctx context.Context, request *openai.AudioTranscriptionRequest) (*openai.AudioTranscriptionResponse, error) {
+	return nil, fmt.Errorf("audio transcription not supported by Claude provider")
+}
+
+func (ep *Endpoint) TranslateAudio(ctx context.Context, request *openai.AudioTranslationRequest) (*openai.AudioTranslationResponse, error) {
+	return nil, fmt.Errorf("audio translation not supported by Claude provider")
+}
+
+func (ep *Endpoint) GenerateSpeech(ctx context.Context, request *openai.TextToSpeechRequest) (*openai.TextToSpeechResponse, error) {
+	return nil, fmt.Errorf("speech generation not supported by Claude provider")
+}
+
+func (ep *Endpoint) ModerateContent(ctx context.Context, request *openai.ModerationRequest) (*openai.ModerationResponse, error) {
+	return nil, fmt.Errorf("content moderation not supported by Claude provider")
+}
+
+func (ep *Endpoint) CreateFineTuningJob(ctx context.Context, request *openai.FineTuningJobRequest) (*openai.FineTuningJob, error) {
+	return nil, fmt.Errorf("fine-tuning not supported by vClaude provider")
+}
+
+func (ep *Endpoint) GetFineTuningJob(ctx context.Context, jobID string) (*openai.FineTuningJob, error) {
+	return nil, fmt.Errorf("fine-tuning not supported by vClaude provider")
+}
+
+func (ep *Endpoint) ListFineTuningJobs(ctx context.Context, after *string, limit *int32) (*openai.FineTuningJobList, error) {
+	return nil, fmt.Errorf("fine-tuning not supported by vClaude provider")
+}
+
+func (ep *Endpoint) CancelFineTuningJob(ctx context.Context, jobID string) (*openai.FineTuningJob, error) {
+	return nil, fmt.Errorf("fine-tuning not supported by vClaude provider")
+}
+
 func (ep *Endpoint) Provider() string {
 	return "vclaude"
 }

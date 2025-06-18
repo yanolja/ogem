@@ -393,3 +393,217 @@ type EmbeddingUsage struct {
 	PromptTokens int32 `json:"prompt_tokens"`
 	TotalTokens  int32 `json:"total_tokens"`
 }
+
+type ImageGenerationRequest struct {
+	Prompt         string  `json:"prompt"`
+	Model          *string `json:"model,omitempty"`
+	N              *int32  `json:"n,omitempty"`
+	Quality        *string `json:"quality,omitempty"`
+	ResponseFormat *string `json:"response_format,omitempty"`
+	Size           *string `json:"size,omitempty"`
+	Style          *string `json:"style,omitempty"`
+	User           *string `json:"user,omitempty"`
+}
+
+type ImageGenerationResponse struct {
+	Created int64       `json:"created"`
+	Data    []ImageData `json:"data"`
+}
+
+type ImageData struct {
+	URL           *string `json:"url,omitempty"`
+	B64JSON       *string `json:"b64_json,omitempty"`
+	RevisedPrompt *string `json:"revised_prompt,omitempty"`
+}
+
+type AudioTranscriptionRequest struct {
+	File           string  `json:"file"`
+	Model          string  `json:"model"`
+	Language       *string `json:"language,omitempty"`
+	Prompt         *string `json:"prompt,omitempty"`
+	ResponseFormat *string `json:"response_format,omitempty"`
+	Temperature    *float32 `json:"temperature,omitempty"`
+}
+
+type AudioTranscriptionResponse struct {
+	Text string `json:"text"`
+}
+
+type AudioTranslationRequest struct {
+	File           string  `json:"file"`
+	Model          string  `json:"model"`
+	Prompt         *string `json:"prompt,omitempty"`
+	ResponseFormat *string `json:"response_format,omitempty"`
+	Temperature    *float32 `json:"temperature,omitempty"`
+}
+
+type AudioTranslationResponse struct {
+	Text string `json:"text"`
+}
+
+type TextToSpeechRequest struct {
+	Model          string  `json:"model"`
+	Input          string  `json:"input"`
+	Voice          string  `json:"voice"`
+	ResponseFormat *string `json:"response_format,omitempty"`
+	Speed          *float32 `json:"speed,omitempty"`
+}
+
+type TextToSpeechResponse struct {
+	Data []byte `json:"-"` // Raw audio data
+}
+
+type ModerationRequest struct {
+	Input []string `json:"input"`
+	Model *string  `json:"model,omitempty"`
+}
+
+type ModerationResponse struct {
+	ID      string             `json:"id"`
+	Model   string             `json:"model"`
+	Results []ModerationResult `json:"results"`
+}
+
+type ModerationResult struct {
+	Categories     ModerationCategories     `json:"categories"`
+	CategoryScores ModerationCategoryScores `json:"category_scores"`
+	Flagged        bool                     `json:"flagged"`
+}
+
+type ModerationCategories struct {
+	Sexual                bool `json:"sexual"`
+	Hate                  bool `json:"hate"`
+	Harassment            bool `json:"harassment"`
+	SelfHarm              bool `json:"self-harm"`
+	SexualMinors          bool `json:"sexual/minors"`
+	HateThreatening       bool `json:"hate/threatening"`
+	ViolenceGraphic       bool `json:"violence/graphic"`
+	SelfHarmIntent        bool `json:"self-harm/intent"`
+	SelfHarmInstructions  bool `json:"self-harm/instructions"`
+	HarassmentThreatening bool `json:"harassment/threatening"`
+	Violence              bool `json:"violence"`
+}
+
+type ModerationCategoryScores struct {
+	Sexual                float32 `json:"sexual"`
+	Hate                  float32 `json:"hate"`
+	Harassment            float32 `json:"harassment"`
+	SelfHarm              float32 `json:"self-harm"`
+	SexualMinors          float32 `json:"sexual/minors"`
+	HateThreatening       float32 `json:"hate/threatening"`
+	ViolenceGraphic       float32 `json:"violence/graphic"`
+	SelfHarmIntent        float32 `json:"self-harm/intent"`
+	SelfHarmInstructions  float32 `json:"self-harm/instructions"`
+	HarassmentThreatening float32 `json:"harassment/threatening"`
+	Violence              float32 `json:"violence"`
+}
+
+// Fine-tuning types
+type FineTuningJobRequest struct {
+	TrainingFile                  string                         `json:"training_file"`
+	ValidationFile                *string                        `json:"validation_file,omitempty"`
+	Model                         string                         `json:"model"`
+	Hyperparameters              *FineTuningHyperparameters     `json:"hyperparameters,omitempty"`
+	Suffix                        *string                        `json:"suffix,omitempty"`
+	Integrations                  []FineTuningIntegration        `json:"integrations,omitempty"`
+	Seed                          *int32                         `json:"seed,omitempty"`
+}
+
+type FineTuningHyperparameters struct {
+	BatchSize              *string `json:"batch_size,omitempty"`
+	LearningRateMultiplier *string `json:"learning_rate_multiplier,omitempty"`
+	NEpochs                *string `json:"n_epochs,omitempty"`
+}
+
+type FineTuningIntegration struct {
+	Type           string                       `json:"type"`
+	Wandb          *FineTuningWandbIntegration  `json:"wandb,omitempty"`
+}
+
+type FineTuningWandbIntegration struct {
+	Project *string   `json:"project,omitempty"`
+	Name    *string   `json:"name,omitempty"`
+	Entity  *string   `json:"entity,omitempty"`
+	Tags    []string  `json:"tags,omitempty"`
+}
+
+type FineTuningJob struct {
+	ID               string                     `json:"id"`
+	Object           string                     `json:"object"`
+	CreatedAt        int64                      `json:"created_at"`
+	FinishedAt       *int64                     `json:"finished_at"`
+	Model            string                     `json:"model"`
+	FineTunedModel   *string                    `json:"fine_tuned_model"`
+	OrganizationID   string                     `json:"organization_id"`
+	Status           string                     `json:"status"`
+	Hyperparameters  FineTuningHyperparameters  `json:"hyperparameters"`
+	TrainingFile     string                     `json:"training_file"`
+	ValidationFile   *string                    `json:"validation_file"`
+	ResultFiles      []string                   `json:"result_files"`
+	TrainedTokens    *int32                     `json:"trained_tokens"`
+	Integrations     []FineTuningIntegration    `json:"integrations,omitempty"`
+	Seed             *int32                     `json:"seed"`
+	EstimatedFinish  *int64                     `json:"estimated_finish"`
+	Error            *FineTuningError           `json:"error,omitempty"`
+}
+
+type FineTuningError struct {
+	Code       string  `json:"code"`
+	Message    string  `json:"message"`
+	Param      *string `json:"param,omitempty"`
+}
+
+type FineTuningJobList struct {
+	Object  string          `json:"object"`
+	Data    []FineTuningJob `json:"data"`
+	HasMore bool            `json:"has_more"`
+}
+
+type FineTuningJobEvent struct {
+	ID        string                  `json:"id"`
+	Object    string                  `json:"object"`
+	CreatedAt int64                   `json:"created_at"`
+	Level     string                  `json:"level"`
+	Message   string                  `json:"message"`
+	Data      *FineTuningJobEventData `json:"data,omitempty"`
+	Type      string                  `json:"type"`
+}
+
+type FineTuningJobEventData struct {
+	Step    *int32   `json:"step,omitempty"`
+	Metrics *map[string]interface{} `json:"metrics,omitempty"`
+}
+
+type FineTuningJobEventList struct {
+	Object  string               `json:"object"`
+	Data    []FineTuningJobEvent `json:"data"`
+	HasMore bool                 `json:"has_more"`
+}
+
+type FineTuningJobCheckpoint struct {
+	ID              string                       `json:"id"`
+	Object          string                       `json:"object"`
+	CreatedAt       int64                        `json:"created_at"`
+	FineTunedModel  string                       `json:"fine_tuned_model"`
+	FineTuningJobID string                       `json:"fine_tuning_job_id"`
+	Metrics         FineTuningJobCheckpointMetrics `json:"metrics"`
+	StepNumber      int32                        `json:"step_number"`
+}
+
+type FineTuningJobCheckpointMetrics struct {
+	Step                   *int32   `json:"step,omitempty"`
+	TrainLoss              *float32 `json:"train_loss,omitempty"`
+	TrainMeanTokenAccuracy *float32 `json:"train_mean_token_accuracy,omitempty"`
+	ValidLoss              *float32 `json:"valid_loss,omitempty"`
+	ValidMeanTokenAccuracy *float32 `json:"valid_mean_token_accuracy,omitempty"`
+	FullValidLoss          *float32 `json:"full_valid_loss,omitempty"`
+	FullValidMeanTokenAccuracy *float32 `json:"full_valid_mean_token_accuracy,omitempty"`
+}
+
+type FineTuningJobCheckpointList struct {
+	Object  string                    `json:"object"`
+	Data    []FineTuningJobCheckpoint `json:"data"`
+	HasMore bool                      `json:"has_more"`
+	FirstID *string                   `json:"first_id,omitempty"`
+	LastID  *string                   `json:"last_id,omitempty"`
+}

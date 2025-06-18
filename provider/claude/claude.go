@@ -9,7 +9,9 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 
+	"github.com/yanolja/ogem/image"
 	"github.com/yanolja/ogem/openai"
+	"github.com/yanolja/ogem/provider"
 	"github.com/yanolja/ogem/utils"
 	"github.com/yanolja/ogem/utils/array"
 )
@@ -22,7 +24,8 @@ type anthropicClient interface {
 }
 
 type Endpoint struct {
-	client anthropicClient
+	client          anthropicClient
+	imageDownloader *image.Downloader
 }
 
 func NewEndpoint(apiKey string) (*Endpoint, error) {
@@ -30,8 +33,211 @@ func NewEndpoint(apiKey string) (*Endpoint, error) {
 	return &Endpoint{client: &client.Messages}, nil
 }
 
+func (ep *Endpoint) SetImageDownloader(downloader *image.Downloader) {
+	ep.imageDownloader = downloader
+}
+
+func (ep *Endpoint) processImageContent(ctx context.Context, imageContent *openai.ImageContent) anthropic.ContentBlockParamUnion {
+	if ep.imageDownloader == nil {
+		return anthropic.NewTextBlock("image content is not supported yet")
+	}
+
+	imageData, err := ep.imageDownloader.ProcessImageURL(ctx, imageContent.Url)
+	if err != nil {
+		return anthropic.NewTextBlock(fmt.Sprintf("failed to process image: %v", err))
+	}
+
+	if !image.IsImageMimeType(imageData.MimeType) {
+		return anthropic.NewTextBlock("invalid image format")
+	}
+
+	dataURL := image.ConvertToBase64DataURL(imageData)
+	return anthropic.ContentBlockParamOfRequestImageBlock(anthropic.Base64ImageSourceParam{
+		MediaType: anthropic.Base64ImageSourceMediaType(imageData.MimeType),
+		Data:      dataURL[strings.Index(dataURL, ",")+1:], // Remove data:image/...;base64, prefix
+	})
+}
+
+func (ep *Endpoint) toClaudeMessageBlocks(ctx context.Context, message openai.Message, toolMap map[string]string) ([]anthropic.ContentBlockParamUnion, error) {
+	if message.ToolCalls != nil && len(message.ToolCalls) > 0 {
+		return array.Map(message.ToolCalls, func(toolCall openai.ToolCall) anthropic.ContentBlockParamUnion {
+			arguments, _ := utils.JsonToMap(toolCall.Function.Arguments)
+			return anthropic.ContentBlockParamOfRequestToolUseBlock(toolCall.Id, arguments, toolCall.Function.Name)
+		}), nil
+	}
+	if message.FunctionCall != nil {
+		arguments, _ := utils.JsonToMap(message.FunctionCall.Arguments)
+		return []anthropic.ContentBlockParamUnion{
+			anthropic.ContentBlockParamOfRequestToolUseBlock("", arguments, message.FunctionCall.Name),
+		}, nil
+	}
+	if message.Role == "function" {
+		if message.Content == nil || message.Content.String == nil {
+			return nil, fmt.Errorf("function message must contain a string content")
+		}
+		if message.Name == nil {
+			return nil, fmt.Errorf("function message must contain the corresponding function name")
+		}
+		toolId, exists := toolMap[*message.Name]
+		if !exists {
+			return nil, fmt.Errorf("function message must contain the corresponding function name")
+		}
+		return []anthropic.ContentBlockParamUnion{
+			anthropic.NewToolResultBlock(toolId, *message.Content.String, false),
+		}, nil
+	}
+	if message.Content != nil {
+		if message.Content.String != nil {
+			return []anthropic.ContentBlockParamUnion{
+				anthropic.NewTextBlock(*message.Content.String),
+			}, nil
+		}
+		return array.Map(message.Content.Parts, func(part openai.Part) anthropic.ContentBlockParamUnion {
+			if part.Content.TextContent != nil {
+				return anthropic.NewTextBlock(part.Content.TextContent.Text)
+			}
+			if part.Content.ImageContent != nil {
+				return ep.processImageContent(ctx, part.Content.ImageContent)
+			}
+			return anthropic.NewTextBlock("unsupported content type")
+		}), nil
+	}
+	if message.Refusal != nil {
+		return []anthropic.ContentBlockParamUnion{
+			anthropic.NewTextBlock(*message.Refusal),
+		}, nil
+	}
+	return nil, fmt.Errorf("message must contain content, tool_calls, function_call, or refusal")
+}
+
+func (ep *Endpoint) toClaudeParams(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (*anthropic.MessageNewParams, error) {
+	messages, err := ep.toClaudeMessages(ctx, openaiRequest.Messages)
+	if err != nil {
+		return nil, err
+	}
+
+	params := &anthropic.MessageNewParams{
+		Model:    standardizeModelName(openaiRequest.Model),
+		Messages: messages,
+	}
+
+	if openaiRequest.MaxTokens != nil {
+		params.MaxTokens = int64(*openaiRequest.MaxTokens)
+	}
+	if openaiRequest.MaxCompletionTokens != nil {
+		params.MaxTokens = int64(*openaiRequest.MaxCompletionTokens)
+	}
+	if params.MaxTokens == 0 {
+		if standardizeModelName(openaiRequest.Model) == "claude-3-5-sonnet-20240620" {
+			params.MaxTokens = 8192
+		} else {
+			params.MaxTokens = 4096
+		}
+	}
+	if openaiRequest.StopSequences != nil {
+		params.StopSequences = openaiRequest.StopSequences.Sequences
+	}
+	if openaiRequest.Temperature != nil {
+		params.Temperature = anthropic.Float(float64(*openaiRequest.Temperature))
+	}
+	if openaiRequest.TopP != nil {
+		params.TopP = anthropic.Float(float64(*openaiRequest.TopP))
+	}
+
+	systemMessage, err := ep.toClaudeSystemMessage(ctx, openaiRequest)
+	if err != nil {
+		return nil, err
+	}
+	if systemMessage != nil {
+		params.System = systemMessage
+	}
+
+	if openaiRequest.Tools != nil {
+		tools, err := toClaudeToolParams(openaiRequest.Tools)
+		if err != nil {
+			return nil, err
+		}
+		params.Tools = tools
+	}
+	if openaiRequest.Functions != nil {
+		params.Tools = toClaudeToolParamsFromFunctions(openaiRequest.Functions)
+	}
+
+	return params, nil
+}
+
+func (ep *Endpoint) toClaudeMessages(ctx context.Context, messages []openai.Message) ([]anthropic.MessageParam, error) {
+	claudeMessages := []anthropic.MessageParam{}
+	toolMap := make(map[string]string)
+	
+	for _, message := range messages {
+		if message.Role == "system" {
+			continue
+		}
+		
+		if message.Role == "function" || message.Role == "tool" {
+			claudeMessage, err := ep.toClaudeMessage(ctx, message, toolMap)
+			if err != nil {
+				return nil, err
+			}
+			if claudeMessage != nil {
+				claudeMessages = append(claudeMessages, *claudeMessage)
+			}
+			continue
+		}
+		
+		claudeMessage, err := ep.toClaudeMessage(ctx, message, toolMap)
+		if err != nil {
+			return nil, err
+		}
+		if claudeMessage != nil {
+			claudeMessages = append(claudeMessages, *claudeMessage)
+		}
+	}
+	
+	return claudeMessages, nil
+}
+
+func (ep *Endpoint) toClaudeMessage(ctx context.Context, openaiMessage openai.Message, toolMap map[string]string) (*anthropic.MessageParam, error) {
+	blocks, err := ep.toClaudeMessageBlocks(ctx, openaiMessage, toolMap)
+	if err != nil {
+		return nil, err
+	}
+	if len(blocks) == 0 {
+		return nil, nil
+	}
+	
+	claudeMessage := &anthropic.MessageParam{
+		Role:    anthropic.MessageParamRole(provider.ToGeminiRole(openaiMessage.Role)),
+		Content: blocks,
+	}
+	
+	return claudeMessage, nil
+}
+
+func (ep *Endpoint) toClaudeSystemMessage(ctx context.Context, openAiRequest *openai.ChatCompletionRequest) ([]anthropic.TextBlockParam, error) {
+	for _, message := range openAiRequest.Messages {
+		if message.Role == "system" {
+			blocks, err := ep.toClaudeMessageBlocks(ctx, message, nil)
+			if err != nil {
+				return nil, err
+			}
+			textBlocks := make([]anthropic.TextBlockParam, 0, len(blocks))
+			for _, block := range blocks {
+				if block.OfRequestTextBlock != nil {
+					textBlocks = append(textBlocks, *block.OfRequestTextBlock)
+				}
+			}
+			if len(textBlocks) > 0 {
+				return textBlocks, nil
+			}
+		}
+	}
+	return nil, nil
+}
+
 func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
-	claudeParams, err := toClaudeParams(openaiRequest)
+	claudeParams, err := ep.toClaudeParams(ctx, openaiRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -144,6 +350,42 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 
 func (ep *Endpoint) GenerateEmbedding(ctx context.Context, embeddingRequest *openai.EmbeddingRequest) (*openai.EmbeddingResponse, error) {
 	return nil, fmt.Errorf("embeddings not supported by Claude provider")
+}
+
+func (ep *Endpoint) GenerateImage(ctx context.Context, imageRequest *openai.ImageGenerationRequest) (*openai.ImageGenerationResponse, error) {
+	return nil, fmt.Errorf("image generation not supported by Claude provider")
+}
+
+func (ep *Endpoint) TranscribeAudio(ctx context.Context, request *openai.AudioTranscriptionRequest) (*openai.AudioTranscriptionResponse, error) {
+	return nil, fmt.Errorf("audio transcription not supported by Claude provider")
+}
+
+func (ep *Endpoint) TranslateAudio(ctx context.Context, request *openai.AudioTranslationRequest) (*openai.AudioTranslationResponse, error) {
+	return nil, fmt.Errorf("audio translation not supported by Claude provider")
+}
+
+func (ep *Endpoint) GenerateSpeech(ctx context.Context, request *openai.TextToSpeechRequest) (*openai.TextToSpeechResponse, error) {
+	return nil, fmt.Errorf("speech generation not supported by Claude provider")
+}
+
+func (ep *Endpoint) ModerateContent(ctx context.Context, request *openai.ModerationRequest) (*openai.ModerationResponse, error) {
+	return nil, fmt.Errorf("content moderation not supported by Claude provider")
+}
+
+func (ep *Endpoint) CreateFineTuningJob(ctx context.Context, request *openai.FineTuningJobRequest) (*openai.FineTuningJob, error) {
+	return nil, fmt.Errorf("fine-tuning not supported by Claude provider")
+}
+
+func (ep *Endpoint) GetFineTuningJob(ctx context.Context, jobID string) (*openai.FineTuningJob, error) {
+	return nil, fmt.Errorf("fine-tuning not supported by Claude provider")
+}
+
+func (ep *Endpoint) ListFineTuningJobs(ctx context.Context, after *string, limit *int32) (*openai.FineTuningJobList, error) {
+	return nil, fmt.Errorf("fine-tuning not supported by Claude provider")
+}
+
+func (ep *Endpoint) CancelFineTuningJob(ctx context.Context, jobID string) (*openai.FineTuningJob, error) {
+	return nil, fmt.Errorf("fine-tuning not supported by Claude provider")
 }
 
 func (ep *Endpoint) Provider() string {
@@ -338,8 +580,6 @@ func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([
 				return anthropic.NewTextBlock(part.Content.TextContent.Text)
 			}
 			if part.Content.ImageContent != nil {
-				// TODO(seungduk): Implement image downloader and pass it from the main to this provider.
-				// It should support cache mechanism using Valkey.
 				return anthropic.NewTextBlock("image content is not supported yet")
 			}
 			return anthropic.NewTextBlock("unsupported content type")
@@ -448,8 +688,8 @@ func toClaudeToolChoice(toolChoice *openai.ToolChoice) (anthropic.ToolChoiceUnio
 	}, nil
 }
 
-func toClaudeToolParamsFromFunctions(openaiFunctions []openai.LegacyFunction) []anthropic.ToolParam {
-	claudeTools := make([]anthropic.ToolParam, len(openaiFunctions))
+func toClaudeToolParamsFromFunctions(openaiFunctions []openai.LegacyFunction) []anthropic.ToolUnionParam {
+	claudeTools := make([]anthropic.ToolUnionParam, len(openaiFunctions))
 	for i, function := range openaiFunctions {
 		var description string
 		if function.Description == nil {
@@ -457,13 +697,14 @@ func toClaudeToolParamsFromFunctions(openaiFunctions []openai.LegacyFunction) []
 		} else {
 			description = *function.Description
 		}
-		claudeTools[i] = anthropic.ToolParam{
+		tool := anthropic.ToolParam{
 			Name:        function.Name,
 			Description: anthropic.String(description),
 			InputSchema: anthropic.ToolInputSchemaParam{
 				Properties: function.Parameters,
 			},
 		}
+		claudeTools[i] = anthropic.ToolUnionParam{OfTool: &tool}
 	}
 	return claudeTools
 }

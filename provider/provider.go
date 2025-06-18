@@ -14,6 +14,15 @@ type AiEndpoint interface {
 	GenerateChatCompletion(ctx context.Context, request *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error)
 	GenerateChatCompletionStream(ctx context.Context, request *openai.ChatCompletionRequest) (<-chan *openai.ChatCompletionStreamResponse, <-chan error)
 	GenerateEmbedding(ctx context.Context, request *openai.EmbeddingRequest) (*openai.EmbeddingResponse, error)
+	GenerateImage(ctx context.Context, request *openai.ImageGenerationRequest) (*openai.ImageGenerationResponse, error)
+	TranscribeAudio(ctx context.Context, request *openai.AudioTranscriptionRequest) (*openai.AudioTranscriptionResponse, error)
+	TranslateAudio(ctx context.Context, request *openai.AudioTranslationRequest) (*openai.AudioTranslationResponse, error)
+	GenerateSpeech(ctx context.Context, request *openai.TextToSpeechRequest) (*openai.TextToSpeechResponse, error)
+	ModerateContent(ctx context.Context, request *openai.ModerationRequest) (*openai.ModerationResponse, error)
+	CreateFineTuningJob(ctx context.Context, request *openai.FineTuningJobRequest) (*openai.FineTuningJob, error)
+	GetFineTuningJob(ctx context.Context, jobID string) (*openai.FineTuningJob, error)
+	ListFineTuningJobs(ctx context.Context, after *string, limit *int32) (*openai.FineTuningJobList, error)
+	CancelFineTuningJob(ctx context.Context, jobID string) (*openai.FineTuningJob, error)
 	Ping(ctx context.Context) (time.Duration, error)
 	Provider() string
 	Region() string
