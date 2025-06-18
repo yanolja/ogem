@@ -86,6 +86,11 @@ func main() {
 		})
 	}
 
+	// Register admin routes if virtual keys are enabled
+	if config.EnableVirtualKeys {
+		proxy.RegisterAdminRoutes(mux)
+	}
+
 	httpServer := setupServer(config.Port, mux)
 
 	shutdownSignal := make(chan os.Signal, 1)

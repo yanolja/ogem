@@ -10,6 +10,7 @@ import (
 
 	"google.golang.org/genai"
 
+	"github.com/yanolja/ogem/image"
 	"github.com/yanolja/ogem/openai"
 	"github.com/yanolja/ogem/provider"
 	"github.com/yanolja/ogem/utils"
@@ -17,8 +18,9 @@ import (
 )
 
 type Endpoint struct {
-	client *genai.Client
-	region string
+	client           *genai.Client
+	region           string
+	imageDownloader  *image.Downloader
 }
 
 func NewEndpoint(projectId string, region string) (*Endpoint, error) {
@@ -31,7 +33,14 @@ func NewEndpoint(projectId string, region string) (*Endpoint, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Endpoint{client: client, region: region}, nil
+	return &Endpoint{
+		client: client,
+		region: region,
+	}, nil
+}
+
+func (ep *Endpoint) SetImageDownloader(downloader *image.Downloader) {
+	ep.imageDownloader = downloader
 }
 
 func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
@@ -40,7 +49,7 @@ func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *o
 		return nil, err
 	}
 
-	history, messageToSend, err := toGeminiMessages(openaiRequest.Messages)
+	history, messageToSend, err := ep.toGeminiMessages(ctx, openaiRequest.Messages)
 	if err != nil {
 		return nil, err
 	}
@@ -316,7 +325,7 @@ func setResponseFormat(config *genai.GenerateContentConfig, openaiRequest *opena
 	return err
 }
 
-func toGeminiMessages(openAiMessages []openai.Message) ([]*genai.Content, *genai.Content, error) {
+func (ep *Endpoint) toGeminiMessages(ctx context.Context, openAiMessages []openai.Message) ([]*genai.Content, *genai.Content, error) {
 	messageCount := len(openAiMessages)
 	if messageCount == 0 {
 		return nil, nil, nil
@@ -332,7 +341,7 @@ func toGeminiMessages(openAiMessages []openai.Message) ([]*genai.Content, *genai
 		for _, toolCall := range message.ToolCalls {
 			toolMap[toolCall.Id] = toolCall.Function.Name
 		}
-		parts, err := toGeminiParts(message, toolMap)
+		parts, err := ep.toGeminiParts(ctx, message, toolMap)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -357,7 +366,7 @@ func toGeminiSystemInstruction(openAiRequest *openai.ChatCompletionRequest) *gen
 	return nil
 }
 
-func toGeminiParts(message openai.Message, toolMap map[string]string) ([]*genai.Part, error) {
+func (ep *Endpoint) toGeminiParts(ctx context.Context, message openai.Message, toolMap map[string]string) ([]*genai.Part, error) {
 	if message.Role == "tool" {
 		response, err := utils.JsonToMap(*message.Content.String)
 		if err != nil {
@@ -394,16 +403,26 @@ func toGeminiParts(message openai.Message, toolMap map[string]string) ([]*genai.
 		if message.Content.String != nil {
 			return []*genai.Part{{Text: *message.Content.String}}, nil
 		}
-		parts := make([]*genai.Part, len(message.Content.Parts))
-		for i, part := range message.Content.Parts {
+		parts := make([]*genai.Part, 0, len(message.Content.Parts))
+		for _, part := range message.Content.Parts {
 			if part.Content.TextContent != nil {
-				parts[i] = &genai.Part{Text: part.Content.TextContent.Text}
+				parts = append(parts, &genai.Part{Text: part.Content.TextContent.Text})
 			} else if part.Content.ImageContent != nil {
-				// TODO(seungduk): Implement image downloader and pass it from the main to this provider.
-				// It should support cache mechanism using Valkey.
-				parts[i] = &genai.Part{Text: "image content is not supported yet"}
+				// Download and process image
+				imageData, err := ep.imageDownloader.ProcessImageURL(ctx, part.Content.ImageContent.ImageURL.URL)
+				if err != nil {
+					return nil, fmt.Errorf("failed to process image: %v", err)
+				}
+				
+				// Convert to Gemini image format
+				parts = append(parts, &genai.Part{
+					InlineData: &genai.Blob{
+						MIMEType: imageData.MediaType,
+						Data:     imageData.RawData,
+					},
+				})
 			} else {
-				parts[i] = &genai.Part{Text: "unsupported content type"}
+				parts = append(parts, &genai.Part{Text: "unsupported content type"})
 			}
 		}
 		return parts, nil

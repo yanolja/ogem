@@ -18,6 +18,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/yanolja/ogem"
+	"github.com/yanolja/ogem/admin"
 	"github.com/yanolja/ogem/auth"
 	"github.com/yanolja/ogem/config"
 	"github.com/yanolja/ogem/cost"
@@ -87,6 +88,9 @@ type ModelProxy struct {
 
 	// Image downloader for vision support
 	imageDownloader *image.Downloader
+
+	// Admin server for management UI
+	adminServer *admin.AdminServer
 }
 
 func newEndpoint(provider string, region string, config *config.Config) (provider.AiEndpoint, error) {
@@ -179,10 +183,26 @@ func NewProxyServer(stateManager state.Manager, cleanup func(), config *config.C
 		if studioEndpoint, ok := endpoint.(*studio.Endpoint); ok {
 			studioEndpoint.SetImageDownloader(imageDownloader)
 		}
+		if vclaudeEndpoint, ok := endpoint.(*vclaude.Endpoint); ok {
+			vclaudeEndpoint.SetImageDownloader(imageDownloader)
+		}
+		if vertexEndpoint, ok := endpoint.(*vertex.Endpoint); ok {
+			vertexEndpoint.SetImageDownloader(imageDownloader)
+		}
 
 		endpoints = append(endpoints, endpoint)
 		return false
 	})
+
+	// Initialize admin server
+	var adminServer *admin.AdminServer
+	if authManager != nil {
+		vkm, ok := authManager.(*auth.VirtualKeyManager)
+		if ok {
+			calculator := cost.NewCalculator()
+			adminServer = admin.NewAdminServer(vkm, stateManager, calculator)
+		}
+	}
 
 	return &ModelProxy{
 		endpoints:       endpoints,
@@ -195,6 +215,7 @@ func NewProxyServer(stateManager state.Manager, cleanup func(), config *config.C
 		logger:          logger,
 		authManager:     authManager,
 		imageDownloader: imageDownloader,
+		adminServer:     adminServer,
 	}, nil
 }
 
@@ -1904,4 +1925,11 @@ func requestInterval(modelStatus *ogem.SupportedModel) time.Duration {
 		return time.Millisecond
 	}
 	return time.Duration(time.Minute.Nanoseconds() / int64(modelStatus.MaxRequestsPerMinute))
+}
+
+// RegisterAdminRoutes registers admin UI routes if admin server is available
+func (s *ModelProxy) RegisterAdminRoutes(mux *http.ServeMux) {
+	if s.adminServer != nil {
+		s.adminServer.RegisterRoutes(mux)
+	}
 }

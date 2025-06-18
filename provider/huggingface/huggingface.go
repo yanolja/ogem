@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strings"
@@ -402,17 +403,209 @@ func (p *Endpoint) GenerateImage(ctx context.Context, imageRequest *openai.Image
 }
 
 func (p *Endpoint) TranscribeAudio(ctx context.Context, request *openai.AudioTranscriptionRequest) (*openai.AudioTranscriptionResponse, error) {
-	// HuggingFace has speech recognition models like Whisper
-	return nil, fmt.Errorf("HuggingFace audio transcription not yet implemented - requires model-specific integration")
+	// Use Whisper model on HuggingFace
+	modelName := "openai/whisper-large-v3"
+	if request.Model != "" {
+		modelName = request.Model
+	}
+	
+	// Create multipart form data for audio file
+	var payload bytes.Buffer
+	writer := multipart.NewWriter(&payload)
+	
+	// Add audio file
+	fileWriter, err := writer.CreateFormFile("inputs", "audio.mp3")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create form file: %v", err)
+	}
+	
+	_, err = fileWriter.Write(request.File)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write audio data: %v", err)
+	}
+	
+	writer.Close()
+	
+	endpointPath := fmt.Sprintf("%s/models/%s", p.baseUrl.String(), modelName)
+	
+	httpRequest, err := http.NewRequestWithContext(ctx, "POST", endpointPath, &payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %v", err)
+	}
+	
+	httpRequest.Header.Set("Content-Type", writer.FormDataContentType())
+	httpRequest.Header.Set("Authorization", "Bearer "+p.apiKey)
+	
+	log.Printf("Sending %s request to %s for audio transcription", httpRequest.Method, endpointPath)
+	
+	httpResponse, err := p.client.Do(httpRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %v", err)
+	}
+	defer httpResponse.Body.Close()
+	
+	body, err := io.ReadAll(httpResponse.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %v", err)
+	}
+	
+	if httpResponse.StatusCode != http.StatusOK {
+		if httpResponse.StatusCode == http.StatusTooManyRequests {
+			return nil, fmt.Errorf("quota exceeded: %s", string(body))
+		}
+		return nil, fmt.Errorf("unexpected status code: %d, body: %s", httpResponse.StatusCode, string(body))
+	}
+	
+	// HuggingFace Whisper returns the transcription directly as text
+	var hfResponse struct {
+		Text string `json:"text"`
+	}
+	
+	if err := json.Unmarshal(body, &hfResponse); err != nil {
+		// If JSON parsing fails, assume the response is plain text
+		hfResponse.Text = string(body)
+	}
+	
+	return &openai.AudioTranscriptionResponse{
+		Text: hfResponse.Text,
+	}, nil
 }
 
 func (p *Endpoint) TranslateAudio(ctx context.Context, request *openai.AudioTranslationRequest) (*openai.AudioTranslationResponse, error) {
-	return nil, fmt.Errorf("HuggingFace audio translation not yet implemented - requires model-specific integration")
+	// Use Whisper model for translation (same as transcription but with different prompt)
+	modelName := "openai/whisper-large-v3"
+	if request.Model != "" {
+		modelName = request.Model
+	}
+	
+	// Create multipart form data for audio file
+	var payload bytes.Buffer
+	writer := multipart.NewWriter(&payload)
+	
+	// Add audio file
+	fileWriter, err := writer.CreateFormFile("inputs", "audio.mp3")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create form file: %v", err)
+	}
+	
+	_, err = fileWriter.Write(request.File)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write audio data: %v", err)
+	}
+	
+	// Add task parameter for translation
+	writer.WriteField("task", "translate")
+	
+	writer.Close()
+	
+	endpointPath := fmt.Sprintf("%s/models/%s", p.baseUrl.String(), modelName)
+	
+	httpRequest, err := http.NewRequestWithContext(ctx, "POST", endpointPath, &payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %v", err)
+	}
+	
+	httpRequest.Header.Set("Content-Type", writer.FormDataContentType())
+	httpRequest.Header.Set("Authorization", "Bearer "+p.apiKey)
+	
+	log.Printf("Sending %s request to %s for audio translation", httpRequest.Method, endpointPath)
+	
+	httpResponse, err := p.client.Do(httpRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %v", err)
+	}
+	defer httpResponse.Body.Close()
+	
+	body, err := io.ReadAll(httpResponse.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %v", err)
+	}
+	
+	if httpResponse.StatusCode != http.StatusOK {
+		if httpResponse.StatusCode == http.StatusTooManyRequests {
+			return nil, fmt.Errorf("quota exceeded: %s", string(body))
+		}
+		return nil, fmt.Errorf("unexpected status code: %d, body: %s", httpResponse.StatusCode, string(body))
+	}
+	
+	// HuggingFace Whisper returns the translation directly as text
+	var hfResponse struct {
+		Text string `json:"text"`
+	}
+	
+	if err := json.Unmarshal(body, &hfResponse); err != nil {
+		// If JSON parsing fails, assume the response is plain text
+		hfResponse.Text = string(body)
+	}
+	
+	return &openai.AudioTranslationResponse{
+		Text: hfResponse.Text,
+	}, nil
 }
 
 func (p *Endpoint) GenerateSpeech(ctx context.Context, request *openai.TextToSpeechRequest) (*openai.TextToSpeechResponse, error) {
-	// HuggingFace has TTS models available
-	return nil, fmt.Errorf("HuggingFace speech generation not yet implemented - requires model-specific integration")
+	// Use Bark or similar TTS model on HuggingFace
+	modelName := "suno/bark"
+	if request.Model != "" {
+		modelName = request.Model
+	}
+	
+	payload := map[string]interface{}{
+		"inputs": request.Input,
+	}
+	
+	// Add voice parameter if available
+	if request.Voice != "" {
+		payload["voice"] = request.Voice
+	}
+	
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %v", err)
+	}
+	
+	endpointPath := fmt.Sprintf("%s/models/%s", p.baseUrl.String(), modelName)
+	
+	httpRequest, err := http.NewRequestWithContext(ctx, "POST", endpointPath, bytes.NewReader(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %v", err)
+	}
+	
+	httpRequest.Header.Set("Content-Type", "application/json")
+	httpRequest.Header.Set("Authorization", "Bearer "+p.apiKey)
+	
+	log.Printf("Sending %s request to %s for speech generation", httpRequest.Method, endpointPath)
+	
+	httpResponse, err := p.client.Do(httpRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %v", err)
+	}
+	defer httpResponse.Body.Close()
+	
+	if httpResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(httpResponse.Body)
+		if httpResponse.StatusCode == http.StatusTooManyRequests {
+			return nil, fmt.Errorf("quota exceeded: %s", string(body))
+		}
+		return nil, fmt.Errorf("unexpected status code: %d, body: %s", httpResponse.StatusCode, string(body))
+	}
+	
+	// HuggingFace TTS models typically return audio data directly
+	audioData, err := io.ReadAll(httpResponse.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read audio data: %v", err)
+	}
+	
+	// Determine content type based on response headers or default to mp3
+	contentType := httpResponse.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "audio/mpeg"
+	}
+	
+	return &openai.TextToSpeechResponse{
+		Data:        audioData,
+		ContentType: contentType,
+	}, nil
 }
 
 func (p *Endpoint) ModerateContent(ctx context.Context, request *openai.ModerationRequest) (*openai.ModerationResponse, error) {
