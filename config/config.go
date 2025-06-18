@@ -12,6 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/yanolja/ogem"
+	"github.com/yanolja/ogem/routing"
 	"github.com/yanolja/ogem/utils/env"
 )
 
@@ -37,6 +38,18 @@ type Config struct {
 	// API key to access the Claude service.
 	ClaudeApiKey string
 
+	// API key to access the Mistral AI service.
+	MistralApiKey string
+
+	// API key to access the xAI service.
+	XAIApiKey string
+
+	// API key to access the Groq service.
+	GroqApiKey string
+
+	// API key to access the OpenRouter service.
+	OpenRouterApiKey string
+
 	// Interval to retry when no available endpoints are found. E.g., 10m
 	RetryInterval string `yaml:"retry_interval"`
 
@@ -54,6 +67,9 @@ type Config struct {
 
 	// Master API key for managing virtual keys
 	MasterApiKey string
+
+	// Advanced routing configuration
+	Routing *routing.RoutingConfig `yaml:"routing,omitempty"`
 }
 
 // LoadConfig loads the configuration from the specified path
@@ -98,6 +114,10 @@ func LoadConfig(path string, logger *zap.SugaredLogger) (*Config, error) {
 	config.OpenAiApiKey = env.OptionalStringVariable("OPENAI_API_KEY", config.OpenAiApiKey)
 	config.GenaiStudioApiKey = env.OptionalStringVariable("GENAI_STUDIO_API_KEY", config.GenaiStudioApiKey)
 	config.ClaudeApiKey = env.OptionalStringVariable("CLAUDE_API_KEY", config.ClaudeApiKey)
+	config.MistralApiKey = env.OptionalStringVariable("MISTRAL_API_KEY", config.MistralApiKey)
+	config.XAIApiKey = env.OptionalStringVariable("XAI_API_KEY", config.XAIApiKey)
+	config.GroqApiKey = env.OptionalStringVariable("GROQ_API_KEY", config.GroqApiKey)
+	config.OpenRouterApiKey = env.OptionalStringVariable("OPENROUTER_API_KEY", config.OpenRouterApiKey)
 	config.RetryInterval = env.OptionalStringVariable("RETRY_INTERVAL", config.RetryInterval)
 	config.PingInterval = env.OptionalStringVariable("PING_INTERVAL", config.PingInterval)
 	config.Port = env.OptionalIntVariable("PORT", config.Port)

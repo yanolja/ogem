@@ -1,0 +1,162 @@
+# Local AI Provider Configuration
+# This file configures local AI providers like Ollama, vLLM, and LM Studio
+
+local_providers:
+  # Enable auto-discovery of local providers
+  auto_discovery: true
+  
+  # Global settings
+  default_timeout: 30s
+  health_check_interval: 30s
+  
+  # Ollama configuration
+  ollama:
+    base_url: "http://localhost:11434"
+    timeout: 30s
+    max_retries: 3
+    models:
+      - "llama2"
+      - "llama2:13b"
+      - "llama2:70b"
+      - "codellama"
+      - "codellama:13b"
+      - "codellama:34b"
+      - "mistral"
+      - "mixtral"
+      - "neural-chat"
+      - "starling-lm"
+  
+  # vLLM configuration
+  vllm:
+    base_url: "http://localhost:8000"
+    api_key: ""  # Optional API key for vLLM
+    timeout: 60s
+    max_retries: 3
+    models:
+      - "meta-llama/Llama-2-7b-chat-hf"
+      - "meta-llama/Llama-2-13b-chat-hf"
+      - "meta-llama/Llama-2-70b-chat-hf"
+      - "mistralai/Mistral-7B-Instruct-v0.1"
+      - "microsoft/DialoGPT-medium"
+  
+  # LM Studio configuration
+  lmstudio:
+    base_url: "http://localhost:1234"
+    timeout: 60s
+    max_retries: 3
+    models:
+      - "local-model"  # LM Studio typically uses generic model names
+
+# Model routing preferences for local providers
+local_routing:
+  # Prefer Ollama for these model patterns
+  ollama_models:
+    - "llama*"
+    - "codellama*"
+    - "mistral*"
+    - "mixtral*"
+    - "*:*b"  # Models with parameter size notation
+  
+  # Prefer vLLM for these model patterns
+  vllm_models:
+    - "*llama*"
+    - "*mistral*"
+    - "*hf"  # HuggingFace models
+    - "microsoft/*"
+    - "meta-llama/*"
+  
+  # Prefer LM Studio for generic models
+  lmstudio_models:
+    - "local-model"
+    - "gpt*"  # If user loads GPT-style models
+    - "chat*"
+
+# Performance optimization for local providers
+local_optimization:
+  # Connection pooling
+  max_connections_per_provider: 10
+  keep_alive_timeout: 300s
+  
+  # Request optimization
+  batch_requests: false
+  compress_requests: false
+  
+  # Caching specific to local providers
+  cache_models_info: true
+  model_info_cache_ttl: 5m
+  
+  # Health monitoring
+  fail_fast: true
+  circuit_breaker:
+    failure_threshold: 5
+    timeout: 30s
+    reset_timeout: 60s
+
+# Security settings for local providers
+local_security:
+  # Network security
+  allowed_hosts:
+    - "localhost"
+    - "127.0.0.1"
+    - "::1"
+  
+  # Request limits
+  max_request_size: 10MB
+  max_response_size: 50MB
+  
+  # Rate limiting for local providers
+  rate_limits:
+    requests_per_minute: 60
+    tokens_per_minute: 100000
+  
+  # Authentication (if needed)
+  require_auth: false
+  api_keys: []
+
+# Logging and monitoring
+local_monitoring:
+  # Detailed logging for local providers
+  log_level: "info"
+  log_requests: true
+  log_responses: false  # Can be large
+  
+  # Metrics collection
+  collect_metrics: true
+  metrics_interval: 30s
+  
+  # Performance tracking
+  track_latency: true
+  track_throughput: true
+  track_errors: true
+
+# Fallback configuration
+fallback:
+  # Enable fallback to cloud providers if local fails
+  enable_cloud_fallback: true
+  
+  # Fallback providers in order of preference
+  fallback_providers:
+    - "openai"
+    - "anthropic"
+    - "gemini"
+  
+  # Conditions for fallback
+  fallback_conditions:
+    - "provider_unavailable"
+    - "model_not_found"
+    - "timeout"
+    - "error_rate_high"
+
+# Development and testing
+development:
+  # Mock providers for testing
+  enable_mock_providers: false
+  
+  # Test endpoints
+  test_endpoints:
+    - "/test/ollama"
+    - "/test/vllm"
+    - "/test/lmstudio"
+  
+  # Debug mode
+  debug_local_providers: false

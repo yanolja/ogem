@@ -23,13 +23,19 @@ import (
 	"github.com/yanolja/ogem/config"
 	"github.com/yanolja/ogem/cost"
 	"github.com/yanolja/ogem/image"
+	"github.com/yanolja/ogem/monitoring"
 	"github.com/yanolja/ogem/openai"
 	"github.com/yanolja/ogem/provider"
 	"github.com/yanolja/ogem/provider/claude"
+	"github.com/yanolja/ogem/provider/groq"
+	"github.com/yanolja/ogem/provider/mistral"
 	openaiProvider "github.com/yanolja/ogem/provider/openai"
+	"github.com/yanolja/ogem/provider/openrouter"
 	"github.com/yanolja/ogem/provider/studio"
 	"github.com/yanolja/ogem/provider/vclaude"
 	"github.com/yanolja/ogem/provider/vertex"
+	"github.com/yanolja/ogem/provider/xai"
+	"github.com/yanolja/ogem/routing"
 	"github.com/yanolja/ogem/state"
 	"github.com/yanolja/ogem/utils/array"
 	"github.com/yanolja/ogem/utils/copy"
@@ -91,6 +97,12 @@ type ModelProxy struct {
 
 	// Admin server for management UI
 	adminServer *admin.AdminServer
+
+	// Advanced router for intelligent request routing
+	router *routing.Router
+
+	// Monitoring manager for metrics and observability
+	monitor *monitoring.MonitoringManager
 }
 
 func newEndpoint(provider string, region string, config *config.Config) (provider.AiEndpoint, error) {
@@ -100,6 +112,26 @@ func newEndpoint(provider string, region string, config *config.Config) (provide
 			return nil, fmt.Errorf("region is not supported for claude provider")
 		}
 		return claude.NewEndpoint(config.ClaudeApiKey)
+	case "mistral":
+		if region != "mistral" {
+			return nil, fmt.Errorf("region is not supported for mistral provider")
+		}
+		return mistral.NewEndpoint(region, "", config.MistralApiKey)
+	case "xai":
+		if region != "xai" {
+			return nil, fmt.Errorf("region is not supported for xai provider")
+		}
+		return xai.NewEndpoint(region, "", config.XAIApiKey)
+	case "groq":
+		if region != "groq" {
+			return nil, fmt.Errorf("region is not supported for groq provider")
+		}
+		return groq.NewEndpoint(region, "", config.GroqApiKey)
+	case "openrouter":
+		if region != "openrouter" {
+			return nil, fmt.Errorf("region is not supported for openrouter provider")
+		}
+		return openrouter.NewEndpoint(region, "", config.OpenRouterApiKey)
 	case "vclaude":
 		return vclaude.NewEndpoint(config.GoogleCloudProject, region)
 	case "vertex":
@@ -194,6 +226,27 @@ func NewProxyServer(stateManager state.Manager, cleanup func(), config *config.C
 		return false
 	})
 
+	// Initialize monitoring system
+	var monitor *monitoring.MonitoringManager
+	if config.Routing != nil && config.Routing.EnableMetrics {
+		monitoringConfig := monitoring.DefaultMonitoringConfig()
+		var err error
+		monitor, err = monitoring.NewMonitoringManager(monitoringConfig, logger)
+		if err != nil {
+			logger.Warnw("Failed to initialize monitoring manager", "error", err)
+		}
+	}
+
+	// Initialize intelligent router
+	var router *routing.Router
+	if config.Routing != nil {
+		router = routing.NewRouter(config.Routing, monitor, logger)
+	} else {
+		// Use default routing configuration
+		defaultConfig := routing.DefaultRoutingConfig()
+		router = routing.NewRouter(defaultConfig, monitor, logger)
+	}
+
 	// Initialize admin server
 	var adminServer *admin.AdminServer
 	if authManager != nil {
@@ -216,6 +269,8 @@ func NewProxyServer(stateManager state.Manager, cleanup func(), config *config.C
 		authManager:     authManager,
 		imageDownloader: imageDownloader,
 		adminServer:     adminServer,
+		router:          router,
+		monitor:         monitor,
 	}, nil
 }
 
@@ -1701,10 +1756,19 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 		}
 	}
 
-	endpoints, err := s.sortedEndpoints(endpointProvider, endpointRegion, modelOrAlias)
-	if err != nil || len(endpoints) == 0 {
+	// Use intelligent routing if router is available
+	selectedEndpoint, allEndpoints, err := s.intelligentRouteRequest(ctx, endpointProvider, endpointRegion, modelOrAlias, openAiRequest)
+	if err != nil || len(allEndpoints) == 0 {
 		s.logger.Warnw("Failed to select endpoint", "error", err, "provider", endpointProvider, "region", endpointRegion, "model", modelOrAlias)
 		return nil, UnavailableError{fmt.Errorf("no available endpoints")}
+	}
+	
+	// Try the intelligently selected endpoint first, then fall back to others
+	endpoints := []*endpointStatus{selectedEndpoint}
+	for _, ep := range allEndpoints {
+		if ep != selectedEndpoint {
+			endpoints = append(endpoints, ep)
+		}
 	}
 
 	for {
@@ -1737,8 +1801,23 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 			}
 
 			openAiRequest.Model = endpoint.modelStatus.Name
+			
+			// Record start time for latency tracking
+			startTime := time.Now()
 			openAiResponse, err := endpoint.endpoint.GenerateChatCompletion(ctx, openAiRequest)
+			requestLatency := time.Since(startTime)
 			if err != nil {
+				// Record failure with router
+				if s.router != nil {
+					routingEndpoint := &routing.EndpointStatus{
+						Endpoint:    endpoint.endpoint,
+						Latency:     endpoint.latency,
+						ModelStatus: endpoint.modelStatus,
+					}
+					requestCost := cost.CalculateChatCost(openAiRequest.Model, openai.Usage{PromptTokens: 100}) // Estimate for failed requests
+					s.router.RecordRequestResult(routingEndpoint, requestLatency, requestCost, false, err.Error())
+				}
+				
 				loweredError := strings.ToLower(err.Error())
 				if strings.Contains(loweredError, "429") ||
 					strings.Contains(loweredError, "quota") ||
@@ -1760,11 +1839,23 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 				}
 			}
 
+			// Calculate request cost
+			calculatedCost := cost.CalculateChatCost(openAiRequest.Model, openAiResponse.Usage)
+			
+			// Record success with router
+			if s.router != nil {
+				routingEndpoint := &routing.EndpointStatus{
+					Endpoint:    endpoint.endpoint,
+					Latency:     endpoint.latency,
+					ModelStatus: endpoint.modelStatus,
+				}
+				s.router.RecordRequestResult(routingEndpoint, requestLatency, calculatedCost, true, "")
+			}
+
 			// Update virtual key usage if using virtual key authentication
 			if virtualKey := ctx.Value("virtual_key"); virtualKey != nil {
 				key := virtualKey.(*auth.VirtualKey)
 				tokens := int64(openAiResponse.Usage.TotalTokens)
-				calculatedCost := cost.CalculateChatCost(openAiRequest.Model, openAiResponse.Usage)
 				if err := s.authManager.UpdateUsage(ctx, key.Key, tokens, calculatedCost); err != nil {
 					s.logger.Warnw("Failed to update virtual key usage", "error", err, "key_id", key.ID)
 				}
@@ -1832,6 +1923,7 @@ func (s *ModelProxy) sortedEndpoints(desiredProvider string, desiredRegion strin
 		return false
 	})
 
+	// Use default latency-based sorting if no router is configured
 	sort.Slice(endpoints, func(i, j int) bool {
 		return endpoints[i].latency < endpoints[j].latency
 	})
@@ -1840,6 +1932,44 @@ func (s *ModelProxy) sortedEndpoints(desiredProvider string, desiredRegion strin
 		return fmt.Sprintf("%s/%s/%s", e.endpoint.Provider(), e.endpoint.Region(), model)
 	}), "model", model)
 	return endpoints, nil
+}
+
+// intelligentRouteRequest uses the advanced router to select the best endpoint
+func (s *ModelProxy) intelligentRouteRequest(ctx context.Context, desiredProvider string, desiredRegion string, model string, request *openai.ChatCompletionRequest) (*endpointStatus, []*endpointStatus, error) {
+	// Get all available endpoints
+	allEndpoints, err := s.sortedEndpoints(desiredProvider, desiredRegion, model)
+	if err != nil || len(allEndpoints) == 0 {
+		return nil, allEndpoints, fmt.Errorf("no available endpoints")
+	}
+
+	// Convert to routing.EndpointStatus format
+	var routingEndpoints []*routing.EndpointStatus
+	for _, ep := range allEndpoints {
+		routingEndpoints = append(routingEndpoints, &routing.EndpointStatus{
+			Endpoint:    ep.endpoint,
+			Latency:     ep.latency,
+			ModelStatus: ep.modelStatus,
+		})
+	}
+
+	// Use intelligent router if available
+	if s.router != nil {
+		selectedEndpoint, err := s.router.RouteRequest(ctx, routingEndpoints, request)
+		if err != nil {
+			s.logger.Warnw("Intelligent routing failed, falling back to default", "error", err)
+			return allEndpoints[0], allEndpoints, nil
+		}
+
+		// Find the corresponding endpointStatus
+		for _, ep := range allEndpoints {
+			if ep.endpoint == selectedEndpoint.Endpoint {
+				return ep, allEndpoints, nil
+			}
+		}
+	}
+
+	// Fallback to first endpoint
+	return allEndpoints[0], allEndpoints, nil
 }
 
 func (s *ModelProxy) endpoint(provider string, region string) (provider.AiEndpoint, error) {
@@ -1931,5 +2061,13 @@ func requestInterval(modelStatus *ogem.SupportedModel) time.Duration {
 func (s *ModelProxy) RegisterAdminRoutes(mux *http.ServeMux) {
 	if s.adminServer != nil {
 		s.adminServer.RegisterRoutes(mux)
+	}
+}
+
+// RegisterRoutingRoutes registers routing API routes if router is available
+func (s *ModelProxy) RegisterRoutingRoutes(mux *http.ServeMux) {
+	if s.router != nil {
+		apiHandler := routing.NewAPIHandler(s.router, s.logger)
+		apiHandler.RegisterRoutes(mux)
 	}
 }

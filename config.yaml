@@ -283,6 +283,98 @@ providers:
             rate_key: "claude-3-haiku"
             rpm: 1_000
             tpm: 100_000
+  mistral:
+    regions:
+      mistral:
+        models:
+          - name: "mistral-large-latest"
+            rate_key: "mistral-large"
+            rpm: 100
+            tpm: 1_000_000
+          - name: "mistral-small-latest"
+            rate_key: "mistral-small"
+            rpm: 200
+            tpm: 2_000_000
+          - name: "mistral-medium-latest"
+            rate_key: "mistral-medium"
+            rpm: 150
+            tpm: 1_500_000
+          - name: "mistral-embed"
+            rate_key: "mistral-embed"
+            rpm: 500
+            tpm: 5_000_000
+          - name: "codestral-latest"
+            rate_key: "codestral"
+            rpm: 100
+            tpm: 1_000_000
+          - name: "mixtral-8x7b-instruct"
+            rate_key: "mixtral-8x7b"
+            rpm: 150
+            tpm: 1_500_000
+          - name: "mixtral-8x22b-instruct"
+            rate_key: "mixtral-8x22b"
+            rpm: 100
+            tpm: 1_000_000
+  xai:
+    regions:
+      xai:
+        models:
+          - name: "grok-beta"
+            rate_key: "grok-beta"
+            rpm: 100
+            tpm: 2_000_000
+          - name: "grok-vision-beta"
+            rate_key: "grok-vision"
+            rpm: 50
+            tpm: 1_000_000
+  groq:
+    regions:
+      groq:
+        models:
+          - name: "llama3-8b-8192"
+            rate_key: "llama3-8b"
+            rpm: 30_000
+            tpm: 14_400_000
+          - name: "llama3-70b-8192"
+            rate_key: "llama3-70b"
+            rpm: 6_000
+            tpm: 6_000_000
+          - name: "mixtral-8x7b-32768"
+            rate_key: "mixtral-8x7b"
+            rpm: 30_000
+            tpm: 14_400_000
+          - name: "gemma-7b-it"
+            rate_key: "gemma-7b"
+            rpm: 30_000
+            tpm: 14_400_000
+          - name: "whisper-large-v3"
+            rate_key: "whisper-large"
+            rpm: 1_000
+            tpm: 14_400_000
+  openrouter:
+    regions:
+      openrouter:
+        models:
+          - name: "openai/gpt-4o"
+            rate_key: "openrouter-gpt4o"
+            rpm: 200
+            tpm: 10_000_000
+          - name: "anthropic/claude-3.5-sonnet"
+            rate_key: "openrouter-claude"
+            rpm: 200
+            tpm: 10_000_000
+          - name: "google/gemini-pro-1.5"
+            rate_key: "openrouter-gemini"
+            rpm: 200
+            tpm: 10_000_000
+          - name: "meta-llama/llama-3.1-8b-instruct"
+            rate_key: "openrouter-llama3"
+            rpm: 500
+            tpm: 20_000_000
+          - name: "mistralai/mistral-7b-instruct"
+            rate_key: "openrouter-mistral"
+            rpm: 500
+            tpm: 20_000_000
   vclaude:
     regions:
       # All regions must support the claude-3-haiku model because it is used for ping tests.

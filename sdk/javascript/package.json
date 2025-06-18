@@ -1,0 +1,92 @@
+{
+  "name": "@ogem/sdk",
+  "version": "1.0.0",
+  "description": "Official JavaScript/TypeScript SDK for the Ogem AI proxy server",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "module": "dist/index.mjs",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "build:watch": "tsup --watch",
+    "dev": "tsup --watch",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "typecheck": "tsc --noEmit",
+    "docs": "typedoc src/index.ts",
+    "prepublishOnly": "npm run build",
+    "example:basic": "tsx examples/basic.ts",
+    "example:streaming": "tsx examples/streaming.ts",
+    "example:functions": "tsx examples/functions.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yanolja/ogem.git",
+    "directory": "sdk/javascript"
+  },
+  "keywords": [
+    "ai",
+    "llm",
+    "openai",
+    "claude",
+    "gemini",
+    "proxy",
+    "sdk",
+    "typescript",
+    "javascript",
+    "chat",
+    "completion",
+    "embeddings"
+  ],
+  "author": "Ogem Team <support@ogem.ai>",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/yanolja/ogem/issues"
+  },
+  "homepage": "https://github.com/yanolja/ogem#readme",
+  "dependencies": {
+    "cross-fetch": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.5",
+    "@types/node": "^20.6.0",
+    "@typescript-eslint/eslint-plugin": "^6.7.0",
+    "@typescript-eslint/parser": "^6.7.0",
+    "eslint": "^8.49.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.0.3",
+    "ts-jest": "^29.1.1",
+    "tsup": "^7.2.0",
+    "tsx": "^3.12.10",
+    "typedoc": "^0.25.1",
+    "typescript": "^5.2.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "peerDependencies": {
+    "typescript": ">=4.5.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  }
+}

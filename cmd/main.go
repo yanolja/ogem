@@ -91,6 +91,9 @@ func main() {
 		proxy.RegisterAdminRoutes(mux)
 	}
 
+	// Register routing API routes
+	proxy.RegisterRoutingRoutes(mux)
+
 	httpServer := setupServer(config.Port, mux)
 
 	shutdownSignal := make(chan os.Signal, 1)
