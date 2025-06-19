@@ -4,6 +4,7 @@ package vclaude
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"strings"
 	"time"
@@ -15,7 +16,6 @@ import (
 	"github.com/yanolja/ogem/image"
 	"github.com/yanolja/ogem/openai"
 	"github.com/yanolja/ogem/utils"
-	"github.com/yanolja/ogem/utils/array"
 )
 
 type anthropicClient interface {
@@ -226,7 +226,7 @@ func (ep *Endpoint) toClaudeParams(ctx context.Context, openaiRequest *openai.Ch
 	}
 
 	params := &anthropic.MessageNewParams{
-		Model:    standardizeModelName(openaiRequest.Model),
+		Model:    anthropic.Model(standardizeModelName(openaiRequest.Model)),
 		Messages: messages,
 	}
 
@@ -335,7 +335,7 @@ func (ep *Endpoint) toClaudeSystemMessage(ctx context.Context, openAiRequest *op
 			textBlocks := make([]anthropic.TextBlockParam, 0, len(blocks))
 			for _, block := range blocks {
 				if block.GetType() != nil && *block.GetType() == "text" {
-					textBlocks = append(textBlocks, *block.OfRequestTextBlock)
+					textBlocks = append(textBlocks, *block.OfText)
 				} else {
 					return nil, fmt.Errorf("system message must contain only text blocks with Claude models")
 				}
@@ -385,22 +385,14 @@ func (ep *Endpoint) toClaudeMessageBlocks(ctx context.Context, message openai.Me
 				blocks = append(blocks, anthropic.NewTextBlock(part.Content.TextContent.Text))
 			} else if part.Content.ImageContent != nil {
 				// Download and process image
-				imageData, err := ep.imageDownloader.ProcessImageURL(ctx, part.Content.ImageContent.ImageURL.URL)
+				imageData, err := ep.imageDownloader.ProcessImageURL(ctx, part.Content.ImageContent.Url)
 				if err != nil {
 					return nil, fmt.Errorf("failed to process image: %v", err)
 				}
 				
 				// Convert to Claude image format
-				imageBlock := anthropic.ContentBlockParamUnion{
-					OfRequestImageBlock: &anthropic.ImageBlockParam{
-						Type: "image",
-						Source: anthropic.ImageBlockParamSource{
-							Type:      "base64",
-							MediaType: imageData.MediaType,
-							Data:      imageData.Base64Data,
-						},
-					},
-				}
+				base64Data := base64.StdEncoding.EncodeToString(imageData.Data)
+				imageBlock := anthropic.NewImageBlockBase64(imageData.MimeType, base64Data)
 				blocks = append(blocks, imageBlock)
 			} else {
 				blocks = append(blocks, anthropic.NewTextBlock("unsupported content type"))
@@ -424,7 +416,7 @@ func (ep *Endpoint) toClaudeMessageBlocks(ctx context.Context, message openai.Me
 		}
 		return []anthropic.ContentBlockParamUnion{
 			anthropic.ContentBlockParamUnion{
-				OfRequestToolUseBlock: &anthropic.ToolUseBlockParam{
+				OfToolUse: &anthropic.ToolUseBlockParam{
 					ID:      toolId,
 					Name:    message.FunctionCall.Name,
 					Input:   arguments,
@@ -443,7 +435,7 @@ func (ep *Endpoint) toClaudeMessageBlocks(ctx context.Context, message openai.Me
 				return nil, fmt.Errorf("failed to parse tool arguments: %v", err)
 			}
 			toolCalls[index] = anthropic.ContentBlockParamUnion{
-				OfRequestToolUseBlock: &anthropic.ToolUseBlockParam{
+				OfToolUse: &anthropic.ToolUseBlockParam{
 					ID:      toolCall.Id,
 					Name:    toolCall.Function.Name,
 					Input:   arguments,
@@ -488,11 +480,11 @@ func toClaudeToolChoice(toolChoice *openai.ToolChoice) (anthropic.ToolChoiceUnio
 		switch *toolChoice.Value {
 		case openai.ToolChoiceAuto:
 			return anthropic.ToolChoiceUnionParam{
-				OfToolChoiceAuto: &anthropic.ToolChoiceAutoParam{},
+				OfAuto: &anthropic.ToolChoiceAutoParam{},
 			}, nil
 		case openai.ToolChoiceRequired:
 			return anthropic.ToolChoiceUnionParam{
-				OfToolChoiceAny: &anthropic.ToolChoiceAnyParam{},
+				OfAny: &anthropic.ToolChoiceAnyParam{},
 			}, nil
 		case openai.ToolChoiceNone:
 			return anthropic.ToolChoiceUnionParam{}, fmt.Errorf("claude does not support 'none' tool choice")
@@ -505,7 +497,7 @@ func toClaudeToolChoice(toolChoice *openai.ToolChoice) (anthropic.ToolChoiceUnio
 		return anthropic.ToolChoiceUnionParam{}, fmt.Errorf("unsupported tool type: %s", toolChoice.Struct.Type)
 	}
 	return anthropic.ToolChoiceUnionParam{
-		OfToolChoiceTool: &anthropic.ToolChoiceToolParam{
+		OfTool: &anthropic.ToolChoiceToolParam{
 			Name: toolChoice.Struct.Function.Name,
 		},
 	}, nil
@@ -540,7 +532,7 @@ func toOpenAiResponse(claudeResponse *anthropic.Message) (*openai.ChatCompletion
 	choices[0] = openai.Choice{
 		Index:        0,
 		Message:      *message,
-		FinishReason: toOpenAiFinishReason(claudeResponse.StopReason),
+		FinishReason: toOpenAiFinishReason(anthropic.MessageStopReason(claudeResponse.StopReason)),
 	}
 
 	return &openai.ChatCompletionResponse{

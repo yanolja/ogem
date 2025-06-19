@@ -1,6 +1,7 @@
 package vertex
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -144,7 +145,8 @@ func TestToGeminiMessages(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			history, last, err := toGeminiMessages(tt.messages)
+			endpoint := &Endpoint{}
+			history, last, err := endpoint.toGeminiMessages(context.Background(), tt.messages)
 			if tt.wantErr {
 				assert.Error(t, err)
 				return

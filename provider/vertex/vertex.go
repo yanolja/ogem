@@ -409,7 +409,7 @@ func (ep *Endpoint) toGeminiParts(ctx context.Context, message openai.Message, t
 				parts = append(parts, &genai.Part{Text: part.Content.TextContent.Text})
 			} else if part.Content.ImageContent != nil {
 				// Download and process image
-				imageData, err := ep.imageDownloader.ProcessImageURL(ctx, part.Content.ImageContent.ImageURL.URL)
+				imageData, err := ep.imageDownloader.ProcessImageURL(ctx, part.Content.ImageContent.Url)
 				if err != nil {
 					return nil, fmt.Errorf("failed to process image: %v", err)
 				}
@@ -417,8 +417,8 @@ func (ep *Endpoint) toGeminiParts(ctx context.Context, message openai.Message, t
 				// Convert to Gemini image format
 				parts = append(parts, &genai.Part{
 					InlineData: &genai.Blob{
-						MIMEType: imageData.MediaType,
-						Data:     imageData.RawData,
+						MIMEType: imageData.MimeType,
+						Data:     imageData.Data,
 					},
 				})
 			} else {
