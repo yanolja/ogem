@@ -1,6 +1,6 @@
 # Ogem
 
-Ogem is a production-ready AI proxy server that provides unified access to multiple AI language models through an OpenAI-compatible API interface. With comprehensive enterprise features and support for the latest AI models, Ogem offers advanced routing, caching, multi-tenancy, and security capabilities for modern AI workloads.
+Ogem is a production-ready AI proxy server that provides unified access to multiple AI language models through an OpenAI-compatible API interface. Updated for 2025 with the latest AI models and enhanced provider SDK compatibility, Ogem offers comprehensive enterprise features including advanced routing, intelligent caching, multi-tenancy, and robust security capabilities for modern AI workloads.
 
 ## Features
 
@@ -15,12 +15,21 @@ Ogem is a production-ready AI proxy server that provides unified access to multi
 - **Comprehensive rate limiting** and quota management
 
 ### Enterprise Features
-- **Multi-tenancy** with hierarchical tenant management
-- **Security framework** with PII masking and audit logging
-- **Cost tracking** with real-time usage monitoring
-- **Virtual key management** with budget enforcement
-- **Batch processing** for cost optimization
-- **Regional deployment** support
+- **Multi-tenancy** with hierarchical tenant management and isolation
+- **Advanced security** with PII masking, rate limiting, and audit logging
+- **Intelligent caching** with adaptive strategies (exact, semantic, token-based, hybrid)
+- **Cost optimization** with real-time tracking and budget enforcement
+- **Virtual key management** with granular permissions and spend limits
+- **Batch processing** for 50% cost reduction on supported models
+- **Regional deployment** with multi-region provider support
+- **Comprehensive monitoring** with metrics, health checks, and observability
+
+### Latest Updates (2025)
+- **Updated AI Models**: Latest GPT-4.5, Claude 4.x, o4/o3 reasoning models
+- **Enhanced Pricing**: Accurate cost calculation for all 2025 models
+- **Provider SDK Updates**: Fixed compatibility with latest Anthropic and Google SDKs
+- **Backward Compatibility**: Automatic mapping from legacy models to current versions
+- **Production Ready**: Comprehensive test coverage and enterprise-grade reliability
 
 ## Quick Start
 
@@ -370,24 +379,56 @@ Standard HTTP status codes:
 - 500: Internal Server Error
 - 503: Service Unavailable
 
+## Model Support & Pricing (2025)
+
+### Latest Supported Models
+
+| Provider | Model | Input Cost | Output Cost | Notes |
+|----------|-------|------------|-------------|-------|
+| **OpenAI** | gpt-4.5-turbo | $2.00/1M | $8.00/1M | Latest flagship |
+| | gpt-4.1-turbo | $1.80/1M | $7.00/1M | Production ready |
+| | o4 | $8.00/1M | $25.00/1M | Advanced reasoning |
+| | o3 | $10.00/1M | $30.00/1M | Current reasoning |
+| **Claude** | claude-4-opus | $8.00/1M | $30.00/1M | Most capable |
+| | claude-4-sonnet | $2.00/1M | $8.00/1M | Balanced performance |
+| | claude-4-haiku | $0.40/1M | $2.00/1M | Fast & efficient |
+| **Gemini** | gemini-2.5-pro | $1.25/1M | $5.00/1M | Flagship model |
+| | gemini-2.5-flash | $0.10/1M | $0.60/1M | Most cost-effective |
+
+### Legacy Model Support
+Legacy models (GPT-4o, o1-preview, Claude 3.5, etc.) are automatically mapped to current versions with accurate pricing.
+
 ## Development
 
 Requirements:
-- Go 1.22+
+- Go 1.23+ (with Go 1.24.1 toolchain)
 - Docker (optional)
-- Valkey (Redis-compatible, optional)
+- Valkey/Redis (optional, for distributed caching)
 
 ```bash
 # Clone repository
 git clone https://github.com/yanolja/ogem.git
 cd ogem
 
+# Install dependencies
+go mod download
+
 # Run tests
 go test ./...
 
 # Build binary
 go build ./cmd/main.go
+
+# Run with Docker
+docker run -p 8080:8080 ynext/ogem:latest
 ```
+
+### Provider Status
+- ✅ **OpenAI**: Fully supported with latest SDK
+- ✅ **Claude**: Fixed compatibility with Anthropic SDK 1.4.0  
+- ✅ **Vertex AI**: Fixed compatibility with Google genai SDK
+- ✅ **Gemini Studio**: Fully supported
+- ⚠️ **Others**: HuggingFace, Bedrock need additional SDK updates
 
 ## License
 
