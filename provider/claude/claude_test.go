@@ -31,7 +31,7 @@ func mockNewRequestReturnsValidResponse(ctx context.Context, params anthropic.Me
 	return &anthropic.Message{
 		ID:      "msg_abc123",
 		Content: []anthropic.ContentBlockUnion{block},
-		Model:   "claude-3-haiku-20240307",
+		Model:   "claude-3.5-haiku-20241022",
 		Role:    "assistant",
 	}, nil
 }
@@ -56,7 +56,7 @@ func TestEndpoint(t *testing.T) {
 		client := &mockAnthropicClient{resultFunc: mockNewRequestReturnsValidResponse}
 		endpoint := newMockEndpoint(client)
 		openaiRequest := &openai.ChatCompletionRequest{
-			Model: "claude-3-haiku",
+			Model: "claude-3.5-haiku-20241022",
 			Messages: []openai.Message{
 				{
 					Role: "assistant",
@@ -71,7 +71,7 @@ func TestEndpoint(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
-		assert.Contains(t, resp.Model, "claude-3-haiku")
+		assert.Contains(t, resp.Model, "claude-3.5-haiku")
 		assert.Len(t, resp.Choices, 1)
 		assert.Equal(t, "assistant", resp.Choices[0].Message.Role)
 		assert.Equal(t, "Pong", *resp.Choices[0].Message.Content.String)
@@ -100,7 +100,7 @@ func TestEndpoint(t *testing.T) {
 		client := &mockAnthropicClient{resultFunc: mockNewRequestReturnsError}
 		endpoint := newMockEndpoint(client)
 		openaiRequest := &openai.ChatCompletionRequest{
-			Model: "claude-3-haiku",
+			Model: "claude-3.5-haiku-20241022",
 			Messages: []openai.Message{
 				{
 					Role: "user",

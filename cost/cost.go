@@ -114,16 +114,44 @@ var modelPricing = map[string]ModelPricing{
 		OutputTokenPrice: 4.0,
 	},
 	
-	// Latest Gemini models
-	"gemini-pro": {
-		InputTokenPrice:  0.5,
-		OutputTokenPrice: 1.5,
+	// Latest Gemini 2.5 Family (2025)
+	"gemini-2.5-pro": {
+		InputTokenPrice:  1.25, // Estimated flagship pricing
+		OutputTokenPrice: 5.0,
 	},
-	"gemini-1.5-pro": {
+	"gemini-2.5-flash": {
+		InputTokenPrice:  0.1,  // $0.10 per 1M tokens (confirmed)
+		OutputTokenPrice: 0.6,  // $0.60 per 1M tokens (confirmed)
+	},
+	"gemini-2.5-flash-lite": {
+		InputTokenPrice:  0.05, // Estimated most cost-efficient
+		OutputTokenPrice: 0.3,
+	},
+	"gemini-2.5-pro-deep-think": {
+		InputTokenPrice:  2.0,  // Estimated experimental pricing
+		OutputTokenPrice: 8.0,
+	},
+	
+	// Gemini 2.0 Family
+	"gemini-2.0-flash": {
+		InputTokenPrice:  0.075, // Experimental low latency
+		OutputTokenPrice: 0.3,
+	},
+	"gemini-2.0-flash-lite": {
+		InputTokenPrice:  0.04,  // Cost-efficient
+		OutputTokenPrice: 0.2,
+	},
+	
+	// Legacy Gemini models (deprecated - will be removed April 29, 2025)
+	"gemini-1.5-pro-002": {
 		InputTokenPrice:  1.25,
 		OutputTokenPrice: 5.0,
 	},
-	"gemini-1.5-pro-002": {
+	"gemini-1.5-flash-002": {
+		InputTokenPrice:  0.075,
+		OutputTokenPrice: 0.3,
+	},
+	"gemini-1.5-pro": {
 		InputTokenPrice:  1.25,
 		OutputTokenPrice: 5.0,
 	},
@@ -131,17 +159,9 @@ var modelPricing = map[string]ModelPricing{
 		InputTokenPrice:  0.075,
 		OutputTokenPrice: 0.3,
 	},
-	"gemini-1.5-flash-002": {
-		InputTokenPrice:  0.075,
-		OutputTokenPrice: 0.3,
-	},
-	"gemini-2.0-flash": {
-		InputTokenPrice:  0.075,
-		OutputTokenPrice: 0.3,
-	},
-	"gemini-2.0-flash-exp": {
-		InputTokenPrice:  0.0, // Experimental pricing
-		OutputTokenPrice: 0.0,
+	"gemini-pro": {
+		InputTokenPrice:  1.25,  // Deprecated - maps to gemini-2.5-pro pricing
+		OutputTokenPrice: 5.0,
 	},
 	
 	// Image generation models
@@ -318,13 +338,30 @@ func normalizeModelName(model string) string {
 		return "claude-3-haiku"
 	}
 	
-	// Google Gemini models (latest versions)
-	if strings.Contains(lower, "gemini-2.0-flash-exp") {
-		return "gemini-2.0-flash-exp"
+	// Google Gemini models (latest versions first)
+	// Gemini 2.5 Family (Latest)
+	if strings.Contains(lower, "gemini-2.5-pro-deep-think") {
+		return "gemini-2.5-pro-deep-think"
+	}
+	if strings.Contains(lower, "gemini-2.5-flash-lite") {
+		return "gemini-2.5-flash-lite"
+	}
+	if strings.Contains(lower, "gemini-2.5-flash") {
+		return "gemini-2.5-flash"
+	}
+	if strings.Contains(lower, "gemini-2.5-pro") {
+		return "gemini-2.5-pro"
+	}
+	
+	// Gemini 2.0 Family
+	if strings.Contains(lower, "gemini-2.0-flash-lite") {
+		return "gemini-2.0-flash-lite"
 	}
 	if strings.Contains(lower, "gemini-2.0-flash") {
 		return "gemini-2.0-flash"
 	}
+	
+	// Legacy Gemini models (deprecated)
 	if strings.Contains(lower, "gemini-1.5-pro-002") {
 		return "gemini-1.5-pro-002"
 	}
@@ -338,10 +375,12 @@ func normalizeModelName(model string) string {
 		return "gemini-1.5-flash"
 	}
 	if strings.Contains(lower, "gemini-pro") {
-		return "gemini-pro"
+		return "gemini-2.5-pro"  // Deprecated: gemini-pro maps to latest
 	}
+	
+	// Default Gemini fallback to latest flagship
 	if strings.Contains(lower, "gemini") {
-		return "gemini-pro"
+		return "gemini-2.5-pro"
 	}
 	
 	// OpenAI Audio models

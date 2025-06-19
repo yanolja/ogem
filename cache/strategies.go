@@ -7,8 +7,6 @@ import (
 	"math"
 	"strings"
 	"time"
-
-	"github.com/yanolja/ogem/openai"
 )
 
 // lookupExact performs exact cache matching
@@ -459,11 +457,11 @@ func (cm *CacheManager) editDistance(a, b string) int {
 				cost = 1
 			}
 			
-			matrix[i][j] = min(
-				matrix[i-1][j]+1,      // deletion
-				matrix[i][j-1]+1,      // insertion
-				matrix[i-1][j-1]+cost, // substitution
-			)
+			deletion := matrix[i-1][j] + 1
+			insertion := matrix[i][j-1] + 1
+			substitution := matrix[i-1][j-1] + cost
+			
+			matrix[i][j] = min(deletion, min(insertion, substitution))
 		}
 	}
 	
@@ -745,13 +743,6 @@ func (cm *CacheManager) estimateQueryLength(req *CacheRequest) int {
 }
 
 // Helper functions
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
 
 func max(a, b int) int {
 	if a > b {

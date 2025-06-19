@@ -20,10 +20,10 @@ const (
 	AuthMethodOAuth2   AuthMethod = "oauth2"
 )
 
-// AuthContext contains authentication information
-type AuthContext struct {
+// EnhancedAuthContext extends the basic AuthContext with additional fields
+type EnhancedAuthContext struct {
+	*AuthContext
 	Method       AuthMethod
-	UserID       string
 	Username     string
 	Email        string
 	Roles        []string
@@ -63,8 +63,8 @@ type UnifiedAuthManager struct {
 	config            *EnhancedAuthConfig
 }
 
-// VirtualKeyManager interface for virtual key operations
-type VirtualKeyManager interface {
+// EnhancedVirtualKeyManager extends the basic VirtualKeyManager interface
+type EnhancedVirtualKeyManager interface {
 	ValidateKey(ctx context.Context, key string) (*VirtualKey, error)
 	CreateKey(ctx context.Context, request KeyRequest) (*VirtualKey, error)
 	GetKey(ctx context.Context, keyID string) (*VirtualKey, error)
@@ -133,11 +133,15 @@ func (u *UnifiedAuthManager) authenticateBearer(token string, r *http.Request) (
 	// Check if it's the master key
 	if token == u.masterKey && u.masterKey != "" {
 		return &AuthContext{
-			Method:      AuthMethodMaster,
-			UserID:      "master",
-			Username:    "master",
-			Roles:       []string{"admin"},
-			Permissions: []string{"*"}, // All permissions
+			UserID:   "master",
+			TenantID: "",
+			KeyID:    "master",
+			Claims: map[string]interface{}{
+				"method":      string(AuthMethodMaster),
+				"username":    "master",
+				"roles":       []string{"admin"},
+				"permissions": []string{"*"},
+			},
 		}, nil
 	}
 	
@@ -145,15 +149,19 @@ func (u *UnifiedAuthManager) authenticateBearer(token string, r *http.Request) (
 	if u.jwtManager != nil {
 		if claims, err := u.jwtManager.ValidateToken(token); err == nil {
 			return &AuthContext{
-				Method:       AuthMethodJWT,
-				UserID:       claims.UserID,
-				Username:     claims.Username,
-				Email:        claims.Email,
-				Roles:        claims.Roles,
-				Permissions:  claims.Permissions,
-				TeamID:       claims.TeamID,
-				Organization: claims.Organization,
-				JWTClaims:    claims,
+				UserID:   claims.UserID,
+				TenantID: claims.TeamID,
+				KeyID:    "",
+				Claims: map[string]interface{}{
+					"method":       string(AuthMethodJWT),
+					"username":     claims.Username,
+					"email":        claims.Email,
+					"roles":        claims.Roles,
+					"permissions":  claims.Permissions,
+					"team_id":      claims.TeamID,
+					"organization": claims.Organization,
+					"jwt_claims":   claims,
+				},
 			}, nil
 		}
 	}
@@ -162,12 +170,16 @@ func (u *UnifiedAuthManager) authenticateBearer(token string, r *http.Request) (
 	if u.virtualKeyManager != nil && u.config.EnableVirtualKeys {
 		if vkey, err := u.virtualKeyManager.ValidateKey(r.Context(), token); err == nil {
 			return &AuthContext{
-				Method:      AuthMethodVirtual,
-				UserID:      "virtual:" + vkey.ID,
-				Username:    vkey.Name,
-				Roles:       u.config.DefaultRoles,
-				Permissions: u.config.DefaultPermissions,
-				VirtualKey:  vkey,
+				UserID:   "virtual:" + vkey.ID,
+				TenantID: "",
+				KeyID:    vkey.ID,
+				Claims: map[string]interface{}{
+					"method":      string(AuthMethodVirtual),
+					"username":    vkey.Name,
+					"roles":       u.config.DefaultRoles,
+					"permissions": u.config.DefaultPermissions,
+					"virtual_key": vkey,
+				},
 			}, nil
 		}
 	}
@@ -177,27 +189,35 @@ func (u *UnifiedAuthManager) authenticateBearer(token string, r *http.Request) (
 
 // ValidatePermission checks if the auth context has the required permission
 func (u *UnifiedAuthManager) ValidatePermission(authCtx *AuthContext, permission string) bool {
+	if authCtx == nil || authCtx.Claims == nil {
+		return false
+	}
+	
 	// Admin has all permissions
-	for _, role := range authCtx.Roles {
-		if role == "admin" {
-			return true
+	if roles, ok := authCtx.Claims["roles"].([]string); ok {
+		for _, role := range roles {
+			if role == "admin" {
+				return true
+			}
 		}
 	}
 	
 	// Check wildcard permissions
-	for _, perm := range authCtx.Permissions {
-		if perm == "*" {
-			return true
-		}
-		if perm == permission {
-			return true
-		}
-		
-		// Check prefix match (e.g., "chat:*" matches "chat:create")
-		if strings.HasSuffix(perm, ":*") {
-			prefix := strings.TrimSuffix(perm, "*")
-			if strings.HasPrefix(permission, prefix) {
+	if permissions, ok := authCtx.Claims["permissions"].([]string); ok {
+		for _, perm := range permissions {
+			if perm == "*" {
 				return true
+			}
+			if perm == permission {
+				return true
+			}
+			
+			// Check prefix match (e.g., "chat:*" matches "chat:create")
+			if strings.HasSuffix(perm, ":*") {
+				prefix := strings.TrimSuffix(perm, "*")
+				if strings.HasPrefix(permission, prefix) {
+					return true
+				}
 			}
 		}
 	}
@@ -207,9 +227,15 @@ func (u *UnifiedAuthManager) ValidatePermission(authCtx *AuthContext, permission
 
 // ValidateRole checks if the auth context has the required role
 func (u *UnifiedAuthManager) ValidateRole(authCtx *AuthContext, role string) bool {
-	for _, r := range authCtx.Roles {
-		if r == role {
-			return true
+	if authCtx == nil || authCtx.Claims == nil {
+		return false
+	}
+	
+	if roles, ok := authCtx.Claims["roles"].([]string); ok {
+		for _, r := range roles {
+			if r == role {
+				return true
+			}
 		}
 	}
 	return false
@@ -367,7 +393,19 @@ func GetAuthContextFromContext(ctx context.Context) (*AuthContext, error) {
 // TrackVirtualKeyUsage tracks usage for virtual keys
 func (u *UnifiedAuthManager) TrackVirtualKeyUsage(ctx context.Context, tokens int64, requests int64, cost float64) error {
 	authCtx, err := GetAuthContextFromContext(ctx)
-	if err != nil || authCtx.Method != AuthMethodVirtual || authCtx.VirtualKey == nil {
+	if err != nil || authCtx.Claims == nil {
+		// No auth context
+		return nil
+	}
+	
+	method, ok := authCtx.Claims["method"].(string)
+	if !ok || method != string(AuthMethodVirtual) {
+		// Not a virtual key
+		return nil
+	}
+	
+	virtualKey, ok := authCtx.Claims["virtual_key"].(*VirtualKey)
+	if !ok || virtualKey == nil {
 		// No virtual key in context
 		return nil
 	}
@@ -376,7 +414,7 @@ func (u *UnifiedAuthManager) TrackVirtualKeyUsage(ctx context.Context, tokens in
 		return fmt.Errorf("virtual key manager not available")
 	}
 
-	return u.virtualKeyManager.UpdateUsage(ctx, authCtx.VirtualKey.ID, tokens, requests, cost)
+	return u.virtualKeyManager.UpdateUsage(ctx, virtualKey.ID, tokens, requests, cost)
 }
 
 // DefaultEnhancedAuthConfig returns a default enhanced auth configuration

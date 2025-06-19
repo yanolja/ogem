@@ -332,5 +332,8 @@ func (d *dummyEndpoint) TranscribeAudio(ctx context.Context, req *openai.AudioTr
 func (d *dummyEndpoint) TranslateAudio(ctx context.Context, req *openai.AudioTranslationRequest) (*openai.AudioTranslationResponse, error) { return nil, nil }
 func (d *dummyEndpoint) GenerateSpeech(ctx context.Context, req *openai.TextToSpeechRequest) (*openai.TextToSpeechResponse, error) { return nil, nil }
 func (d *dummyEndpoint) ModerateContent(ctx context.Context, req *openai.ModerationRequest) (*openai.ModerationResponse, error) { return nil, nil }
+func (d *dummyEndpoint) CreateFineTuningJob(ctx context.Context, req *openai.FineTuningJobRequest) (*openai.FineTuningJob, error) { return nil, nil }
+func (d *dummyEndpoint) GetFineTuningJob(ctx context.Context, jobID string) (*openai.FineTuningJob, error) { return nil, nil }
+func (d *dummyEndpoint) ListFineTuningJobs(ctx context.Context, after *string, limit *int32) (*openai.FineTuningJobList, error) { return nil, nil }
 func (d *dummyEndpoint) CancelFineTuningJob(ctx context.Context, jobID string) (*openai.FineTuningJob, error) { return nil, nil }
 func (d *dummyEndpoint) Shutdown() error { return nil }

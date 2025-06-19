@@ -2,13 +2,10 @@ package security
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"go.uber.org/zap"
-
-	"github.com/yanolja/ogem/openai"
 )
 
 // AuditEventType represents different types of audit events

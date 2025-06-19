@@ -6,9 +6,9 @@ Ogem is a unified proxy server that provides access to multiple AI language mode
 
 - OpenAI API-compatible interface
 - Support for multiple AI providers:
-  - OpenAI (e.g., GPT-4, GPT-3.5)
-  - Google Gemini (e.g., Gemini 1.5 Flash, Pro)
-  - Anthropic Claude (e.g., Claude 3.5 Opus, Sonnet, Haiku)
+  - OpenAI (e.g., GPT-4o)
+  - Google Gemini (e.g., Gemini 2.5 Flash, Pro)
+  - Anthropic Claude (e.g., Claude 3.5 Sonnet, Haiku)
 - Smart routing based on latency
 - Rate limiting and quota management
 - Response caching for deterministic requests
@@ -54,8 +54,8 @@ providers:
       # For providers that does not support multiple regions, you can use the provider name as the region name.
       openai:
         models:
-          - name: "gpt-4"
-            rate_key: "gpt-4"
+          - name: "gpt-4o"
+            rate_key: "gpt-4o"
             rpm: 10_000
             tpm: 1_000_000
   vertex:
@@ -71,14 +71,14 @@ providers:
         # us-central1:                  # This is a real region
         #   models: [model-c]           # Final models: model-a, model-b, model-c
         models:
-          - name: "gemini-1.5-flash"
-            rate_key: "gemini-1.5-flash"
+          - name: "gemini-2.5-flash"
+            rate_key: "gemini-2.5-flash"
             rpm: 200
             tpm: 4_000_000
       us-central1:
         models:
-          - name: "gemini-1.5-pro"
-            rate_key: "gemini-1.5-pro"
+          - name: "gemini-2.5-pro"
+            rate_key: "gemini-2.5-pro"
             rpm: 60
             tpm: 4_000_000
 ```
@@ -88,11 +88,11 @@ providers:
 Ogem supports multiple AI providers through different integration methods:
 
 - **openai**: Direct integration with OpenAI's API
-  - Supports: GPT-4, GPT-3.5, and other OpenAI models
+  - Supports: GPT-4o and other latest OpenAI models
   - Requires: OPENAI_API_KEY
 
 - **studio**: Google's Gemini API (via AI Studio)
-  - Supports: Gemini 1.5 Pro, Gemini 1.5 Flash
+  - Supports: Gemini 2.5 Pro, Gemini 2.5 Flash
   - Requires: GENAI_STUDIO_API_KEY
 
 - **vertex**: Google Cloud's Vertex AI platform
@@ -100,7 +100,7 @@ Ogem supports multiple AI providers through different integration methods:
   - Requires: GOOGLE_CLOUD_PROJECT and GCP authentication
 
 - **claude**: Direct integration with Anthropic's Claude API
-  - Supports: Claude 3 Opus, Sonnet, Haiku
+  - Supports: Claude 3.5 Sonnet, Haiku
   - Requires: CLAUDE_API_KEY
 
 - **vclaude**: Claude models via Vertex AI
@@ -265,7 +265,7 @@ curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $OGEM_API_KEY" \
   -d '{
-    "model": "gemini-1.5-flash",
+    "model": "gemini-2.5-flash",
     "messages": [
       {
         "role": "user",
@@ -283,21 +283,21 @@ Three formats for model selection:
 1. Simple model name:
 ```json
 {
-  "model": "gpt-4"
+  "model": "gpt-4o"
 }
 ```
 
 2. Provider and model:
 ```json
 {
-  "model": "vertex/gemini-1.5-pro"
+  "model": "vertex/gemini-2.5-pro"
 }
 ```
 
 3. Provider, region, and model:
 ```json
 {
-  "model": "vertex/us-central1/gemini-1.5-pro"
+  "model": "vertex/us-central1/gemini-2.5-pro"
 }
 ```
 
@@ -306,7 +306,7 @@ Three formats for model selection:
 Specify multiple models for automatic fallback:
 ```json
 {
-  "model": "gpt-4,claude-3-opus,gemini-1.5-pro"
+  "model": "gpt-4o,claude-3.5-sonnet-20241022,gemini-2.5-pro"
 }
 ```
 

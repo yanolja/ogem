@@ -606,8 +606,13 @@ func (cm *CacheManager) GetStats() *CacheStats {
 		statsCopy.HitRate = float64(statsCopy.Hits) / float64(total)
 	}
 	
-	// Update memory usage
-	statsCopy.MemoryUsageMB = cm.calculateMemoryUsage()
+	// Update memory usage (without additional locking since we're already locked)
+	cm.memoryMutex.RLock()
+	entryCount := len(cm.memoryCache)
+	cm.memoryMutex.RUnlock()
+	
+	averageEntrySize := 10.0 // KB estimate
+	statsCopy.MemoryUsageMB = float64(entryCount) * averageEntrySize / 1024.0 // Convert to MB
 	statsCopy.LastUpdated = time.Now()
 	
 	return &statsCopy
@@ -654,7 +659,18 @@ func (cm *CacheManager) generateCacheKey(req *CacheRequest, tenantID string) str
 	jsonData, err := json.Marshal(keyData)
 	if err != nil {
 		// Fallback to simple string-based key if marshaling fails
-		fallbackKey := fmt.Sprintf("%s:%s:%s", req.Model, tenantID, req.Messages[0].Content[:min(50, len(req.Messages[0].Content))])
+		var messageContent string
+		if len(req.Messages) > 0 && req.Messages[0].Content != nil && req.Messages[0].Content.String != nil {
+			content := *req.Messages[0].Content.String
+			if len(content) > 50 {
+				messageContent = content[:50]
+			} else {
+				messageContent = content
+			}
+		} else {
+			messageContent = "empty"
+		}
+		fallbackKey := fmt.Sprintf("%s:%s:%s", req.Model, tenantID, messageContent)
 		hash := sha256.Sum256([]byte(fallbackKey))
 		return hex.EncodeToString(hash[:])
 	}
@@ -858,6 +874,9 @@ func (cm *CacheManager) recordMetrics() {
 }
 
 func (cm *CacheManager) calculateMemoryUsage() float64 {
+	cm.memoryMutex.RLock()
+	defer cm.memoryMutex.RUnlock()
+	
 	// This is a simplified calculation
 	// In production, you would measure actual memory usage
 	entryCount := len(cm.memoryCache)

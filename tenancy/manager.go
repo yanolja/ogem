@@ -633,7 +633,7 @@ func (tm *TenantManager) resetUsageCounters() {
 	defer tm.mutex.Unlock()
 	
 	now := time.Now()
-	for tenantID, usage := range tm.usageTracking {
+	for _, usage := range tm.usageTracking {
 		// Reset hourly counters every hour
 		if now.Sub(usage.LastUpdated) >= time.Hour {
 			usage.RequestsThisHour = 0

@@ -16,14 +16,8 @@ This document tracks the latest AI models and features implemented in Ogem proxy
 - **o1-mini** - Smaller reasoning model, faster and cheaper
 - Special features: Extended thinking time, better logic and math
 
-#### GPT-4 Turbo Models
-- **gpt-4-turbo** - Latest GPT-4 Turbo
-- **gpt-4-turbo-2024-04-09** - Specific version with improved capabilities
-- **gpt-4** - Original GPT-4 model
-
-#### GPT-3.5 Models
-- **gpt-3.5-turbo** - Latest GPT-3.5 Turbo
-- **gpt-3.5-turbo-0125** - Specific version with improvements
+#### GPT-4 Turbo Models (Deprecated)
+- Models like gpt-4 and gpt-3.5-turbo are deprecated in favor of GPT-4o series
 
 #### Embedding Models
 - **text-embedding-3-large** - Highest performance embedding model
@@ -47,25 +41,27 @@ This document tracks the latest AI models and features implemented in Ogem proxy
 - **claude-3-5-sonnet** - Previous Claude 3.5 Sonnet
 - **claude-3-5-haiku** - Previous Claude 3.5 Haiku
 
-#### Claude 3 Series
-- **claude-3-opus** - Most capable Claude 3 model
-- **claude-3-sonnet** - Balanced Claude 3 model
-- **claude-3-haiku** - Fast Claude 3 model
+#### Claude 3 Series (Deprecated)
+- Claude 3 models are deprecated in favor of Claude 3.5 series
 
 ### Google Gemini Models
 
-#### Gemini 2.0 Series (Latest Generation)
-- **gemini-2.0-flash** - Latest fast multimodal model
-- **gemini-2.0-flash-exp** - Experimental Gemini 2.0 features
+#### Gemini 2.5 Family (Latest - 2025)
+- **gemini-2.5-pro** - Flagship model, most intelligent, 1M context (→2M), leads leaderboards
+- **gemini-2.5-flash** - Workhorse model, fast performance, $0.10/$0.60 per 1M tokens
+- **gemini-2.5-flash-lite** - Economy model, most cost-efficient, high-throughput optimized
+- **gemini-2.5-pro-deep-think** - Experimental reasoning model with deep thinking capabilities
 
-#### Gemini 1.5 Series
-- **gemini-1.5-pro-002** - Latest Gemini 1.5 Pro with improvements
-- **gemini-1.5-flash-002** - Latest Gemini 1.5 Flash with improvements
-- **gemini-1.5-pro** - Previous Gemini 1.5 Pro
-- **gemini-1.5-flash** - Previous Gemini 1.5 Flash
+#### Gemini 2.0 Family
+- **gemini-2.0-flash** - Low latency model with experimental features
+- **gemini-2.0-flash-lite** - Cost-efficient 2.0 variant
 
-#### Legacy Models
-- **gemini-pro** - Original Gemini Pro model
+#### Legacy Models (Deprecated - Will be removed April 29, 2025)
+- **gemini-1.5-pro-002** - Deprecated, migrate to gemini-2.5-pro
+- **gemini-1.5-flash-002** - Deprecated, migrate to gemini-2.5-flash
+- **gemini-1.5-pro** - Deprecated
+- **gemini-1.5-flash** - Deprecated
+- **gemini-pro** - Deprecated
 
 ## New Features Implemented
 
@@ -109,10 +105,11 @@ This document tracks the latest AI models and features implemented in Ogem proxy
 - Tool integration improvements
 
 ### Gemini Provider
-- Support for Gemini 2.0 Flash models
+- Support for latest Gemini 2.5 Family models
+- Gemini 2.0 Flash models for low latency
 - Live API preparation
 - Enhanced multimodal capabilities
-- Long context support
+- Long context support (up to 2M tokens)
 
 ## Implementation Status
 
@@ -167,10 +164,12 @@ providers:
     regions:
       us-central1:
         models:
-          - name: "gemini-2.0-flash"
+          - name: "gemini-2.5-pro"
             max_requests_per_minute: 100
-          - name: "gemini-1.5-pro-002"
-            max_requests_per_minute: 60
+          - name: "gemini-2.5-flash"
+            max_requests_per_minute: 300
+          - name: "gemini-2.5-flash-lite"
+            max_requests_per_minute: 500
 ```
 
 ## Breaking Changes
@@ -199,8 +198,8 @@ providers:
 4. Update virtual key budgets if needed
 
 ### Provider Updates
-1. OpenAI: Add support for o1 and GPT-4o models
-2. Claude: Update to latest 3.5 model versions
-3. Gemini: Add support for 2.0 Flash models
+1. OpenAI: Focus on GPT-4o and o1 models (deprecate older GPT-4/3.5)
+2. Claude: Use latest 3.5 model versions (deprecate Claude 3 series)
+3. Gemini: Migrate to 2.5 Family models (deprecate 1.5 series by April 29, 2025)
 
 This update ensures Ogem proxy remains compatible with the latest AI model developments and provides accurate cost tracking for modern deployment scenarios.

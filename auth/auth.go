@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"net/http"
 	"time"
 )
 
@@ -29,6 +30,56 @@ type UsageStats struct {
 	TotalRequests int64   `json:"total_requests"`
 	TotalCost     float64 `json:"total_cost"`
 	LastUsed      *time.Time `json:"last_used,omitempty"`
+}
+
+// AuthManager interface for authentication management
+type AuthManager interface {
+	ValidateKey(ctx context.Context, key string) (*VirtualKey, error)
+	CreateKey(ctx context.Context, req *KeyRequest) (*KeyResponse, error)
+	ListKeys(ctx context.Context) ([]*VirtualKey, error)
+	DeleteKey(ctx context.Context, keyID string) error
+}
+
+// AuthContext holds authentication information
+type AuthContext struct {
+	UserID   string                 `json:"user_id"`
+	TenantID string                 `json:"tenant_id,omitempty"`
+	KeyID    string                 `json:"key_id,omitempty"`
+	Claims   map[string]interface{} `json:"claims,omitempty"`
+}
+
+// GetAuthContextFromRequest extracts auth context from HTTP request
+func GetAuthContextFromRequest(r *http.Request) *AuthContext {
+	// Check for auth context in request context
+	if authCtx := r.Context().Value("auth_context"); authCtx != nil {
+		if ctx, ok := authCtx.(*AuthContext); ok {
+			return ctx
+		}
+	}
+	
+	// Fallback: create basic auth context from headers
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		return nil
+	}
+	
+	return &AuthContext{
+		UserID:   userID,
+		TenantID: r.Header.Get("X-Tenant-ID"),
+		KeyID:    r.Header.Get("X-Key-ID"),
+		Claims:   make(map[string]interface{}),
+	}
+}
+
+// VirtualKeyManager interface for managing virtual keys
+type VirtualKeyManager interface {
+	CreateKey(ctx context.Context, req *KeyRequest) (*KeyResponse, error)
+	ListKeys(ctx context.Context) ([]*VirtualKey, error)
+	DeleteKey(ctx context.Context, keyID string) error
+	GetKey(ctx context.Context, keyID string) (*VirtualKey, error)
+	UpdateKey(ctx context.Context, keyID string, updates map[string]interface{}) (*VirtualKey, error)
+	ValidateKey(ctx context.Context, key string) (*VirtualKey, error)
+	UpdateUsage(ctx context.Context, keyID string, tokens int64, requests int64, cost float64) error
 }
 
 type KeyRequest struct {

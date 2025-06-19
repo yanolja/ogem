@@ -706,18 +706,29 @@ func (r ChatCompletionRequest) WithResponseFormat(format ResponseFormat) ChatCom
 	return r
 }
 
-// Example usage constants
+// Model constants (latest models)
 const (
-	ModelGPT4Turbo       = "gpt-4-turbo-preview"
-	ModelGPT4            = "gpt-4"
-	ModelGPT35Turbo      = "gpt-3.5-turbo"
-	ModelClaude3Opus     = "claude-3-opus-20240229"
-	ModelClaude3Sonnet   = "claude-3-sonnet-20240229"
-	ModelClaude3Haiku    = "claude-3-haiku-20240307"
-	ModelGeminiPro       = "gemini-pro"
-	ModelEmbeddingAda002 = "text-embedding-ada-002"
+	// OpenAI Models
+	ModelGPT4o           = "gpt-4o"
+	ModelGPT4oMini       = "gpt-4o-mini"
+	ModelO1Preview       = "o1-preview"
+	ModelO1Mini          = "o1-mini"
+	
+	// Claude Models
+	ModelClaude35Sonnet  = "claude-3.5-sonnet-20241022"
+	ModelClaude35Haiku   = "claude-3.5-haiku-20241022"
+	
+	// Gemini Models
+	ModelGemini25Pro     = "gemini-2.5-pro"
+	ModelGemini25Flash   = "gemini-2.5-flash"
+	ModelGemini25FlashLite = "gemini-2.5-flash-lite"
+	
+	// Embedding Models
 	ModelEmbedding3Small = "text-embedding-3-small"
 	ModelEmbedding3Large = "text-embedding-3-large"
+	
+	// Deprecated Models (use alternatives above)
+	// ModelGPT4, ModelGPT35Turbo, ModelClaude3*, ModelGeminiPro
 )
 
 // Response format constants

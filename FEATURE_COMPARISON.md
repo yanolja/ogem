@@ -5,9 +5,9 @@ This document provides a comprehensive comparison between LiteLLM and Ogem to id
 ## 🟢 Features Already Implemented in Ogem
 
 ### Core AI Provider Support
-- ✅ **OpenAI** (GPT-4o, o1, GPT-4, GPT-3.5, DALL-E, Whisper, TTS)
-- ✅ **Anthropic Claude** (3.5 Sonnet/Haiku, 3 Opus/Sonnet/Haiku)
-- ✅ **Google Vertex AI** (Gemini 2.0, 1.5 series)
+- ✅ **OpenAI** (GPT-4o, o1, DALL-E, Whisper, TTS)
+- ✅ **Anthropic Claude** (3.5 Sonnet/Haiku)
+- ✅ **Google Vertex AI** (Gemini 2.5, 2.0 series)
 - ✅ **Google AI Studio** (Gemini models)
 - ✅ **Azure OpenAI** (Azure-hosted OpenAI models)
 - ✅ **AWS Bedrock** (Claude, Llama, Titan models)

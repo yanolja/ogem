@@ -58,7 +58,7 @@ func TestToGeminiConfig(t *testing.T) {
 		{
 			name: "basic configuration",
 			openaiRequest: &openai.ChatCompletionRequest{
-				Model:       "gemini-pro",
+				Model:       "gemini-2.5-pro",
 				Temperature: float32Ptr(0.7),
 				TopP:       float32Ptr(0.9),
 				MaxTokens:   int32Ptr(100),
@@ -73,7 +73,7 @@ func TestToGeminiConfig(t *testing.T) {
 		{
 			name: "with stop sequences",
 			openaiRequest: &openai.ChatCompletionRequest{
-				Model: "gemini-pro",
+				Model: "gemini-2.5-pro",
 				StopSequences: &openai.StopSequences{
 					Sequences: []string{"stop1", "stop2"},
 				},
@@ -86,7 +86,7 @@ func TestToGeminiConfig(t *testing.T) {
 		{
 			name: "invalid candidate count",
 			openaiRequest: &openai.ChatCompletionRequest{
-				Model:          "gemini-pro",
+				Model:          "gemini-2.5-pro",
 				CandidateCount: int32Ptr(2),
 			},
 			wantErr: true,

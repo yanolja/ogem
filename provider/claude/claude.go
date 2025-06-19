@@ -128,7 +128,7 @@ func (ep *Endpoint) toClaudeParams(ctx context.Context, openaiRequest *openai.Ch
 		params.MaxTokens = int64(*openaiRequest.MaxCompletionTokens)
 	}
 	if params.MaxTokens == 0 {
-		if standardizeModelName(openaiRequest.Model) == "claude-3-5-sonnet-20240620" {
+		if standardizeModelName(openaiRequest.Model) == "claude-3.5-sonnet-20241022" {
 			params.MaxTokens = 8192
 		} else {
 			params.MaxTokens = 4096
@@ -399,7 +399,7 @@ func (ep *Endpoint) Region() string {
 func (ep *Endpoint) Ping(ctx context.Context) (time.Duration, error) {
 	start := time.Now()
 	_, err := ep.client.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.ModelClaude_3_Haiku_20240307,
+		Model:     "claude-3.5-haiku-20241022",
 		MaxTokens: int64(1),
 		Messages: []anthropic.MessageParam{
 			anthropic.NewUserMessage(anthropic.NewTextBlock("Ping")),
@@ -433,7 +433,7 @@ func toClaudeParams(openaiRequest *openai.ChatCompletionRequest) (*anthropic.Mes
 		params.MaxTokens = int64(*openaiRequest.MaxCompletionTokens)
 	}
 	if params.MaxTokens == 0 {
-		if standardizeModelName(openaiRequest.Model) == "claude-3-5-sonnet-20240620" {
+		if standardizeModelName(openaiRequest.Model) == "claude-3.5-sonnet-20241022" {
 			params.MaxTokens = 8192
 		} else {
 			params.MaxTokens = 4096
@@ -785,7 +785,7 @@ func toOpenAiFinishReason(claudeStopReason anthropic.MessageStopReason) string {
 func standardizeModelName(model string) string {
 	switch strings.TrimRight(model, "0123456789@-") {
 	case "claude-3-5-sonnet":
-		return "claude-3-5-sonnet-20240620"
+		return "claude-3.5-sonnet-20241022"
 	case "claude-3-opus":
 		return "claude-3-opus-20240229"
 	case "claude-3-sonnet":

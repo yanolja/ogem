@@ -34,13 +34,13 @@ func TestMemoryManager(t *testing.T) {
 		interval := 100 * time.Millisecond
 
 		// Initial request should be allowed
-		allowed, wait, err := manager.Allow(ctx, "openai", "us-east-1", "gpt-4", interval)
+		allowed, wait, err := manager.Allow(ctx, "openai", "us-east-1", "gpt-4o", interval)
 		assert.NoError(t, err)
 		assert.True(t, allowed)
 		assert.Equal(t, time.Duration(0), wait)
 
 		// Request within interval should not be allowed
-		allowed, wait, err = manager.Allow(ctx, "openai", "us-east-1", "gpt-4", interval)
+		allowed, wait, err = manager.Allow(ctx, "openai", "us-east-1", "gpt-4o", interval)
 		assert.NoError(t, err)
 		assert.False(t, allowed)
 		assert.True(t, wait > 0)
@@ -49,18 +49,18 @@ func TestMemoryManager(t *testing.T) {
 		mockClock.Add(interval)
 
 		// Request after interval should be allowed
-		allowed, wait, err = manager.Allow(ctx, "openai", "us-east-1", "gpt-4", interval)
+		allowed, wait, err = manager.Allow(ctx, "openai", "us-east-1", "gpt-4o", interval)
 		assert.NoError(t, err)
 		assert.True(t, allowed)
 		assert.Equal(t, time.Duration(0), wait)
 
 		// Disable the model
 		disableDuration := 200 * time.Millisecond
-		err = manager.Disable(ctx, "openai", "us-east-1", "gpt-4", disableDuration)
+		err = manager.Disable(ctx, "openai", "us-east-1", "gpt-4o", disableDuration)
 		assert.NoError(t, err)
 
 		// Request while disabled should not be allowed
-		allowed, wait, err = manager.Allow(ctx, "openai", "us-east-1", "gpt-4", interval)
+		allowed, wait, err = manager.Allow(ctx, "openai", "us-east-1", "gpt-4o", interval)
 		assert.NoError(t, err)
 		assert.False(t, allowed)
 		assert.True(t, wait > 0)
@@ -69,7 +69,7 @@ func TestMemoryManager(t *testing.T) {
 		mockClock.Add(disableDuration)
 
 		// Request after disable period should be allowed
-		allowed, wait, err = manager.Allow(ctx, "openai", "us-east-1", "gpt-4", interval)
+		allowed, wait, err = manager.Allow(ctx, "openai", "us-east-1", "gpt-4o", interval)
 		assert.NoError(t, err)
 		assert.True(t, allowed)
 		assert.Equal(t, time.Duration(0), wait)
@@ -212,20 +212,20 @@ func TestMemoryManager(t *testing.T) {
 		interval := 100 * time.Millisecond
 
 		// Initial request
-		allowed, _, err := manager.Allow(ctx, "openai", "us-east-1", "gpt-4", interval)
+		allowed, _, err := manager.Allow(ctx, "openai", "us-east-1", "gpt-4o", interval)
 		assert.NoError(t, err)
 		assert.True(t, allowed)
 
 		// Request exactly 50ms after
 		mockClock.Add(50 * time.Millisecond)
-		allowed, wait, err := manager.Allow(ctx, "openai", "us-east-1", "gpt-4", interval)
+		allowed, wait, err := manager.Allow(ctx, "openai", "us-east-1", "gpt-4o", interval)
 		assert.NoError(t, err)
 		assert.False(t, allowed)
 		assert.Equal(t, 50*time.Millisecond, wait)
 
 		// Request exactly at interval boundary
 		mockClock.Add(50 * time.Millisecond)
-		allowed, wait, err = manager.Allow(ctx, "openai", "us-east-1", "gpt-4", interval)
+		allowed, wait, err = manager.Allow(ctx, "openai", "us-east-1", "gpt-4o", interval)
 		assert.NoError(t, err)
 		assert.True(t, allowed)
 		assert.Equal(t, time.Duration(0), wait)
