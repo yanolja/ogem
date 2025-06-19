@@ -1,23 +1,35 @@
 # Latest AI Models Support - Ogem Proxy
 
-This document tracks the latest AI models and features implemented in Ogem proxy to maintain compatibility with modern LiteLLM standards.
+This document tracks the latest AI models and features implemented in Ogem proxy to ensure compatibility with modern AI proxy standards.
 
-## Updated Model Support (December 2024 - January 2025)
+## Updated Model Support (June 2025)
 
 ### OpenAI Models
 
-#### GPT-4o Series (Latest Flagship)
-- **gpt-4o** - Latest multimodal model with vision, audio capabilities
-- **gpt-4o-mini** - Cost-effective variant with similar capabilities  
-- **gpt-4o-realtime** - Realtime audio conversation model
+#### GPT-4.5 Series (Latest Flagship 2025)
+- **gpt-4.5-turbo** - Latest flagship model with advanced reasoning and multimodal capabilities
+- **gpt-4.5-turbo-vision** - Enhanced vision processing with improved image understanding
+- Advanced features: Superior reasoning, enhanced coding, better instruction following
 
-#### o1 Reasoning Models (Advanced Problem Solving)
-- **o1-preview** - Advanced reasoning model for complex problems
-- **o1-mini** - Smaller reasoning model, faster and cheaper
-- Special features: Extended thinking time, better logic and math
+#### GPT-4.1 Series (Current Production)
+- **gpt-4.1-turbo** - Improved efficiency and speed over GPT-4o
+- **gpt-4.1-preview** - Preview version with experimental features
+- Enhanced features: Better context handling, faster responses
 
-#### GPT-4 Turbo Models (Deprecated)
-- Models like gpt-4 and gpt-3.5-turbo are deprecated in favor of GPT-4o series
+#### o4 Reasoning Models (Latest Reasoning)
+- **o4** - Latest reasoning model with advanced problem-solving capabilities
+- **o4-mini** - Efficient reasoning model for faster inference
+- Special features: Enhanced logical reasoning, better mathematical capabilities
+
+#### o3 Reasoning Models (Current)
+- **o3** - Advanced reasoning model replacing o1-preview
+- **o3-mini** - Smaller reasoning model replacing o1-mini
+- Improved features: Better chain-of-thought, enhanced complex problem solving
+
+#### Legacy Models (Deprecated)
+- GPT-4o series: Superseded by GPT-4.1 and GPT-4.5
+- o1 series: Replaced by o3 and o4 models
+- GPT-4 and GPT-3.5: Fully deprecated
 
 #### Embedding Models
 - **text-embedding-3-large** - Highest performance embedding model
@@ -35,14 +47,21 @@ This document tracks the latest AI models and features implemented in Ogem proxy
 
 ### Anthropic Claude Models
 
-#### Claude 3.5 Series (Latest)
-- **claude-3-5-sonnet-20241022** - Latest Claude 3.5 Sonnet with computer use
-- **claude-3-5-haiku-20241022** - Latest fast and efficient Claude model
-- **claude-3-5-sonnet** - Previous Claude 3.5 Sonnet
-- **claude-3-5-haiku** - Previous Claude 3.5 Haiku
+#### Claude 4 Series (Latest 2025)
+- **claude-4-opus** - Most powerful Claude model with advanced reasoning capabilities
+- **claude-4-sonnet** - Balanced performance model for production workloads
+- **claude-4-haiku** - Fast and efficient model for high-throughput applications
+- Advanced features: Enhanced reasoning, better code generation, improved safety
 
-#### Claude 3 Series (Deprecated)
-- Claude 3 models are deprecated in favor of Claude 3.5 series
+#### Claude 3.7 Series (Current)
+- **claude-3.7-opus** - Enhanced version of Claude 3 Opus with better capabilities
+- **claude-3.7-sonnet** - Improved Claude 3 Sonnet with enhanced performance
+- **claude-3.7-haiku** - Upgraded Claude 3 Haiku with better efficiency
+- Improved features: Better instruction following, enhanced reasoning
+
+#### Legacy Models (Deprecated)
+- Claude 3.5 series: Superseded by Claude 3.7 and 4.x
+- Claude 3 series: Fully deprecated in favor of newer versions
 
 ### Google Gemini Models
 
@@ -142,23 +161,25 @@ providers:
     regions:
       openai:
         models:
-          - name: "gpt-4o"
-            max_requests_per_minute: 500
-          - name: "gpt-4o-mini"
-            max_requests_per_minute: 1000
-          - name: "o1-preview"
-            max_requests_per_minute: 20
-          - name: "o1-mini"
-            max_requests_per_minute: 50
+          - name: "gpt-4.5-turbo"
+            max_requests_per_minute: 400
+          - name: "gpt-4.1-turbo"
+            max_requests_per_minute: 600
+          - name: "o4"
+            max_requests_per_minute: 100
+          - name: "o3"
+            max_requests_per_minute: 150
 
   claude:
     regions:
       claude:
         models:
-          - name: "claude-3-5-sonnet-20241022"
-            max_requests_per_minute: 50
-          - name: "claude-3-5-haiku-20241022"
-            max_requests_per_minute: 100
+          - name: "claude-4-sonnet"
+            max_requests_per_minute: 800
+          - name: "claude-4-haiku"
+            max_requests_per_minute: 1200
+          - name: "claude-3.7-sonnet"
+            max_requests_per_minute: 600
 
   vertex:
     regions:
@@ -198,8 +219,8 @@ providers:
 4. Update virtual key budgets if needed
 
 ### Provider Updates
-1. OpenAI: Focus on GPT-4o and o1 models (deprecate older GPT-4/3.5)
-2. Claude: Use latest 3.5 model versions (deprecate Claude 3 series)
-3. Gemini: Migrate to 2.5 Family models (deprecate 1.5 series by April 29, 2025)
+1. OpenAI: Focus on GPT-4.5/4.1 and o4/o3 models (deprecate GPT-4o and o1 series)
+2. Claude: Use latest 4.x and 3.7 model versions (deprecate Claude 3.5 and 3.x series)
+3. Gemini: Continue with 2.5 Family models (1.5 series deprecated as of April 29, 2025)
 
 This update ensures Ogem proxy remains compatible with the latest AI model developments and provides accurate cost tracking for modern deployment scenarios.

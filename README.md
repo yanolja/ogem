@@ -1,20 +1,26 @@
 # Ogem
 
-Ogem is a unified proxy server that provides access to multiple AI language models through an OpenAI-compatible API interface. It supports OpenAI, Google's Gemini (both Studio and Vertex AI), and Anthropic's Claude models.
+Ogem is a production-ready AI proxy server that provides unified access to multiple AI language models through an OpenAI-compatible API interface. With comprehensive enterprise features and support for the latest AI models, Ogem offers advanced routing, caching, multi-tenancy, and security capabilities for modern AI workloads.
 
 ## Features
 
-- OpenAI API-compatible interface
-- Support for multiple AI providers:
-  - OpenAI (e.g., GPT-4o)
-  - Google Gemini (e.g., Gemini 2.5 Flash, Pro)
-  - Anthropic Claude (e.g., Claude 3.5 Sonnet, Haiku)
-- Smart routing based on latency
-- Rate limiting and quota management
-- Response caching for deterministic requests
-- Batch processing support
-- Regional endpoint selection
-- Multi-provider fallback support
+### Core Capabilities
+- **OpenAI API-compatible interface** - Drop-in replacement for OpenAI API
+- **Multi-provider support** with latest AI models (2025):
+  - OpenAI (GPT-4.5 Turbo, GPT-4.1 Turbo, o4, o3)
+  - Google Gemini (2.5 Pro, 2.5 Flash, 2.5 Flash-Lite)
+  - Anthropic Claude (4 Opus/Sonnet/Haiku, 3.7 series)
+- **Smart routing** with latency-based selection and failover
+- **Advanced caching** with multiple strategies (exact, semantic, token-based)
+- **Comprehensive rate limiting** and quota management
+
+### Enterprise Features
+- **Multi-tenancy** with hierarchical tenant management
+- **Security framework** with PII masking and audit logging
+- **Cost tracking** with real-time usage monitoring
+- **Virtual key management** with budget enforcement
+- **Batch processing** for cost optimization
+- **Regional deployment** support
 
 ## Quick Start
 
@@ -88,7 +94,7 @@ providers:
 Ogem supports multiple AI providers through different integration methods:
 
 - **openai**: Direct integration with OpenAI's API
-  - Supports: GPT-4o and other latest OpenAI models
+  - Supports: GPT-4.5 Turbo, GPT-4.1 series, o4/o3 reasoning models
   - Requires: OPENAI_API_KEY
 
 - **studio**: Google's Gemini API (via AI Studio)
@@ -100,7 +106,7 @@ Ogem supports multiple AI providers through different integration methods:
   - Requires: GOOGLE_CLOUD_PROJECT and GCP authentication
 
 - **claude**: Direct integration with Anthropic's Claude API
-  - Supports: Claude 3.5 Sonnet, Haiku
+  - Supports: Claude 4 series, Claude 3.7 series
   - Requires: CLAUDE_API_KEY
 
 - **vclaude**: Claude models via Vertex AI
@@ -283,7 +289,7 @@ Three formats for model selection:
 1. Simple model name:
 ```json
 {
-  "model": "gpt-4o"
+  "model": "gpt-4.5-turbo"
 }
 ```
 
@@ -306,7 +312,7 @@ Three formats for model selection:
 Specify multiple models for automatic fallback:
 ```json
 {
-  "model": "gpt-4o,claude-3.5-sonnet-20241022,gemini-2.5-pro"
+  "model": "gpt-4.5-turbo,claude-4-sonnet,gemini-2.5-pro"
 }
 ```
 

@@ -36,7 +36,29 @@ type ImagePricing struct {
 
 // Define pricing for different models (prices per 1M tokens in USD)
 var modelPricing = map[string]ModelPricing{
-	// Latest GPT-4o models
+	// Latest OpenAI Models (2025)
+	
+	// GPT-4.5 Series (Latest Flagship)
+	"gpt-4.5-turbo": {
+		InputTokenPrice:  2.0,
+		OutputTokenPrice: 8.0,
+	},
+	"gpt-4.5-turbo-vision": {
+		InputTokenPrice:  2.5,
+		OutputTokenPrice: 10.0,
+	},
+	
+	// GPT-4.1 Series
+	"gpt-4.1-turbo": {
+		InputTokenPrice:  1.8,
+		OutputTokenPrice: 7.0,
+	},
+	"gpt-4.1-preview": {
+		InputTokenPrice:  2.2,
+		OutputTokenPrice: 9.0,
+	},
+	
+	// GPT-4o models (Legacy)
 	"gpt-4o": {
 		InputTokenPrice:  2.5,
 		OutputTokenPrice: 10.0,
@@ -50,7 +72,27 @@ var modelPricing = map[string]ModelPricing{
 		OutputTokenPrice: 20.0,
 	},
 	
-	// o1 reasoning models
+	// o4 reasoning models (Latest)
+	"o4": {
+		InputTokenPrice:  8.0,
+		OutputTokenPrice: 25.0,
+	},
+	"o4-mini": {
+		InputTokenPrice:  2.0,
+		OutputTokenPrice: 6.0,
+	},
+	
+	// o3 reasoning models
+	"o3": {
+		InputTokenPrice:  10.0,
+		OutputTokenPrice: 30.0,
+	},
+	"o3-mini": {
+		InputTokenPrice:  2.5,
+		OutputTokenPrice: 8.0,
+	},
+	
+	// o1 reasoning models (Deprecated)
 	"o1-preview": {
 		InputTokenPrice:  15.0,
 		OutputTokenPrice: 60.0,
@@ -84,19 +126,37 @@ var modelPricing = map[string]ModelPricing{
 		OutputTokenPrice: 1.5,
 	},
 	
-	// Latest Claude models
-	"claude-3-opus": {
-		InputTokenPrice:  15.0,
-		OutputTokenPrice: 75.0,
+	// Latest Claude Models (2025)
+	
+	// Claude 4 Series (Latest)
+	"claude-4-opus": {
+		InputTokenPrice:  8.0,
+		OutputTokenPrice: 30.0,
 	},
-	"claude-3-sonnet": {
-		InputTokenPrice:  3.0,
-		OutputTokenPrice: 15.0,
+	"claude-4-sonnet": {
+		InputTokenPrice:  2.0,
+		OutputTokenPrice: 8.0,
 	},
-	"claude-3-haiku": {
-		InputTokenPrice:  0.25,
-		OutputTokenPrice: 1.25,
+	"claude-4-haiku": {
+		InputTokenPrice:  0.4,
+		OutputTokenPrice: 2.0,
 	},
+	
+	// Claude 3.7 Series
+	"claude-3.7-opus": {
+		InputTokenPrice:  10.0,
+		OutputTokenPrice: 40.0,
+	},
+	"claude-3.7-sonnet": {
+		InputTokenPrice:  2.5,
+		OutputTokenPrice: 10.0,
+	},
+	"claude-3.7-haiku": {
+		InputTokenPrice:  0.6,
+		OutputTokenPrice: 3.0,
+	},
+	
+	// Claude 3.5 Series (Legacy)
 	"claude-3-5-sonnet": {
 		InputTokenPrice:  3.0,
 		OutputTokenPrice: 15.0,
@@ -112,6 +172,20 @@ var modelPricing = map[string]ModelPricing{
 	"claude-3-5-haiku-20241022": {
 		InputTokenPrice:  0.8,
 		OutputTokenPrice: 4.0,
+	},
+	
+	// Claude 3 Series (Deprecated)
+	"claude-3-opus": {
+		InputTokenPrice:  15.0,
+		OutputTokenPrice: 75.0,
+	},
+	"claude-3-sonnet": {
+		InputTokenPrice:  3.0,
+		OutputTokenPrice: 15.0,
+	},
+	"claude-3-haiku": {
+		InputTokenPrice:  0.25,
+		OutputTokenPrice: 1.25,
 	},
 	
 	// Latest Gemini 2.5 Family (2025)
@@ -277,15 +351,49 @@ func CalculateImageCost(model string, request *openai.ImageGenerationRequest, nu
 func normalizeModelName(model string) string {
 	lower := strings.ToLower(model)
 	
-	// OpenAI o1 reasoning models
-	if strings.Contains(lower, "o1-preview") {
-		return "o1-preview"
+	// Latest OpenAI models (2025)
+	
+	// o4 reasoning models (Latest)
+	if strings.Contains(lower, "o4-mini") {
+		return "o4-mini"
 	}
-	if strings.Contains(lower, "o1-mini") {
-		return "o1-mini"
+	if strings.Contains(lower, "o4") {
+		return "o4"
 	}
 	
-	// OpenAI GPT-4o models
+	// o3 reasoning models
+	if strings.Contains(lower, "o3-mini") {
+		return "o3-mini"
+	}
+	if strings.Contains(lower, "o3") {
+		return "o3"
+	}
+	
+	// o1 reasoning models (Deprecated - map to o3)
+	if strings.Contains(lower, "o1-preview") {
+		return "o3" // Map deprecated o1-preview to o3
+	}
+	if strings.Contains(lower, "o1-mini") {
+		return "o3-mini" // Map deprecated o1-mini to o3-mini
+	}
+	
+	// GPT-4.5 Series (Latest)
+	if strings.Contains(lower, "gpt-4.5-turbo-vision") {
+		return "gpt-4.5-turbo-vision"
+	}
+	if strings.Contains(lower, "gpt-4.5-turbo") {
+		return "gpt-4.5-turbo"
+	}
+	
+	// GPT-4.1 Series
+	if strings.Contains(lower, "gpt-4.1-preview") {
+		return "gpt-4.1-preview"
+	}
+	if strings.Contains(lower, "gpt-4.1-turbo") {
+		return "gpt-4.1-turbo"
+	}
+	
+	// GPT-4o models (Legacy)
 	if strings.Contains(lower, "gpt-4o-realtime") {
 		return "gpt-4o-realtime"
 	}
@@ -296,15 +404,15 @@ func normalizeModelName(model string) string {
 		return "gpt-4o"
 	}
 	
-	// OpenAI GPT-4 models
+	// GPT-4 models (Deprecated - map to GPT-4.1)
 	if strings.Contains(lower, "gpt-4-turbo-2024-04-09") {
-		return "gpt-4-turbo-2024-04-09"
+		return "gpt-4.1-turbo" // Map deprecated to latest
 	}
 	if strings.Contains(lower, "gpt-4-turbo") || strings.Contains(lower, "gpt-4-1106") || strings.Contains(lower, "gpt-4-0125") {
-		return "gpt-4-turbo"
+		return "gpt-4.1-turbo" // Map deprecated to latest
 	}
 	if strings.Contains(lower, "gpt-4") {
-		return "gpt-4"
+		return "gpt-4.1-turbo" // Map deprecated gpt-4 to latest
 	}
 	
 	// OpenAI GPT-3.5 models
@@ -315,27 +423,53 @@ func normalizeModelName(model string) string {
 		return "gpt-3.5-turbo"
 	}
 	
-	// Anthropic Claude models (latest versions)
+	// Anthropic Claude models (2025)
+	
+	// Claude 4 Series (Latest)
+	if strings.Contains(lower, "claude-4-opus") {
+		return "claude-4-opus"
+	}
+	if strings.Contains(lower, "claude-4-sonnet") {
+		return "claude-4-sonnet"
+	}
+	if strings.Contains(lower, "claude-4-haiku") {
+		return "claude-4-haiku"
+	}
+	
+	// Claude 3.7 Series
+	if strings.Contains(lower, "claude-3.7-opus") {
+		return "claude-3.7-opus"
+	}
+	if strings.Contains(lower, "claude-3.7-sonnet") {
+		return "claude-3.7-sonnet"
+	}
+	if strings.Contains(lower, "claude-3.7-haiku") {
+		return "claude-3.7-haiku"
+	}
+	
+	// Claude 3.5 Series (Legacy - map to 3.7)
 	if strings.Contains(lower, "claude-3-5-haiku-20241022") {
-		return "claude-3-5-haiku-20241022"
+		return "claude-3.7-haiku" // Map legacy to 3.7
 	}
 	if strings.Contains(lower, "claude-3-5-haiku") {
-		return "claude-3-5-haiku"
+		return "claude-3.7-haiku" // Map legacy to 3.7
 	}
 	if strings.Contains(lower, "claude-3-5-sonnet-20241022") {
-		return "claude-3-5-sonnet-20241022"
+		return "claude-3.7-sonnet" // Map legacy to 3.7
 	}
 	if strings.Contains(lower, "claude-3-5-sonnet") {
-		return "claude-3-5-sonnet"
+		return "claude-3.7-sonnet" // Map legacy to 3.7
 	}
+	
+	// Claude 3 Series (Deprecated - map to 3.7)
 	if strings.Contains(lower, "claude-3-opus") {
-		return "claude-3-opus"
+		return "claude-3.7-opus" // Map deprecated to 3.7
 	}
 	if strings.Contains(lower, "claude-3-sonnet") {
-		return "claude-3-sonnet"
+		return "claude-3.7-sonnet" // Map deprecated to 3.7
 	}
 	if strings.Contains(lower, "claude-3-haiku") {
-		return "claude-3-haiku"
+		return "claude-3.7-haiku" // Map deprecated to 3.7
 	}
 	
 	// Google Gemini models (latest versions first)

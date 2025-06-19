@@ -5,15 +5,50 @@ providers:
     regions:
       openai:
         models:
+          # Latest OpenAI Models (2025)
+          
+          # GPT-4.5 Series (Latest Flagship)
+          - name: "gpt-4.5-turbo"
+            rate_key: "gpt-4.5-turbo"
+            rpm: 8_000
+            tpm: 40_000_000
+          - name: "gpt-4.5-turbo-vision"
+            rate_key: "gpt-4.5-turbo-vision"
+            rpm: 6_000
+            tpm: 35_000_000
+          
+          # GPT-4.1 Series
+          - name: "gpt-4.1-turbo"
+            rate_key: "gpt-4.1-turbo"
+            rpm: 10_000
+            tpm: 30_000_000
+          - name: "gpt-4.1-preview"
+            rate_key: "gpt-4.1-preview"
+            rpm: 8_000
+            tpm: 25_000_000
+          
+          # o4 Reasoning Models (Latest)
+          - name: "o4"
+            rate_key: "o4"
+            rpm: 100
+            tpm: 5_000_000
+          - name: "o4-mini"
+            rate_key: "o4-mini"
+            rpm: 300
+            tpm: 10_000_000
+          
+          # o3 Reasoning Models
+          - name: "o3"
+            rate_key: "o3"
+            rpm: 150
+            tpm: 8_000_000
+          - name: "o3-mini"
+            rate_key: "o3-mini"
+            rpm: 500
+            tpm: 15_000_000
+          
+          # Legacy Models (GPT-4o, GPT-4, o1)
           - name: "gpt-4o"
-            rate_key: "gpt-4o"
-            rpm: 10_000
-            tpm: 30_000_000
-          - name: "gpt-4o-2024-05-13"
-            rate_key: "gpt-4o"
-            rpm: 10_000
-            tpm: 30_000_000
-          - name: "gpt-4o-2024-08-06"
             rate_key: "gpt-4o"
             rpm: 10_000
             tpm: 30_000_000
@@ -21,27 +56,7 @@ providers:
             rate_key: "gpt-4o-mini"
             rpm: 30_000
             tpm: 150_000_000
-          - name: "gpt-4o-mini-2024-07-18"
-            rate_key: "gpt-4o-mini"
-            rpm: 30_000
-            tpm: 150_000_000
           - name: "gpt-4-turbo"
-            rate_key: "gpt-4-turbo"
-            rpm: 10_000
-            tpm: 2_000_000
-          - name: "gpt-4-turbo-2024-04-09"
-            rate_key: "gpt-4-turbo"
-            rpm: 10_000
-            tpm: 2_000_000
-          - name: "gpt-4-turbo-preview"
-            rate_key: "gpt-4-turbo"
-            rpm: 10_000
-            tpm: 2_000_000
-          - name: "gpt-4-0125-preview"
-            rate_key: "gpt-4-turbo"
-            rpm: 10_000
-            tpm: 2_000_000
-          - name: "gpt-4-1106-preview"
             rate_key: "gpt-4-turbo"
             rpm: 10_000
             tpm: 2_000_000
@@ -227,12 +242,55 @@ providers:
     regions:
       claude:
         models:
+          # Latest Claude Models (2025)
+          
+          # Claude 4 Series (Latest)
+          - name: "claude-4-opus"
+            other_names:
+              - "claude-4-opus-latest"
+            rate_key: "claude-4-opus"
+            rpm: 800
+            tpm: 200_000
+          - name: "claude-4-sonnet"
+            other_names:
+              - "claude-4-sonnet-latest"
+            rate_key: "claude-4-sonnet"
+            rpm: 1_200
+            tpm: 150_000
+          - name: "claude-4-haiku"
+            other_names:
+              - "claude-4-haiku-latest"
+            rate_key: "claude-4-haiku"
+            rpm: 2_000
+            tpm: 300_000
+          
+          # Claude 3.7 Series
+          - name: "claude-3.7-opus"
+            other_names:
+              - "claude-3.7-opus-latest"
+            rate_key: "claude-3.7-opus"
+            rpm: 900
+            tpm: 180_000
+          - name: "claude-3.7-sonnet"
+            other_names:
+              - "claude-3.7-sonnet-latest"
+            rate_key: "claude-3.7-sonnet"
+            rpm: 1_100
+            tpm: 120_000
+          - name: "claude-3.7-haiku"
+            other_names:
+              - "claude-3.7-haiku-latest"
+            rate_key: "claude-3.7-haiku"
+            rpm: 1_800
+            tpm: 250_000
+          
+          # Legacy models (deprecated - migrate to 4.x family)
           - name: "claude-3.5-sonnet-20241022"
             other_names:
               - "claude-3.5-sonnet"
               - "claude-3-5-sonnet@20241022"
               - "claude-3-5-sonnet-20241022"
-            rate_key: "claude-3.5-sonnet"
+            rate_key: "claude-3.5-sonnet-legacy"
             rpm: 1_000
             tpm: 80_000
           - name: "claude-3.5-haiku-20241022"
@@ -240,10 +298,9 @@ providers:
               - "claude-3.5-haiku"
               - "claude-3-5-haiku@20241022"
               - "claude-3-5-haiku-20241022"
-            rate_key: "claude-3.5-haiku"
+            rate_key: "claude-3.5-haiku-legacy"
             rpm: 1_000
             tpm: 100_000
-          # Legacy models (deprecated - migrate to 3.5 family)
           - name: "claude-3-opus-20240229"
             other_names:
               - "claude-3-opus"

@@ -99,7 +99,7 @@ func TestCompleteWorkflow(t *testing.T) {
 	t.Run("complete_request_flow", func(t *testing.T) {
 		// Test the complete flow: routing -> provider -> caching -> monitoring
 		request := &openai.ChatCompletionRequest{
-			Model: "gpt-4o",
+			Model: "gpt-4.5-turbo",
 			Messages: []openai.Message{
 				{
 					Role: "user",
@@ -172,7 +172,7 @@ func TestCompleteWorkflow(t *testing.T) {
 	t.Run("rate_limiting", func(t *testing.T) {
 		// Test rate limiting functionality
 		request := &openai.ChatCompletionRequest{
-			Model: "gpt-4o",
+			Model: "gpt-4.5-turbo",
 			Messages: []openai.Message{
 				{
 					Role: "user",
@@ -252,7 +252,7 @@ func TestCompleteWorkflow(t *testing.T) {
 		adaptiveRouter := routing.NewRouter(adaptiveConfig, monitor, logger)
 
 		request := &openai.ChatCompletionRequest{
-			Model: "gpt-4o",
+			Model: "gpt-4.5-turbo",
 			Messages: []openai.Message{
 				{
 					Role: "user",
@@ -350,7 +350,7 @@ func TestCompleteWorkflow(t *testing.T) {
 	t.Run("monitoring_integration", func(t *testing.T) {
 		// Test monitoring integration with all components
 		request := &openai.ChatCompletionRequest{
-			Model: "gpt-4o",
+			Model: "gpt-4.5-turbo",
 			Messages: []openai.Message{
 				{
 					Role: "user",
@@ -439,7 +439,7 @@ func TestCompleteWorkflow(t *testing.T) {
 		require.NoError(t, err)
 
 		request := &openai.ChatCompletionRequest{
-			Model: "gpt-4o",
+			Model: "gpt-4.5-turbo",
 			Messages: []openai.Message{
 				{
 					Role: "user",
@@ -535,7 +535,7 @@ func TestSystemResilience(t *testing.T) {
 		require.NoError(t, err)
 
 		request := &openai.ChatCompletionRequest{
-			Model: "gpt-4o",
+			Model: "gpt-4.5-turbo",
 			Messages: []openai.Message{
 				{
 					Role: "user",
