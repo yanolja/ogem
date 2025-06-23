@@ -17,8 +17,8 @@ require (
 	github.com/prometheus/client_golang v1.22.0
 	github.com/rs/cors v1.11.1
 	github.com/stretchr/testify v1.10.0
-	github.com/valkey-io/valkey-go v1.0.53
-	github.com/valkey-io/valkey-go/mock v1.0.53
+	github.com/valkey-io/valkey-go v1.0.61
+	github.com/valkey-io/valkey-go/mock v1.0.61
 	go.opentelemetry.io/otel v1.36.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.33.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.33.0
