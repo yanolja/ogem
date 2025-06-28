@@ -69,6 +69,11 @@ func NewEndpoint(providerName string, region string, baseUrl string, apiKey stri
 	if err != nil {
 		return nil, fmt.Errorf("invalid endpoint: %v", err)
 	}
+	
+	// Validate that we have a proper HTTP/HTTPS URL
+	if parsedBaseUrl.Scheme != "http" && parsedBaseUrl.Scheme != "https" {
+		return nil, fmt.Errorf("invalid endpoint: URL must use http or https scheme, got: %s", baseUrl)
+	}
 	endpoint := &Endpoint{
 		providerName:    providerName,
 		region:          region,

@@ -12,17 +12,18 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
 
 // TestLogger creates a test logger that captures logs for verification
-func TestLogger(t *testing.T) *zaptest.Logger {
+func TestLogger(t *testing.T) *zap.Logger {
 	return zaptest.NewLogger(t)
 }
 
 // TestSugaredLogger creates a sugared test logger
-func TestSugaredLogger(t *testing.T) *zaptest.Logger {
-	return zaptest.NewLogger(t)
+func TestSugaredLogger(t *testing.T) *zap.SugaredLogger {
+	return zaptest.NewLogger(t).Sugar()
 }
 
 // TestContext creates a context with timeout for tests

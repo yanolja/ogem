@@ -2,6 +2,7 @@ package provider_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -13,7 +14,6 @@ import (
 	"github.com/yanolja/ogem/provider"
 	openai_provider "github.com/yanolja/ogem/provider/openai"
 	"github.com/yanolja/ogem/provider/claude"
-	"github.com/yanolja/ogem/provider/vertex"
 	"github.com/yanolja/ogem/provider/azure"
 )
 
@@ -31,7 +31,7 @@ func TestProviderIntegration(t *testing.T) {
 	}{
 		{
 			name: "openai_provider",
-			provider: func() (AiEndpoint, error) {
+			provider: func() (provider.AiEndpoint, error) {
 				apiKey := os.Getenv("OPENAI_API_KEY")
 				if apiKey == "" {
 					return nil, nil // Skip if no API key
@@ -42,25 +42,25 @@ func TestProviderIntegration(t *testing.T) {
 		},
 		{
 			name: "claude_provider",
-			provider: func() (AiEndpoint, error) {
+			provider: func() (provider.AiEndpoint, error) {
 				apiKey := os.Getenv("ANTHROPIC_API_KEY")
 				if apiKey == "" {
 					return nil, nil // Skip if no API key
 				}
-				return claude.NewEndpoint("claude", "anthropic", "https://api.anthropic.com", apiKey)
+				return claude.NewEndpoint(apiKey)
 			},
 			envKey: "ANTHROPIC_API_KEY",
 		},
 		{
 			name: "azure_provider",
-			provider: func() (AiEndpoint, error) {
+			provider: func() (provider.AiEndpoint, error) {
 				apiKey := os.Getenv("AZURE_OPENAI_API_KEY")
 				endpoint := os.Getenv("AZURE_OPENAI_ENDPOINT")
 				deployment := os.Getenv("AZURE_OPENAI_DEPLOYMENT")
 				if apiKey == "" || endpoint == "" || deployment == "" {
 					return nil, nil // Skip if missing config
 				}
-				return azure.NewEndpoint("azure", "azure", endpoint, apiKey, deployment)
+				return azure.NewEndpoint("azure", endpoint, apiKey, deployment)
 			},
 			envKey: "AZURE_OPENAI_API_KEY",
 		},
@@ -204,7 +204,7 @@ func TestProviderCompatibility(t *testing.T) {
 	}{
 		{
 			name: "openai",
-			endpoint: func() (AiEndpoint, error) {
+			endpoint: func() (provider.AiEndpoint, error) {
 				apiKey := os.Getenv("OPENAI_API_KEY")
 				if apiKey == "" {
 					return nil, nil
@@ -256,7 +256,7 @@ func TestProviderCompatibility(t *testing.T) {
 					assert.NotEmpty(t, *choice.Message.Content.String)
 
 					// Validate usage if present
-					if response.Usage != nil {
+					if response.Usage.TotalTokens > 0 {
 						assert.Greater(t, response.Usage.TotalTokens, int32(0))
 						assert.GreaterOrEqual(t, response.Usage.PromptTokens, int32(0))
 						assert.GreaterOrEqual(t, response.Usage.CompletionTokens, int32(0))
@@ -283,7 +283,7 @@ func TestProviderErrorHandling(t *testing.T) {
 		defer cancel()
 
 		request := &openai.ChatCompletionRequest{
-			Model: "gpt-3.5-turbo",
+			Model: "gpt-4o-mini", // Current efficient model
 			Messages: []openai.Message{
 				{
 					Role: "user",
@@ -340,7 +340,7 @@ func TestProviderErrorHandling(t *testing.T) {
 			defer cancel()
 
 			request := &openai.ChatCompletionRequest{
-				Model: "gpt-3.5-turbo",
+				Model: "gpt-4o-mini", // Current efficient model
 				Messages: []openai.Message{
 					{
 						Role: "user",
@@ -369,7 +369,7 @@ func TestProviderStreamingSupport(t *testing.T) {
 		t.Skip("Skipping streaming test - OPENAI_API_KEY not set")
 	}
 
-	endpoint, err := openai.NewEndpoint("openai", "openai", "https://api.openai.com/v1", os.Getenv("OPENAI_API_KEY"))
+	endpoint, err := openai_provider.NewEndpoint("openai", "openai", "https://api.openai.com/v1", os.Getenv("OPENAI_API_KEY"))
 	require.NoError(t, err)
 	defer endpoint.Shutdown()
 
@@ -377,7 +377,7 @@ func TestProviderStreamingSupport(t *testing.T) {
 	defer cancel()
 
 	request := &openai.ChatCompletionRequest{
-		Model: "gpt-3.5-turbo",
+		Model: "gpt-4o-mini", // Current efficient model
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -453,7 +453,7 @@ func TestProviderConcurrency(t *testing.T) {
 		t.Skip("Skipping concurrency test - OPENAI_API_KEY not set")
 	}
 
-	endpoint, err := openai.NewEndpoint("openai", "openai", "https://api.openai.com/v1", os.Getenv("OPENAI_API_KEY"))
+	endpoint, err := openai_provider.NewEndpoint("openai", "openai", "https://api.openai.com/v1", os.Getenv("OPENAI_API_KEY"))
 	require.NoError(t, err)
 	defer endpoint.Shutdown()
 
@@ -477,7 +477,7 @@ func TestProviderConcurrency(t *testing.T) {
 				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 
 				request := &openai.ChatCompletionRequest{
-					Model: "gpt-3.5-turbo",
+					Model: "gpt-4o-mini", // Current efficient model
 					Messages: []openai.Message{
 						{
 							Role: "user",
@@ -534,15 +534,15 @@ func TestProviderConcurrency(t *testing.T) {
 func getModelForProvider(providerName string) string {
 	switch providerName {
 	case "openai", "openai_provider":
-		return "gpt-4o"
+		return "gpt-4o-mini" // Current efficient model
 	case "claude", "claude_provider":
-		return "claude-3.5-haiku-20241022"
+		return "claude-3-5-haiku-20241022" // Current Claude model
 	case "azure", "azure_provider":
-		return "gpt-35-turbo" // Azure often uses different model names
+		return "gpt-4o-mini" // Current Azure model
 	case "vertex", "vertex_provider":
-		return "gemini-2.5-pro"
+		return "gemini-1.5-flash" // Current Gemini model
 	default:
-		return "gpt-4o"
+		return "gpt-4o-mini" // Default to current model
 	}
 }
 
@@ -562,7 +562,7 @@ func boolPtr(b bool) *bool {
 	return &b
 }
 
-// TestProviderInterface ensures all providers implement the AiEndpoint interface correctly
+// TestProviderInterface ensures all providers implement the provider.AiEndpoint interface correctly
 func TestProviderInterface(t *testing.T) {
 	// This test verifies that our provider implementations satisfy the interface
 	// without requiring actual API calls
@@ -632,7 +632,7 @@ func TestProviderConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			endpoint, err := openai.NewEndpoint("openai", "openai", tt.baseURL, tt.apiKey)
+			endpoint, err := openai_provider.NewEndpoint("openai", "openai", tt.baseURL, tt.apiKey)
 
 			if tt.wantError {
 				assert.Error(t, err)

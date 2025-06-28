@@ -13,8 +13,6 @@ import (
 
 type AdminServer struct {
 	virtualKeyManager *auth.VirtualKeyManager
-	stateManager      state.StateManager
-	costCalculator    *cost.Calculator
 }
 
 type DashboardData struct {
@@ -31,11 +29,9 @@ type SystemStatus struct {
 	Version     string
 }
 
-func NewAdminServer(vkm *auth.VirtualKeyManager, sm state.StateManager, cc *cost.Calculator) *AdminServer {
+func NewAdminServer(vkm *auth.VirtualKeyManager) *AdminServer {
 	return &AdminServer{
 		virtualKeyManager: vkm,
-		stateManager:      sm,
-		costCalculator:    cc,
 	}
 }
 
@@ -79,7 +75,7 @@ func (a *AdminServer) handleAPIStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *AdminServer) handleAPIKeys(w http.ResponseWriter, r *http.Request) {
-	keys := a.virtualKeyManager.ListKeys()
+	keys := (*a.virtualKeyManager).ListKeys()
 	
 	type KeyInfo struct {
 		VirtualKey   string    `json:"virtual_key"`
@@ -127,7 +123,7 @@ func (a *AdminServer) handleCreateKey(w http.ResponseWriter, r *http.Request) {
 		req.Permissions = []string{"chat", "embeddings", "images", "audio", "moderations"}
 	}
 
-	key, err := a.virtualKeyManager.CreateKey(req.Budget, req.Permissions)
+	key, err := (*a.virtualKeyManager).CreateKey(req.Budget, req.Permissions)
 	if err != nil {
 		http.Error(w, "Failed to create key: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -154,7 +150,7 @@ func (a *AdminServer) handleDeleteKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := a.virtualKeyManager.DeleteKey(virtualKey); err != nil {
+	if err := (*a.virtualKeyManager).DeleteKey(virtualKey); err != nil {
 		http.Error(w, "Failed to delete key: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -164,7 +160,7 @@ func (a *AdminServer) handleDeleteKey(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *AdminServer) getDashboardData() (*DashboardData, error) {
-	keys := a.virtualKeyManager.ListKeys()
+	keys := (*a.virtualKeyManager).ListKeys()
 	
 	totalCost := 0.0
 	activeKeys := 0

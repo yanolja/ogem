@@ -9,6 +9,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/bedrock"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime/types"
 
@@ -20,6 +22,7 @@ const REGION = "bedrock"
 type Endpoint struct {
 	region        string
 	client        *bedrockruntime.Client
+	bedrockClient *bedrock.Client
 }
 
 func NewEndpoint(region string, accessKey string, secretKey string, sessionToken string) (*Endpoint, error) {
@@ -37,18 +40,16 @@ func NewEndpoint(region string, accessKey string, secretKey string, sessionToken
 
 	// Override credentials if provided
 	if accessKey != "" && secretKey != "" {
-		cfg.Credentials = aws.CredentialsProvider{
-			AWSAccessKeyID:     accessKey,
-			AWSSecretAccessKey: secretKey,
-			AWSSessionToken:    sessionToken,
-		}
+		cfg.Credentials = credentials.NewStaticCredentialsProvider(accessKey, secretKey, sessionToken)
 	}
 
 	client := bedrockruntime.NewFromConfig(cfg)
+	bedrockClient := bedrock.NewFromConfig(cfg)
 
 	endpoint := &Endpoint{
 		region: region,
 		client: client,
+		bedrockClient: bedrockClient,
 	}
 
 	return endpoint, nil
@@ -130,7 +131,7 @@ func (p *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiReque
 						return
 					}
 				}
-			case *types.ResponseStreamMemberModelStreamErrorException:
+			case *types.InvokeModelWithResponseStreamOutput_InternalServerException:
 				errorCh <- fmt.Errorf("bedrock model error: %s", *e.Value.Message)
 				return
 			default:
@@ -310,7 +311,7 @@ func (p *Endpoint) Ping(ctx context.Context) (time.Duration, error) {
 	start := time.Now()
 	
 	// Simple ping by listing available models
-	_, err := p.client.ListFoundationModels(ctx, &bedrockruntime.ListFoundationModelsInput{})
+	_, err := p.bedrockClient.ListFoundationModels(ctx, &bedrock.ListFoundationModelsInput{})
 	if err != nil {
 		return 0, fmt.Errorf("bedrock ping failed: %v", err)
 	}

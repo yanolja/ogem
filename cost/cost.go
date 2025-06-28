@@ -332,7 +332,7 @@ func CalculateChatCost(model string, usage openai.Usage) float64 {
 	
 	// Add reasoning token cost if available (some models like Gemini 2.5 have separate reasoning token pricing)
 	var reasoningCost float64
-	if pricing.ReasoningTokenPrice > 0 && usage.CompletionTokensDetails != nil && usage.CompletionTokensDetails.ReasoningTokens > 0 {
+	if pricing.ReasoningTokenPrice > 0 && usage.CompletionTokensDetails.ReasoningTokens > 0 {
 		reasoningCost = float64(usage.CompletionTokensDetails.ReasoningTokens) * pricing.ReasoningTokenPrice / 1000000.0
 	}
 	

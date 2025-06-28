@@ -419,7 +419,7 @@ func (p *Endpoint) TranscribeAudio(ctx context.Context, request *openai.AudioTra
 		return nil, fmt.Errorf("failed to create form file: %v", err)
 	}
 	
-	_, err = fileWriter.Write(request.File)
+	_, err = fileWriter.Write([]byte(request.File))
 	if err != nil {
 		return nil, fmt.Errorf("failed to write audio data: %v", err)
 	}
@@ -488,7 +488,7 @@ func (p *Endpoint) TranslateAudio(ctx context.Context, request *openai.AudioTran
 		return nil, fmt.Errorf("failed to create form file: %v", err)
 	}
 	
-	_, err = fileWriter.Write(request.File)
+	_, err = fileWriter.Write([]byte(request.File))
 	if err != nil {
 		return nil, fmt.Errorf("failed to write audio data: %v", err)
 	}
@@ -604,7 +604,6 @@ func (p *Endpoint) GenerateSpeech(ctx context.Context, request *openai.TextToSpe
 	
 	return &openai.TextToSpeechResponse{
 		Data:        audioData,
-		ContentType: contentType,
 	}, nil
 }
 
