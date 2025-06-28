@@ -44,7 +44,7 @@ func basicChatExample() {
 	
 	// Create a simple chat request
 	request := ogem.NewChatCompletionRequest(
-		ogem.ModelGPT35Turbo,
+		ogem.ModelGPT4oMini,
 		[]ogem.Message{
 			ogem.NewSystemMessage("You are a helpful assistant."),
 			ogem.NewUserMessage("What is the capital of France?"),
@@ -101,7 +101,7 @@ func conversationExample() {
 		messages = append(messages, ogem.NewUserMessage(query))
 		
 		// Create request
-		request := ogem.NewChatCompletionRequest(ogem.ModelGPT4, messages).
+		request := ogem.NewChatCompletionRequest(ogem.ModelGPT4o, messages).
 			WithMaxTokens(500).
 			WithTemperature(0.3)
 		
@@ -156,7 +156,7 @@ func functionCallingExample() {
 	
 	// Create request with function
 	request := ogem.NewChatCompletionRequest(
-		ogem.ModelGPT4,
+		ogem.ModelGPT4o,
 		[]ogem.Message{
 			ogem.NewUserMessage("What's the weather like in New York?"),
 		},
@@ -252,12 +252,12 @@ func multiTenantExample() {
 	
 	// Make requests from different tenants
 	requestA := ogem.NewChatCompletionRequest(
-		ogem.ModelGPT35Turbo,
+		ogem.ModelGPT4oMini,
 		[]ogem.Message{ogem.NewUserMessage("Hello from tenant A")},
 	)
 	
 	requestB := ogem.NewChatCompletionRequest(
-		ogem.ModelGPT35Turbo,
+		ogem.ModelGPT4oMini,
 		[]ogem.Message{ogem.NewUserMessage("Hello from tenant B")},
 	)
 	
@@ -372,7 +372,7 @@ func advancedExample() {
 	defer cancel()
 	
 	request := ogem.NewChatCompletionRequest(
-		ogem.ModelGPT4,
+		ogem.ModelGPT4o,
 		[]ogem.Message{
 			ogem.NewSystemMessage("You are a helpful assistant."),
 			ogem.NewUserMessage("Explain quantum computing in simple terms."),

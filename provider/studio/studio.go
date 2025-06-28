@@ -26,7 +26,7 @@ type Endpoint struct {
 func NewEndpoint(apiKey string) (*Endpoint, error) {
 	ctx := context.Background()
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
-		APIKey: apiKey,
+		APIKey:  apiKey,
 		Backend: genai.BackendGeminiAPI,
 	})
 	if err != nil {
@@ -111,10 +111,19 @@ func (ep *Endpoint) toGeminiParts(ctx context.Context, message openai.Message, t
 		}, nil
 	}
 	if message.Role == "function" {
+		if message.Content == nil || message.Content.String == nil {
+			return nil, fmt.Errorf("function message must have content")
+		}
+
 		response, err := utils.JsonToMap(*message.Content.String)
 		if err != nil {
 			return nil, fmt.Errorf("function response must be a valid JSON object: %v", err)
 		}
+
+		if message.Name == nil {
+			return nil, fmt.Errorf("message with role function must have a name")
+		}
+
 		return []*genai.Part{
 			{
 				FunctionResponse: &genai.FunctionResponse{
@@ -233,7 +242,7 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 		// Convert the response to streaming format
 		if len(openaiResponse.Choices) > 0 {
 			choice := openaiResponse.Choices[0]
-			
+
 			// Send role chunk
 			roleChunk := &openai.ChatCompletionStreamResponse{
 				Id:      openaiResponse.Id,
@@ -249,7 +258,7 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 					},
 				},
 			}
-			
+
 			select {
 			case responseCh <- roleChunk:
 			case <-ctx.Done():
@@ -261,7 +270,7 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 				content := *choice.Message.Content.String
 				contentChunk := &openai.ChatCompletionStreamResponse{
 					Id:      openaiResponse.Id,
-					Object:  "chat.completion.chunk", 
+					Object:  "chat.completion.chunk",
 					Created: openaiResponse.Created,
 					Model:   openaiResponse.Model,
 					Choices: []openai.ChoiceDelta{
@@ -273,7 +282,7 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 						},
 					},
 				}
-				
+
 				select {
 				case responseCh <- contentChunk:
 				case <-ctx.Done():
@@ -296,7 +305,7 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 				},
 				Usage: &openaiResponse.Usage,
 			}
-			
+
 			select {
 			case responseCh <- finalChunk:
 			case <-ctx.Done():

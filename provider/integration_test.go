@@ -2,6 +2,7 @@ package provider_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -11,10 +12,9 @@ import (
 
 	"github.com/yanolja/ogem/openai"
 	"github.com/yanolja/ogem/provider"
-	openai_provider "github.com/yanolja/ogem/provider/openai"
-	"github.com/yanolja/ogem/provider/claude"
-	"github.com/yanolja/ogem/provider/vertex"
 	"github.com/yanolja/ogem/provider/azure"
+	"github.com/yanolja/ogem/provider/claude"
+	openai_provider "github.com/yanolja/ogem/provider/openai"
 )
 
 // TestProviderIntegration tests basic provider functionality
@@ -31,7 +31,7 @@ func TestProviderIntegration(t *testing.T) {
 	}{
 		{
 			name: "openai_provider",
-			provider: func() (AiEndpoint, error) {
+			provider: func() (provider.AiEndpoint, error) {
 				apiKey := os.Getenv("OPENAI_API_KEY")
 				if apiKey == "" {
 					return nil, nil // Skip if no API key
@@ -42,25 +42,25 @@ func TestProviderIntegration(t *testing.T) {
 		},
 		{
 			name: "claude_provider",
-			provider: func() (AiEndpoint, error) {
+			provider: func() (provider.AiEndpoint, error) {
 				apiKey := os.Getenv("ANTHROPIC_API_KEY")
 				if apiKey == "" {
 					return nil, nil // Skip if no API key
 				}
-				return claude.NewEndpoint("claude", "anthropic", "https://api.anthropic.com", apiKey)
+				return claude.NewEndpoint(apiKey)
 			},
 			envKey: "ANTHROPIC_API_KEY",
 		},
 		{
 			name: "azure_provider",
-			provider: func() (AiEndpoint, error) {
+			provider: func() (provider.AiEndpoint, error) {
 				apiKey := os.Getenv("AZURE_OPENAI_API_KEY")
 				endpoint := os.Getenv("AZURE_OPENAI_ENDPOINT")
 				deployment := os.Getenv("AZURE_OPENAI_DEPLOYMENT")
 				if apiKey == "" || endpoint == "" || deployment == "" {
 					return nil, nil // Skip if missing config
 				}
-				return azure.NewEndpoint("azure", "azure", endpoint, apiKey, deployment)
+				return azure.NewEndpoint("azure", endpoint, apiKey, "2024-02-15-preview")
 			},
 			envKey: "AZURE_OPENAI_API_KEY",
 		},
@@ -204,7 +204,7 @@ func TestProviderCompatibility(t *testing.T) {
 	}{
 		{
 			name: "openai",
-			endpoint: func() (AiEndpoint, error) {
+			endpoint: func() (provider.AiEndpoint, error) {
 				apiKey := os.Getenv("OPENAI_API_KEY")
 				if apiKey == "" {
 					return nil, nil
@@ -255,12 +255,10 @@ func TestProviderCompatibility(t *testing.T) {
 					assert.NotNil(t, choice.Message.Content)
 					assert.NotEmpty(t, *choice.Message.Content.String)
 
-					// Validate usage if present
-					if response.Usage != nil {
-						assert.Greater(t, response.Usage.TotalTokens, int32(0))
-						assert.GreaterOrEqual(t, response.Usage.PromptTokens, int32(0))
-						assert.GreaterOrEqual(t, response.Usage.CompletionTokens, int32(0))
-					}
+					// Validate usage
+					assert.Greater(t, response.Usage.TotalTokens, int32(0))
+					assert.GreaterOrEqual(t, response.Usage.PromptTokens, int32(0))
+					assert.GreaterOrEqual(t, response.Usage.CompletionTokens, int32(0))
 				})
 			}
 		})
@@ -369,7 +367,7 @@ func TestProviderStreamingSupport(t *testing.T) {
 		t.Skip("Skipping streaming test - OPENAI_API_KEY not set")
 	}
 
-	endpoint, err := openai.NewEndpoint("openai", "openai", "https://api.openai.com/v1", os.Getenv("OPENAI_API_KEY"))
+	endpoint, err := openai_provider.NewEndpoint("openai", "openai", "https://api.openai.com/v1", os.Getenv("OPENAI_API_KEY"))
 	require.NoError(t, err)
 	defer endpoint.Shutdown()
 
@@ -453,7 +451,7 @@ func TestProviderConcurrency(t *testing.T) {
 		t.Skip("Skipping concurrency test - OPENAI_API_KEY not set")
 	}
 
-	endpoint, err := openai.NewEndpoint("openai", "openai", "https://api.openai.com/v1", os.Getenv("OPENAI_API_KEY"))
+	endpoint, err := openai_provider.NewEndpoint("openai", "openai", "https://api.openai.com/v1", os.Getenv("OPENAI_API_KEY"))
 	require.NoError(t, err)
 	defer endpoint.Shutdown()
 
@@ -632,7 +630,7 @@ func TestProviderConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			endpoint, err := openai.NewEndpoint("openai", "openai", tt.baseURL, tt.apiKey)
+			endpoint, err := openai_provider.NewEndpoint("openai", "openai", tt.baseURL, tt.apiKey)
 
 			if tt.wantError {
 				assert.Error(t, err)

@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestPIIMasker_NewPIIMasker(t *testing.T) {
@@ -44,7 +45,9 @@ func TestPIIMasker_NewPIIMasker(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			masker := NewPIIMasker(tt.config)
+			logger := zaptest.NewLogger(t).Sugar()
+			masker, err := NewPIIMasker(tt.config, logger)
+			require.NoError(t, err)
 			assert.NotNil(t, masker)
 			assert.Equal(t, tt.config, masker.config)
 		})
@@ -58,7 +61,9 @@ func TestPIIMasker_MaskPII(t *testing.T) {
 		PreserveFormat:        false,
 		AuditPIIDetection:     true,
 	}
-	masker := NewPIIMasker(config)
+	logger := zaptest.NewLogger(t).Sugar()
+	masker, err := NewPIIMasker(config, logger)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name     string
@@ -130,7 +135,9 @@ func TestPIIMasker_PreserveFormat(t *testing.T) {
 		PreserveFormat:        true,
 		AuditPIIDetection:     false,
 	}
-	masker := NewPIIMasker(config)
+	logger := zaptest.NewLogger(t).Sugar()
+	masker, err := NewPIIMasker(config, logger)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name     string
@@ -177,7 +184,9 @@ func TestPIIMasker_CustomPatterns(t *testing.T) {
 			},
 		},
 	}
-	masker := NewPIIMasker(config)
+	logger := zaptest.NewLogger(t).Sugar()
+	masker, err := NewPIIMasker(config, logger)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name     string
@@ -222,7 +231,9 @@ func TestPIIMasker_ReversibleMasking(t *testing.T) {
 		EnableBuiltinPatterns:   true,
 		EnableReversibleMasking: true,
 	}
-	masker := NewPIIMasker(config)
+	logger := zaptest.NewLogger(t).Sugar()
+	masker, err := NewPIIMasker(config, logger)
+	require.NoError(t, err)
 
 	ctx := context.Background()
 	originalText := "My email is john.doe@example.com"
@@ -241,7 +252,9 @@ func TestPIIMasker_Disabled(t *testing.T) {
 	config := &PIIMaskingConfig{
 		Enabled: false,
 	}
-	masker := NewPIIMasker(config)
+	logger := zaptest.NewLogger(t).Sugar()
+	masker, err := NewPIIMasker(config, logger)
+	require.NoError(t, err)
 
 	ctx := context.Background()
 	input := "My SSN is 123-45-6789 and email is test@example.com"
@@ -257,7 +270,9 @@ func TestPIIMasker_AuditLogging(t *testing.T) {
 		EnableBuiltinPatterns: true,
 		AuditPIIDetection:     true,
 	}
-	masker := NewPIIMasker(config)
+	logger := zaptest.NewLogger(t).Sugar()
+	masker, err := NewPIIMasker(config, logger)
+	require.NoError(t, err)
 
 	ctx := context.Background()
 	input := "Contact: john@example.com, Phone: 555-123-4567"
@@ -277,7 +292,9 @@ func TestPIIMasker_PerformanceWithLargeText(t *testing.T) {
 		Enabled:               true,
 		EnableBuiltinPatterns: true,
 	}
-	masker := NewPIIMasker(config)
+	logger := zaptest.NewLogger(t).Sugar()
+	masker, err := NewPIIMasker(config, logger)
+	require.NoError(t, err)
 
 	// Create a large text with embedded PII
 	largeText := ""
@@ -304,7 +321,9 @@ func TestPIIMasker_ConcurrentAccess(t *testing.T) {
 		Enabled:               true,
 		EnableBuiltinPatterns: true,
 	}
-	masker := NewPIIMasker(config)
+	logger := zaptest.NewLogger(t).Sugar()
+	masker, err := NewPIIMasker(config, logger)
+	require.NoError(t, err)
 
 	// Test concurrent access to the masker
 	const numGoroutines = 10
@@ -336,7 +355,9 @@ func TestPIIMasker_EdgeCases(t *testing.T) {
 		Enabled:               true,
 		EnableBuiltinPatterns: true,
 	}
-	masker := NewPIIMasker(config)
+	logger := zaptest.NewLogger(t).Sugar()
+	masker, err := NewPIIMasker(config, logger)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name  string
@@ -375,7 +396,7 @@ func TestPIIMasker_EdgeCases(t *testing.T) {
 }
 
 func TestBuiltinPatterns(t *testing.T) {
-	patterns := getBuiltinPatterns()
+	patterns := GetBuiltinPIIPatterns()
 	
 	// Verify we have expected built-in patterns
 	assert.NotEmpty(t, patterns)
@@ -455,7 +476,9 @@ func TestPIIPattern_Validation(t *testing.T) {
 			}
 			
 			// This tests the pattern validation during masker creation
-			masker := NewPIIMasker(config)
+			logger := zaptest.NewLogger(t).Sugar()
+			masker, err := NewPIIMasker(config, logger)
+			require.NoError(t, err)
 			assert.NotNil(t, masker)
 			
 			// For invalid patterns, they should be skipped during processing

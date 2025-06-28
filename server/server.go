@@ -250,11 +250,9 @@ func NewProxyServer(stateManager state.Manager, cleanup func(), config *config.C
 	// Initialize admin server
 	var adminServer *admin.AdminServer
 	if authManager != nil {
-		vkm, ok := authManager.(*auth.VirtualKeyManager)
-		if ok {
-			calculator := cost.NewCalculator()
-			adminServer = admin.NewAdminServer(vkm, stateManager, calculator)
-		}
+		// Since Manager embeds VirtualKeyManager, we can use authManager directly
+		//calculator := cost.NewCalculator()
+		adminServer = admin.NewAdminServer(authManager, stateManager)
 	}
 
 	return &ModelProxy{
@@ -1302,7 +1300,7 @@ func (s *ModelProxy) HandleGetKey(httpResponse http.ResponseWriter, httpRequest 
 			return
 		}
 		token := headerSplit[1]
-		
+
 		var err error
 		requestKey, err = s.authManager.GetKeyByValue(httpRequest.Context(), token)
 		if err != nil || requestKey.ID != keyID {
@@ -1762,7 +1760,7 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 		s.logger.Warnw("Failed to select endpoint", "error", err, "provider", endpointProvider, "region", endpointRegion, "model", modelOrAlias)
 		return nil, UnavailableError{fmt.Errorf("no available endpoints")}
 	}
-	
+
 	// Try the intelligently selected endpoint first, then fall back to others
 	endpoints := []*endpointStatus{selectedEndpoint}
 	for _, ep := range allEndpoints {
@@ -1801,7 +1799,7 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 			}
 
 			openAiRequest.Model = endpoint.modelStatus.Name
-			
+
 			// Record start time for latency tracking
 			startTime := time.Now()
 			openAiResponse, err := endpoint.endpoint.GenerateChatCompletion(ctx, openAiRequest)
@@ -1817,7 +1815,7 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 					requestCost := cost.CalculateChatCost(openAiRequest.Model, openai.Usage{PromptTokens: 100}) // Estimate for failed requests
 					s.router.RecordRequestResult(routingEndpoint, requestLatency, requestCost, false, err.Error())
 				}
-				
+
 				loweredError := strings.ToLower(err.Error())
 				if strings.Contains(loweredError, "429") ||
 					strings.Contains(loweredError, "quota") ||
@@ -1841,7 +1839,7 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 
 			// Calculate request cost
 			calculatedCost := cost.CalculateChatCost(openAiRequest.Model, openAiResponse.Usage)
-			
+
 			// Record success with router
 			if s.router != nil {
 				routingEndpoint := &routing.EndpointStatus{

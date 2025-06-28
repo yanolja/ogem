@@ -168,19 +168,22 @@ func (u *UnifiedAuthManager) authenticateBearer(token string, r *http.Request) (
 	
 	// Try virtual key authentication
 	if u.virtualKeyManager != nil && u.config.EnableVirtualKeys {
-		if vkey, err := u.virtualKeyManager.ValidateKey(r.Context(), token); err == nil {
-			return &AuthContext{
-				UserID:   "virtual:" + vkey.ID,
-				TenantID: "",
-				KeyID:    vkey.ID,
-				Claims: map[string]interface{}{
-					"method":      string(AuthMethodVirtual),
-					"username":    vkey.Name,
-					"roles":       u.config.DefaultRoles,
-					"permissions": u.config.DefaultPermissions,
-					"virtual_key": vkey,
-				},
-			}, nil
+		// ValidateKey expects modelName, but we don't have it here, so pass empty string
+		if vkm, ok := u.virtualKeyManager.(Manager); ok {
+			if vkey, err := vkm.ValidateKey(r.Context(), token, ""); err == nil {
+				return &AuthContext{
+					UserID:   "virtual:" + vkey.ID,
+					TenantID: "",
+					KeyID:    vkey.ID,
+					Claims: map[string]interface{}{
+						"method":      string(AuthMethodVirtual),
+						"username":    vkey.Name,
+						"roles":       u.config.DefaultRoles,
+						"permissions": u.config.DefaultPermissions,
+						"virtual_key": vkey,
+					},
+				}, nil
+			}
 		}
 	}
 	
@@ -414,7 +417,11 @@ func (u *UnifiedAuthManager) TrackVirtualKeyUsage(ctx context.Context, tokens in
 		return fmt.Errorf("virtual key manager not available")
 	}
 
-	return u.virtualKeyManager.UpdateUsage(ctx, virtualKey.ID, tokens, requests, cost)
+	// UpdateUsage expects keyValue (not keyID) and doesn't take requests parameter
+	if vkm, ok := u.virtualKeyManager.(Manager); ok {
+		return vkm.UpdateUsage(ctx, virtualKey.Key, tokens, cost)
+	}
+	return fmt.Errorf("virtual key manager does not implement Manager interface")
 }
 
 // DefaultEnhancedAuthConfig returns a default enhanced auth configuration

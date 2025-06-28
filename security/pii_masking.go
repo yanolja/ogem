@@ -1,6 +1,7 @@
 package security
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"regexp"
@@ -122,7 +123,7 @@ func NewPIIMasker(config *PIIMaskingConfig, logger *zap.SugaredLogger) (*PIIMask
 
 	// Compile built-in patterns
 	if config.EnableBuiltinPatterns {
-		builtinPatterns := getBuiltinPIIPatterns()
+		builtinPatterns := GetBuiltinPIIPatterns()
 		for _, pattern := range builtinPatterns {
 			if err := masker.addPattern(pattern); err != nil {
 				logger.Warnw("Failed to compile built-in PII pattern", "pattern", pattern.Name, "error", err)
@@ -370,8 +371,8 @@ func (m *PIIMasker) getDetectedTypes(detections []PIIDetection) []string {
 	return types
 }
 
-// getBuiltinPIIPatterns returns built-in PII detection patterns
-func getBuiltinPIIPatterns() []PIIPattern {
+// GetBuiltinPIIPatterns returns built-in PII detection patterns
+func GetBuiltinPIIPatterns() []PIIPattern {
 	return []PIIPattern{
 		{
 			Type:        PIITypeEmail,
@@ -444,6 +445,16 @@ func getBuiltinPIIPatterns() []PIIPattern {
 			Confidence:  0.6,
 		},
 	}
+}
+
+// MaskPII masks PII in plain text (primarily for testing)
+func (m *PIIMasker) MaskPII(ctx context.Context, text string) string {
+	if !m.config.Enabled || text == "" {
+		return text
+	}
+	
+	maskedText, _, _ := m.maskText(text)
+	return maskedText
 }
 
 // Unmask attempts to reverse PII masking (only works if reversible masking is enabled)
