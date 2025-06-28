@@ -990,13 +990,19 @@ func TestTenantAPI_GetTenantStats(t *testing.T) {
 
 	router.ServeHTTP(recorder, req)
 
-	assert.Equal(t, http.StatusOK, recorder.Code)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d. Body: %s", recorder.Code, recorder.Body.String())
+	}
 
 	var stats map[string]interface{}
 	err := json.Unmarshal(recorder.Body.Bytes(), &stats)
 	assert.NoError(t, err)
 	assert.Equal(t, float64(3), stats["total_tenants"])
-	assert.True(t, stats["usage_tracking_enabled"].(bool))
+	if trackingEnabled, ok := stats["usage_tracking_enabled"]; ok {
+		assert.True(t, trackingEnabled.(bool))
+	} else {
+		t.Fatal("usage_tracking_enabled field not found in stats")
+	}
 }
 
 func TestTenantAPI_GetTenantAnalytics(t *testing.T) {

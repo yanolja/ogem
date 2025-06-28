@@ -208,7 +208,7 @@ func TestCacheManager_AdaptivePatternDetection(t *testing.T) {
 	// Create test requests with different models and patterns
 	requests := []*openai.ChatCompletionRequest{
 		{
-			Model: "gpt-4o",
+			Model: "gpt-3.5-turbo",
 			Messages: []openai.Message{
 				{
 					Role: "user",
@@ -219,7 +219,7 @@ func TestCacheManager_AdaptivePatternDetection(t *testing.T) {
 			},
 		},
 		{
-			Model: "gpt-4o",
+			Model: "gpt-3.5-turbo",
 			Messages: []openai.Message{
 				{
 					Role: "user",
@@ -230,7 +230,7 @@ func TestCacheManager_AdaptivePatternDetection(t *testing.T) {
 			},
 		},
 		{
-			Model: "gpt-4o",
+			Model: "gpt-4",
 			Messages: []openai.Message{
 				{
 					Role: "user",

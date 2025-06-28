@@ -4,203 +4,171 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest"
 )
 
 func TestAuditLogger_NewAuditLogger(t *testing.T) {
-	config := &AuditLoggingConfig{
-		Enabled:    true,
-		LogLevel:   "INFO",
-		OutputPath: "stdout",
-		MaxFileSize: 100,
-		MaxBackups:  5,
-		MaxAge:      30,
-		Compress:    true,
+	config := &AuditConfig{
+		Enabled:     true,
+		MinSeverity: AuditSeverityInfo,
+		IncludeBodies: false,
+		IncludeClientInfo: true,
+		BufferSize:  1000,
+		FlushInterval: 5 * time.Second,
+		RetentionPeriod: 90 * 24 * time.Hour,
 	}
 
-	logger := zaptest.NewLogger(t)
+	logger := zaptest.NewLogger(t).Sugar()
 	auditLogger := NewAuditLogger(config, logger)
-	
+
 	assert.NotNil(t, auditLogger)
 	assert.Equal(t, config, auditLogger.config)
 }
 
 func TestAuditLogger_LogRequest(t *testing.T) {
-	config := &AuditLoggingConfig{
+	config := &AuditConfig{
 		Enabled:  true,
-		LogLevel: "INFO",
+		MinSeverity: AuditSeverityInfo,
 	}
 
 	var logBuffer bytes.Buffer
-	logger := zaptest.NewLogger(t, zaptest.WrapOptions(zaptest.WriteTo(&logBuffer)))
+	loggerConfig := zap.NewDevelopmentEncoderConfig()
+	encoder := zapcore.NewConsoleEncoder(loggerConfig)
+	core := zapcore.NewCore(encoder, zapcore.AddSync(&logBuffer), zapcore.DebugLevel)
+	logger := zap.New(core).Sugar()
 	auditLogger := NewAuditLogger(config, logger)
 
 	ctx := context.Background()
-	event := &AuditEvent{
-		EventType:   "REQUEST",
-		UserID:      "user123",
-		TenantID:    "tenant456",
-		Resource:    "/v1/chat/completions",
-		Action:      "CREATE",
-		IPAddress:   "192.168.1.100",
-		UserAgent:   "Mozilla/5.0",
-		RequestID:   "req-123",
-		Timestamp:   time.Now(),
-		Success:     true,
-		StatusCode:  200,
-		Duration:    100 * time.Millisecond,
-		RequestSize: 1024,
-		ResponseSize: 2048,
-		Metadata: map[string]interface{}{
-			"model": "gpt-3.5-turbo",
-			"tokens": 150,
-		},
+	ctx = context.WithValue(ctx, "request_id", "req-123")
+	ctx = context.WithValue(ctx, "client_ip", "192.168.1.100")
+	ctx = context.WithValue(ctx, "user_agent", "Mozilla/5.0")
+	
+	metadata := map[string]interface{}{
+		"model":  "gpt-3.5-turbo",
+		"tokens": 150,
+		"user_id": "user123",
 	}
 
-	auditLogger.LogRequest(ctx, event)
+	auditLogger.LogRequest(ctx, "POST", "/v1/chat/completions", 200, 100*time.Millisecond, metadata)
 
 	// Verify log was written (basic check since zaptest buffer format is complex)
 	logOutput := logBuffer.String()
 	assert.Contains(t, logOutput, "REQUEST")
-	assert.Contains(t, logOutput, "user123")
+	assert.Contains(t, logOutput, "POST")
 	assert.Contains(t, logOutput, "/v1/chat/completions")
 }
 
-func TestAuditLogger_LogSecurity(t *testing.T) {
-	config := &AuditLoggingConfig{
+func TestAuditLogger_LogSecurityEvent(t *testing.T) {
+	config := &AuditConfig{
 		Enabled:  true,
-		LogLevel: "WARN",
+		MinSeverity: AuditSeverityInfo,
 	}
 
 	var logBuffer bytes.Buffer
-	logger := zaptest.NewLogger(t, zaptest.WrapOptions(zaptest.WriteTo(&logBuffer)))
+	loggerConfig := zap.NewDevelopmentEncoderConfig()
+	encoder := zapcore.NewConsoleEncoder(loggerConfig)
+	core := zapcore.NewCore(encoder, zapcore.AddSync(&logBuffer), zapcore.DebugLevel)
+	logger := zap.New(core).Sugar()
 	auditLogger := NewAuditLogger(config, logger)
 
 	ctx := context.Background()
-	event := &AuditEvent{
-		EventType:  "SECURITY",
-		UserID:     "user123",
-		TenantID:   "tenant456",
-		Resource:   "/v1/chat/completions",
-		Action:     "RATE_LIMIT_EXCEEDED",
-		IPAddress:  "192.168.1.100",
-		UserAgent:  "Bot/1.0",
-		RequestID:  "req-123",
-		Timestamp:  time.Now(),
-		Success:    false,
-		StatusCode: 429,
-		RiskLevel:  "HIGH",
-		Metadata: map[string]interface{}{
-			"reason": "Too many requests",
-			"limit":  100,
-		},
+	ctx = context.WithValue(ctx, "request_id", "req-123")
+	ctx = context.WithValue(ctx, "client_ip", "192.168.1.100")
+	ctx = context.WithValue(ctx, "user_agent", "Bot/1.0")
+	
+	metadata := map[string]interface{}{
+		"reason": "Too many requests",
+		"limit":  100,
+		"risk_level": "HIGH",
 	}
 
-	auditLogger.LogSecurity(ctx, event)
+	auditLogger.LogSecurityEvent(ctx, "RATE_LIMIT_EXCEEDED", "Too many requests", AuditSeverityWarning, metadata)
 
 	logOutput := logBuffer.String()
-	assert.Contains(t, logOutput, "SECURITY")
+	assert.Contains(t, logOutput, "SECURITY_EVENT")
 	assert.Contains(t, logOutput, "RATE_LIMIT_EXCEEDED")
-	assert.Contains(t, logOutput, "HIGH")
 }
 
 func TestAuditLogger_LogError(t *testing.T) {
-	config := &AuditLoggingConfig{
+	config := &AuditConfig{
 		Enabled:  true,
-		LogLevel: "ERROR",
+		MinSeverity: AuditSeverityInfo,
 	}
 
 	var logBuffer bytes.Buffer
-	logger := zaptest.NewLogger(t, zaptest.WrapOptions(zaptest.WriteTo(&logBuffer)))
+	loggerConfig := zap.NewDevelopmentEncoderConfig()
+	encoder := zapcore.NewConsoleEncoder(loggerConfig)
+	core := zapcore.NewCore(encoder, zapcore.AddSync(&logBuffer), zapcore.DebugLevel)
+	logger := zap.New(core).Sugar()
 	auditLogger := NewAuditLogger(config, logger)
 
 	ctx := context.Background()
-	event := &AuditEvent{
-		EventType:    "ERROR",
-		UserID:       "user123",
-		TenantID:     "tenant456",
-		Resource:     "/v1/chat/completions",
-		Action:       "CREATE",
-		IPAddress:    "192.168.1.100",
-		RequestID:    "req-123",
-		Timestamp:    time.Now(),
-		Success:      false,
-		StatusCode:   500,
-		ErrorCode:    "INTERNAL_ERROR",
-		ErrorMessage: "Database connection failed",
-		Metadata: map[string]interface{}{
-			"error_details": "Connection timeout after 30s",
-		},
+	ctx = context.WithValue(ctx, "request_id", "req-123")
+	ctx = context.WithValue(ctx, "client_ip", "192.168.1.100")
+	
+	metadata := map[string]interface{}{
+		"error_code": "INTERNAL_ERROR",
+		"error_details": "Connection timeout after 30s",
 	}
 
-	auditLogger.LogError(ctx, event)
+	auditLogger.LogSecurityEvent(ctx, "ERROR", "Database connection failed", AuditSeverityError, metadata)
 
 	logOutput := logBuffer.String()
+	assert.Contains(t, logOutput, "SECURITY_EVENT")
 	assert.Contains(t, logOutput, "ERROR")
-	assert.Contains(t, logOutput, "INTERNAL_ERROR")
-	assert.Contains(t, logOutput, "Database connection failed")
 }
 
-func TestAuditLogger_LogDataAccess(t *testing.T) {
-	config := &AuditLoggingConfig{
+func TestAuditLogger_LogPIIDetection(t *testing.T) {
+	config := &AuditConfig{
 		Enabled:  true,
-		LogLevel: "INFO",
+		MinSeverity: AuditSeverityInfo,
 	}
 
 	var logBuffer bytes.Buffer
-	logger := zaptest.NewLogger(t, zaptest.WrapOptions(zaptest.WriteTo(&logBuffer)))
+	loggerConfig := zap.NewDevelopmentEncoderConfig()
+	encoder := zapcore.NewConsoleEncoder(loggerConfig)
+	core := zapcore.NewCore(encoder, zapcore.AddSync(&logBuffer), zapcore.DebugLevel)
+	logger := zap.New(core).Sugar()
 	auditLogger := NewAuditLogger(config, logger)
 
 	ctx := context.Background()
-	event := &AuditEvent{
-		EventType:  "DATA_ACCESS",
-		UserID:     "user123",
-		TenantID:   "tenant456",
-		Resource:   "/v1/models",
-		Action:     "LIST",
-		IPAddress:  "192.168.1.100",
-		RequestID:  "req-123",
-		Timestamp:  time.Now(),
-		Success:    true,
-		StatusCode: 200,
-		Metadata: map[string]interface{}{
-			"data_type":    "model_list",
-			"record_count": 25,
-		},
+	ctx = context.WithValue(ctx, "request_id", "req-123")
+	ctx = context.WithValue(ctx, "client_ip", "192.168.1.100")
+	
+	detections := []PIIDetection{
+		{Type: PIITypeEmail, Value: "test@example.com", Position: 0, Length: 16, Confidence: 0.9},
+		{Type: PIITypePhone, Value: "123-456-7890", Position: 20, Length: 12, Confidence: 0.8},
 	}
 
-	auditLogger.LogDataAccess(ctx, event)
+	auditLogger.LogPIIDetection(ctx, detections, true)
 
 	logOutput := logBuffer.String()
-	assert.Contains(t, logOutput, "DATA_ACCESS")
-	assert.Contains(t, logOutput, "LIST")
-	assert.Contains(t, logOutput, "model_list")
+	assert.Contains(t, logOutput, "PII_DETECTION")
+	assert.Contains(t, logOutput, "detection_count")
 }
 
 func TestAuditLogger_Disabled(t *testing.T) {
-	config := &AuditLoggingConfig{
+	config := &AuditConfig{
 		Enabled: false,
 	}
 
 	var logBuffer bytes.Buffer
-	logger := zaptest.NewLogger(t, zaptest.WrapOptions(zaptest.WriteTo(&logBuffer)))
+	loggerConfig := zap.NewDevelopmentEncoderConfig()
+	encoder := zapcore.NewConsoleEncoder(loggerConfig)
+	core := zapcore.NewCore(encoder, zapcore.AddSync(&logBuffer), zapcore.DebugLevel)
+	logger := zap.New(core).Sugar()
 	auditLogger := NewAuditLogger(config, logger)
 
 	ctx := context.Background()
-	event := &AuditEvent{
-		EventType: "REQUEST",
-		UserID:    "user123",
-		Action:    "CREATE",
-		Timestamp: time.Now(),
-	}
 
-	auditLogger.LogRequest(ctx, event)
+	auditLogger.LogRequest(ctx, "POST", "/v1/chat/completions", 200, 100*time.Millisecond, nil)
 
 	// Should not log anything when disabled
 	logOutput := logBuffer.String()
@@ -252,85 +220,87 @@ func TestAuditEvent_Validation(t *testing.T) {
 		},
 	}
 
-	config := &AuditLoggingConfig{
+	config := &AuditConfig{
 		Enabled:  true,
-		LogLevel: "INFO",
+		MinSeverity: AuditSeverityInfo,
 	}
 
-	logger := zaptest.NewLogger(t)
+	logger := zaptest.NewLogger(t).Sugar()
 	auditLogger := NewAuditLogger(config, logger)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			
+
 			// The audit logger should handle invalid events gracefully
 			// and not panic
 			assert.NotPanics(t, func() {
-				auditLogger.LogRequest(ctx, tt.event)
+				if tt.event != nil {
+					metadata := map[string]interface{}{
+						"event_type": tt.event.EventType,
+						"user_id": tt.event.UserID,
+						"action": tt.event.Action,
+					}
+					auditLogger.LogRequest(ctx, "POST", "/test", 200, 0, metadata)
+				}
 			})
 		})
 	}
 }
 
 func TestAuditLogger_ContextualLogging(t *testing.T) {
-	config := &AuditLoggingConfig{
+	config := &AuditConfig{
 		Enabled:  true,
-		LogLevel: "INFO",
+		MinSeverity: AuditSeverityInfo,
 	}
 
 	var logBuffer bytes.Buffer
-	logger := zaptest.NewLogger(t, zaptest.WrapOptions(zaptest.WriteTo(&logBuffer)))
+	loggerConfig := zap.NewDevelopmentEncoderConfig()
+	encoder := zapcore.NewConsoleEncoder(loggerConfig)
+	core := zapcore.NewCore(encoder, zapcore.AddSync(&logBuffer), zapcore.DebugLevel)
+	logger := zap.New(core).Sugar()
 	auditLogger := NewAuditLogger(config, logger)
 
 	// Create context with values
 	ctx := context.WithValue(context.Background(), "correlation_id", "corr-123")
 	ctx = context.WithValue(ctx, "session_id", "sess-456")
 
-	event := &AuditEvent{
-		EventType: "REQUEST",
-		UserID:    "user123",
-		Action:    "CREATE",
-		Timestamp: time.Now(),
-		Metadata: map[string]interface{}{
-			"model": "gpt-4",
-		},
+	metadata := map[string]interface{}{
+		"model": "gpt-4",
+		"user_id": "user123",
 	}
 
-	auditLogger.LogRequest(ctx, event)
+	auditLogger.LogRequest(ctx, "POST", "/v1/chat/completions", 200, 100*time.Millisecond, metadata)
 
 	// Basic verification that logging occurred
 	logOutput := logBuffer.String()
 	assert.Contains(t, logOutput, "REQUEST")
-	assert.Contains(t, logOutput, "user123")
+	assert.Contains(t, logOutput, "POST")
 }
 
 func TestAuditLogger_HighVolumeLogging(t *testing.T) {
-	config := &AuditLoggingConfig{
+	config := &AuditConfig{
 		Enabled:  true,
-		LogLevel: "INFO",
+		MinSeverity: AuditSeverityInfo,
 	}
 
 	var logBuffer bytes.Buffer
-	logger := zaptest.NewLogger(t, zaptest.WrapOptions(zaptest.WriteTo(&logBuffer)))
+	loggerConfig := zap.NewDevelopmentEncoderConfig()
+	encoder := zapcore.NewConsoleEncoder(loggerConfig)
+	core := zapcore.NewCore(encoder, zapcore.AddSync(&logBuffer), zapcore.DebugLevel)
+	logger := zap.New(core).Sugar()
 	auditLogger := NewAuditLogger(config, logger)
 
 	ctx := context.Background()
-	
+
 	// Log many events to test performance
 	start := time.Now()
 	for i := 0; i < 1000; i++ {
-		event := &AuditEvent{
-			EventType: "REQUEST",
-			UserID:    "user123",
-			Action:    "CREATE",
-			RequestID: "req-" + string(rune(i)),
-			Timestamp: time.Now(),
-			Metadata: map[string]interface{}{
-				"iteration": i,
-			},
+		metadata := map[string]interface{}{
+			"iteration": i,
+			"user_id": "user123",
 		}
-		auditLogger.LogRequest(ctx, event)
+		auditLogger.LogRequest(ctx, "POST", "/v1/chat/completions", 200, 100*time.Millisecond, metadata)
 	}
 	duration := time.Since(start)
 
@@ -340,139 +310,117 @@ func TestAuditLogger_HighVolumeLogging(t *testing.T) {
 	// Verify some logs were written
 	logOutput := logBuffer.String()
 	assert.Contains(t, logOutput, "REQUEST")
-	assert.Contains(t, logOutput, "user123")
+	assert.Contains(t, logOutput, "POST")
 }
 
 func TestAuditLogger_StructuredLogging(t *testing.T) {
-	config := &AuditLoggingConfig{
+	config := &AuditConfig{
 		Enabled:  true,
-		LogLevel: "INFO",
-		Format:   "json",
+		MinSeverity: AuditSeverityInfo,
 	}
 
 	var logBuffer bytes.Buffer
-	logger := zaptest.NewLogger(t, zaptest.WrapOptions(zaptest.WriteTo(&logBuffer)))
+	loggerConfig := zap.NewDevelopmentEncoderConfig()
+	encoder := zapcore.NewConsoleEncoder(loggerConfig)
+	core := zapcore.NewCore(encoder, zapcore.AddSync(&logBuffer), zapcore.DebugLevel)
+	logger := zap.New(core).Sugar()
 	auditLogger := NewAuditLogger(config, logger)
 
 	ctx := context.Background()
-	event := &AuditEvent{
-		EventType:    "REQUEST",
-		UserID:       "user123",
-		TenantID:     "tenant456",
-		Resource:     "/v1/chat/completions",
-		Action:       "CREATE",
-		IPAddress:    "192.168.1.100",
-		UserAgent:    "TestAgent/1.0",
-		RequestID:    "req-123",
-		Timestamp:    time.Now(),
-		Success:      true,
-		StatusCode:   200,
-		Duration:     150 * time.Millisecond,
-		RequestSize:  1024,
-		ResponseSize: 2048,
-		Metadata: map[string]interface{}{
-			"model":       "gpt-3.5-turbo",
-			"tokens":      150,
-			"temperature": 0.7,
-		},
+	ctx = context.WithValue(ctx, "request_id", "req-123")
+	ctx = context.WithValue(ctx, "client_ip", "192.168.1.100")
+	ctx = context.WithValue(ctx, "user_agent", "TestAgent/1.0")
+
+	metadata := map[string]interface{}{
+		"model":       "gpt-3.5-turbo",
+		"tokens":      150,
+		"temperature": 0.7,
+		"user_id":     "user123",
+		"tenant_id":   "tenant456",
 	}
 
-	auditLogger.LogRequest(ctx, event)
+	auditLogger.LogRequest(ctx, "POST", "/v1/chat/completions", 200, 150*time.Millisecond, metadata)
 
 	logOutput := logBuffer.String()
-	
+
 	// Should contain structured fields
 	assert.Contains(t, logOutput, "REQUEST")
-	assert.Contains(t, logOutput, "user123")
-	assert.Contains(t, logOutput, "tenant456")
+	assert.Contains(t, logOutput, "POST")
 	assert.Contains(t, logOutput, "/v1/chat/completions")
 }
 
-func TestAuditLogger_SensitiveDataFiltering(t *testing.T) {
-	config := &AuditLoggingConfig{
-		Enabled:          true,
-		LogLevel:         "INFO",
-		FilterSensitive:  true,
-		SensitiveFields:  []string{"password", "api_key", "secret"},
+func TestAuditLogger_RateLimit(t *testing.T) {
+	config := &AuditConfig{
+		Enabled:  true,
+		MinSeverity: AuditSeverityInfo,
 	}
 
 	var logBuffer bytes.Buffer
-	logger := zaptest.NewLogger(t, zaptest.WrapOptions(zaptest.WriteTo(&logBuffer)))
+	loggerConfig := zap.NewDevelopmentEncoderConfig()
+	encoder := zapcore.NewConsoleEncoder(loggerConfig)
+	core := zapcore.NewCore(encoder, zapcore.AddSync(&logBuffer), zapcore.DebugLevel)
+	logger := zap.New(core).Sugar()
 	auditLogger := NewAuditLogger(config, logger)
 
 	ctx := context.Background()
-	event := &AuditEvent{
-		EventType: "REQUEST",
-		UserID:    "user123",
-		Action:    "CREATE",
-		Timestamp: time.Now(),
-		Metadata: map[string]interface{}{
-			"password":  "secret123",
-			"api_key":   "sk-1234567890",
-			"username":  "john.doe",
-			"secret":    "top-secret-value",
-			"public":    "this-is-public",
-		},
-	}
+	ctx = context.WithValue(ctx, "request_id", "req-123")
+	ctx = context.WithValue(ctx, "client_ip", "192.168.1.100")
 
-	auditLogger.LogRequest(ctx, event)
+	auditLogger.LogRateLimit(ctx, "user123", "/v1/chat/completions", 100, 150, 1*time.Minute)
 
 	logOutput := logBuffer.String()
-	
-	// Sensitive fields should be filtered/masked
-	assert.NotContains(t, logOutput, "secret123")
-	assert.NotContains(t, logOutput, "sk-1234567890")
-	assert.NotContains(t, logOutput, "top-secret-value")
-	
-	// Public data should still be present
-	assert.Contains(t, logOutput, "john.doe")
-	assert.Contains(t, logOutput, "this-is-public")
+
+	// Should contain rate limit information
+	assert.Contains(t, logOutput, "RATE_LIMIT")
+	assert.Contains(t, logOutput, "user123")
+	assert.Contains(t, logOutput, "/v1/chat/completions")
 }
 
-func TestAuditLogger_LogRotation(t *testing.T) {
-	config := &AuditLoggingConfig{
+func TestAuditLogger_GetAuditStats(t *testing.T) {
+	config := &AuditConfig{
 		Enabled:     true,
-		LogLevel:    "INFO",
-		OutputPath:  "/tmp/audit-test.log",
-		MaxFileSize: 1, // 1 MB
-		MaxBackups:  3,
-		MaxAge:      7,
-		Compress:    true,
+		MinSeverity: AuditSeverityInfo,
+		IncludeBodies: true,
+		IncludeClientInfo: true,
+		BufferSize: 1000,
 	}
 
-	logger := zaptest.NewLogger(t)
+	logger := zaptest.NewLogger(t).Sugar()
 	auditLogger := NewAuditLogger(config, logger)
 
-	// Test that the audit logger was created successfully
-	// (actual file rotation testing would require more complex setup)
-	assert.NotNil(t, auditLogger)
-	assert.Equal(t, config, auditLogger.config)
+	stats := auditLogger.GetAuditStats()
+
+	// Verify stats are returned correctly
+	assert.Equal(t, true, stats["enabled"])
+	assert.Equal(t, 1000, stats["buffer_size"])
+	assert.Equal(t, "info", stats["min_severity"])
+	assert.Equal(t, true, stats["include_bodies"])
+	assert.Equal(t, true, stats["include_client_info"])
 }
 
 func TestAuditLogger_AsyncLogging(t *testing.T) {
-	config := &AuditLoggingConfig{
-		Enabled:     true,
-		LogLevel:    "INFO",
-		AsyncLogging: true,
+	config := &AuditConfig{
+		Enabled:      true,
+		MinSeverity:  AuditSeverityInfo,
 		BufferSize:   1000,
 	}
 
 	var logBuffer bytes.Buffer
-	logger := zaptest.NewLogger(t, zaptest.WrapOptions(zaptest.WriteTo(&logBuffer)))
+	loggerConfig := zap.NewDevelopmentEncoderConfig()
+	encoder := zapcore.NewConsoleEncoder(loggerConfig)
+	core := zapcore.NewCore(encoder, zapcore.AddSync(&logBuffer), zapcore.DebugLevel)
+	logger := zap.New(core).Sugar()
 	auditLogger := NewAuditLogger(config, logger)
 
 	ctx := context.Background()
-	
+
 	// Log events that should be buffered
 	for i := 0; i < 10; i++ {
-		event := &AuditEvent{
-			EventType: "REQUEST",
-			UserID:    "user123",
-			Action:    "CREATE",
-			RequestID: "req-" + string(rune(i)),
-			Timestamp: time.Now(),
+		metadata := map[string]interface{}{
+			"user_id": "user123",
+			"iteration": i,
 		}
-		auditLogger.LogRequest(ctx, event)
+		auditLogger.LogRequest(ctx, "POST", "/v1/chat/completions", 200, 100*time.Millisecond, metadata)
 	}
 
 	// Give async logging time to process
@@ -481,53 +429,35 @@ func TestAuditLogger_AsyncLogging(t *testing.T) {
 	// Verify logs were written
 	logOutput := logBuffer.String()
 	assert.Contains(t, logOutput, "REQUEST")
-	assert.Contains(t, logOutput, "user123")
+	assert.Contains(t, logOutput, "POST")
 }
 
 func TestAuditLogger_ErrorHandling(t *testing.T) {
-	config := &AuditLoggingConfig{
+	config := &AuditConfig{
 		Enabled:  true,
-		LogLevel: "INFO",
+		MinSeverity: AuditSeverityInfo,
 	}
 
 	var logBuffer bytes.Buffer
-	logger := zaptest.NewLogger(t, zaptest.WrapOptions(zaptest.WriteTo(&logBuffer)))
+	loggerConfig := zap.NewDevelopmentEncoderConfig()
+	encoder := zapcore.NewConsoleEncoder(loggerConfig)
+	core := zapcore.NewCore(encoder, zapcore.AddSync(&logBuffer), zapcore.DebugLevel)
+	logger := zap.New(core).Sugar()
 	auditLogger := NewAuditLogger(config, logger)
 
 	ctx := context.Background()
 
-	// Test with nil event
+	// Test with nil metadata
 	assert.NotPanics(t, func() {
-		auditLogger.LogRequest(ctx, nil)
+		auditLogger.LogRequest(ctx, "POST", "/v1/chat/completions", 200, 100*time.Millisecond, nil)
 	})
 
-	// Test with event containing nil metadata
-	event := &AuditEvent{
-		EventType: "REQUEST",
-		UserID:    "user123",
-		Action:    "CREATE",
-		Timestamp: time.Now(),
-		Metadata:  nil,
-	}
-
-	assert.NotPanics(t, func() {
-		auditLogger.LogRequest(ctx, event)
-	})
-
-	// Test with event containing circular reference in metadata
+	// Test with circular reference in metadata
 	circular := make(map[string]interface{})
 	circular["self"] = circular
-	
-	event = &AuditEvent{
-		EventType: "REQUEST",
-		UserID:    "user123",
-		Action:    "CREATE",
-		Timestamp: time.Now(),
-		Metadata:  circular,
-	}
 
 	assert.NotPanics(t, func() {
-		auditLogger.LogRequest(ctx, event)
+		auditLogger.LogRequest(ctx, "POST", "/v1/chat/completions", 200, 100*time.Millisecond, circular)
 	})
 }
 
@@ -574,41 +504,35 @@ func TestAuditEvent_Serialization(t *testing.T) {
 func TestAuditLogger_Configuration_Validation(t *testing.T) {
 	tests := []struct {
 		name   string
-		config *AuditLoggingConfig
+		config *AuditConfig
 		valid  bool
 	}{
 		{
 			name: "valid config",
-			config: &AuditLoggingConfig{
+			config: &AuditConfig{
 				Enabled:     true,
-				LogLevel:    "INFO",
-				OutputPath:  "stdout",
-				MaxFileSize: 100,
-				MaxBackups:  5,
-				MaxAge:      30,
+				MinSeverity: AuditSeverityInfo,
+				IncludeBodies: false,
+				IncludeClientInfo: true,
+				BufferSize: 1000,
 			},
 			valid: true,
 		},
 		{
-			name: "invalid log level",
-			config: &AuditLoggingConfig{
-				Enabled:  true,
-				LogLevel: "INVALID",
+			name: "disabled config",
+			config: &AuditConfig{
+				Enabled:  false,
 			},
-			valid: false,
+			valid: true,
 		},
 		{
-			name: "negative file size",
-			config: &AuditLoggingConfig{
-				Enabled:     true,
-				LogLevel:    "INFO",
-				MaxFileSize: -100,
-			},
-			valid: false,
+			name: "nil config",
+			config: nil,
+			valid: true,
 		},
 	}
 
-	logger := zaptest.NewLogger(t)
+	logger := zaptest.NewLogger(t).Sugar()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

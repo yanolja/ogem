@@ -384,7 +384,7 @@ func GetBuiltinPIIPatterns() []PIIPattern {
 		{
 			Type:        PIITypePhone,
 			Name:        "phone_us",
-			Pattern:     `(\+1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})`,
+			Pattern:     `\b(\+1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})\b`,
 			Replacement: "[PHONE]",
 			Confidence:  0.9,
 		},
