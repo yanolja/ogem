@@ -169,12 +169,12 @@ func (ep *Endpoint) toClaudeParams(ctx context.Context, openaiRequest *openai.Ch
 func (ep *Endpoint) toClaudeMessages(ctx context.Context, messages []openai.Message) ([]anthropic.MessageParam, error) {
 	claudeMessages := []anthropic.MessageParam{}
 	toolMap := make(map[string]string)
-	
+
 	for _, message := range messages {
 		if message.Role == "system" {
 			continue
 		}
-		
+
 		if message.Role == "function" || message.Role == "tool" {
 			claudeMessage, err := ep.toClaudeMessage(ctx, message, toolMap)
 			if err != nil {
@@ -185,7 +185,7 @@ func (ep *Endpoint) toClaudeMessages(ctx context.Context, messages []openai.Mess
 			}
 			continue
 		}
-		
+
 		claudeMessage, err := ep.toClaudeMessage(ctx, message, toolMap)
 		if err != nil {
 			return nil, err
@@ -194,7 +194,11 @@ func (ep *Endpoint) toClaudeMessages(ctx context.Context, messages []openai.Mess
 			claudeMessages = append(claudeMessages, *claudeMessage)
 		}
 	}
-	
+
+	if len(claudeMessages) == 0 {
+		return nil, fmt.Errorf("at least one message is required")
+	}
+
 	return claudeMessages, nil
 }
 
@@ -206,12 +210,12 @@ func (ep *Endpoint) toClaudeMessage(ctx context.Context, openaiMessage openai.Me
 	if len(blocks) == 0 {
 		return nil, nil
 	}
-	
+
 	claudeMessage := &anthropic.MessageParam{
 		Role:    anthropic.MessageParamRole(provider.ToGeminiRole(openaiMessage.Role)),
 		Content: blocks,
 	}
-	
+
 	return claudeMessage, nil
 }
 
@@ -273,7 +277,7 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 		// Convert the response to streaming format
 		if len(openaiResponse.Choices) > 0 {
 			choice := openaiResponse.Choices[0]
-			
+
 			// Send role chunk
 			roleChunk := &openai.ChatCompletionStreamResponse{
 				Id:      openaiResponse.Id,
@@ -289,7 +293,7 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 					},
 				},
 			}
-			
+
 			select {
 			case responseCh <- roleChunk:
 			case <-ctx.Done():
@@ -301,7 +305,7 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 				content := *choice.Message.Content.String
 				contentChunk := &openai.ChatCompletionStreamResponse{
 					Id:      openaiResponse.Id,
-					Object:  "chat.completion.chunk", 
+					Object:  "chat.completion.chunk",
 					Created: openaiResponse.Created,
 					Model:   openaiResponse.Model,
 					Choices: []openai.ChoiceDelta{
@@ -313,7 +317,7 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 						},
 					},
 				}
-				
+
 				select {
 				case responseCh <- contentChunk:
 				case <-ctx.Done():
@@ -336,7 +340,7 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 				},
 				Usage: &openaiResponse.Usage,
 			}
-			
+
 			select {
 			case responseCh <- finalChunk:
 			case <-ctx.Done():
@@ -602,9 +606,9 @@ func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([
 		return []anthropic.ContentBlockParamUnion{
 			{
 				OfToolUse: &anthropic.ToolUseBlockParam{
-					ID:      toolId,
-					Name:    message.FunctionCall.Name,
-					Input:   arguments,
+					ID:    toolId,
+					Name:  message.FunctionCall.Name,
+					Input: arguments,
 				},
 			},
 		}, nil
@@ -621,9 +625,9 @@ func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([
 			}
 			toolCalls[index] = anthropic.ContentBlockParamUnion{
 				OfToolUse: &anthropic.ToolUseBlockParam{
-					ID:      toolCall.Id,
-					Name:    toolCall.Function.Name,
-					Input:   arguments,
+					ID:    toolCall.Id,
+					Name:  toolCall.Function.Name,
+					Input: arguments,
 				},
 			}
 		}
