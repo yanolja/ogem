@@ -109,16 +109,16 @@ func TestTenant_IsExpired(t *testing.T) {
 		{
 			name: "trial with future end date",
 			subscription: &Subscription{
-				Status:        "trial",
-				TrialEndDate:  &futureTime,
+				Status:       "trial",
+				TrialEndDate: &futureTime,
 			},
 			expected: false,
 		},
 		{
 			name: "trial with past end date",
 			subscription: &Subscription{
-				Status:        "trial",
-				TrialEndDate:  &pastTime,
+				Status:       "trial",
+				TrialEndDate: &pastTime,
 			},
 			expected: true,
 		},
@@ -320,7 +320,7 @@ func TestTenant_IsModelAllowed(t *testing.T) {
 		{
 			name: "model in allowed list",
 			settings: &TenantSettings{
-				AllowedModels: []string{"gpt-4o", "claude-3.5-sonnet-20241022"},
+				AllowedModels: []string{"gpt-4o", "claude-3-5-sonnet-20241022"},
 			},
 			model:    "gpt-4o",
 			expected: true,
@@ -518,7 +518,7 @@ func TestTenantSettings_Configuration(t *testing.T) {
 		DataRegion:         "us-west-2",
 		ComplianceProfiles: []string{"SOC2", "HIPAA"},
 		CustomConfig: map[string]interface{}{
-			"custom_timeout":     30,
+			"custom_timeout":    30,
 			"enable_debug_logs": false,
 		},
 	}
@@ -673,15 +673,15 @@ func TestSubscription_Structure(t *testing.T) {
 	renewalDate := now.Add(30 * 24 * time.Hour)
 
 	subscription := &Subscription{
-		PlanID:       "plan-enterprise",
-		PlanName:     "Enterprise Plan",
-		PlanType:     "subscription",
-		BillingCycle: "monthly",
-		Currency:     "USD",
-		Amount:       299.99,
-		Status:       "active",
-		StartDate:    now,
-		RenewalDate:  renewalDate,
+		PlanID:         "plan-enterprise",
+		PlanName:       "Enterprise Plan",
+		PlanType:       "subscription",
+		BillingCycle:   "monthly",
+		Currency:       "USD",
+		Amount:         299.99,
+		Status:         "active",
+		StartDate:      now,
+		RenewalDate:    renewalDate,
 		TrialStartDate: &trialStart,
 		TrialEndDate:   &trialEnd,
 		CurrentUsage: &UsageMetrics{
@@ -758,10 +758,10 @@ func TestTenant_JSONSerialization(t *testing.T) {
 		Type:        TenantTypeTeam,
 		Status:      TenantStatusActive,
 		Settings: &TenantSettings{
-			AllowedModels:    []string{"gpt-3.5-turbo"},
-			DefaultModel:     "gpt-3.5-turbo",
-			EnableMetrics:    true,
-			LogLevel:         "INFO",
+			AllowedModels: []string{"gpt-3.5-turbo"},
+			DefaultModel:  "gpt-3.5-turbo",
+			EnableMetrics: true,
+			LogLevel:      "INFO",
 		},
 		Limits: &TenantLimits{
 			RequestsPerHour: 1000,
@@ -888,7 +888,7 @@ func TestTenant_EdgeCases(t *testing.T) {
 	assert.False(t, tenant.IsExpired())
 	assert.False(t, tenant.IsTrialActive())
 	assert.False(t, tenant.HasFeature("any_feature"))
-	assert.True(t, tenant.IsModelAllowed("any_model"))     // Default allow all
+	assert.True(t, tenant.IsModelAllowed("any_model"))       // Default allow all
 	assert.True(t, tenant.IsProviderAllowed("any_provider")) // Default allow all
 
 	limits := tenant.GetEffectiveLimits()

@@ -285,7 +285,7 @@ providers:
             tpm: 250_000
           
           # Legacy models (deprecated - migrate to 4.x family)
-          - name: "claude-3.5-sonnet-20241022"
+          - name: "claude-3-5-sonnet-20241022"
             other_names:
               - "claude-3.5-sonnet"
               - "claude-3-5-sonnet@20241022"
@@ -429,7 +429,7 @@ providers:
             tpm: 100_000
       asia-southeast1:
         models:
-          - name: "claude-3.5-sonnet-20241022"
+          - name: "claude-3-5-sonnet-20241022"
             other_names:
               - "claude-3.5-sonnet"
               - "claude-3-5-sonnet@20241022"
@@ -447,7 +447,7 @@ providers:
             tpm: 100_000
       europe-west1:
         models:
-          - name: "claude-3.5-sonnet-20241022"
+          - name: "claude-3-5-sonnet-20241022"
             other_names:
               - "claude-3.5-sonnet"
               - "claude-3-5-sonnet@20241022"
@@ -458,7 +458,7 @@ providers:
       europe-west4:
       us-central1:
         models:
-          - name: "claude-3.5-sonnet-20241022"
+          - name: "claude-3-5-sonnet-20241022"
             other_names:
               - "claude-3.5-sonnet"
               - "claude-3-5-sonnet@20241022"
@@ -468,7 +468,7 @@ providers:
             tpm: 80_000
       us-east5:
         models:
-          - name: "claude-3.5-sonnet-20241022"
+          - name: "claude-3-5-sonnet-20241022"
             other_names:
               - "claude-3.5-sonnet"
               - "claude-3-5-sonnet@20241022"
