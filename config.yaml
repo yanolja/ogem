@@ -7,26 +7,20 @@ providers:
         models:
           # Latest OpenAI Models (2025)
           
-          # GPT-4.5 Series (Latest Flagship)
-          - name: "gpt-4.5-turbo"
-            rate_key: "gpt-4.5-turbo"
-            rpm: 8_000
-            tpm: 40_000_000
-          - name: "gpt-4.5-turbo-vision"
-            rate_key: "gpt-4.5-turbo-vision"
-            rpm: 6_000
-            tpm: 35_000_000
-          
           # GPT-4.1 Series
-          - name: "gpt-4.1-turbo"
-            rate_key: "gpt-4.1-turbo"
+          - name: "gpt-4.1"
+            rate_key: "gpt-4.1"
             rpm: 10_000
             tpm: 30_000_000
-          - name: "gpt-4.1-preview"
-            rate_key: "gpt-4.1-preview"
-            rpm: 8_000
-            tpm: 25_000_000
-          
+          - name: "gpt-4.1-mini"
+            rate_key: "gpt-4.1-mini"
+            rpm: 10_000
+            tpm:
+          - name: "gpt-4.1-nano"
+            rate_key: "gpt-4.1-nano"
+            rpm: 10_000
+            tpm: 30_000_000
+
           # o4 Reasoning Models (Latest)
           - name: "o4"
             rate_key: "o4"
@@ -46,100 +40,20 @@ providers:
             rate_key: "o3-mini"
             rpm: 500
             tpm: 15_000_000
-          
-          # Legacy Models (GPT-4o, GPT-4, o1)
-          - name: "gpt-4o"
-            rate_key: "gpt-4o"
-            rpm: 10_000
-            tpm: 30_000_000
-          - name: "gpt-4o-mini"
-            rate_key: "gpt-4o-mini"
-            rpm: 30_000
-            tpm: 150_000_000
-          - name: "gpt-4-turbo"
-            rate_key: "gpt-4-turbo"
-            rpm: 10_000
-            tpm: 2_000_000
-          - name: "gpt-4"
-            rate_key: "gpt-4"
-            rpm: 10_000
-            tpm: 1_000_000
-          - name: "gpt-4-0613"
-            rate_key: "gpt-4"
-            rpm: 10_000
-            tpm: 1_000_000
-          - name: "gpt-3.5-turbo"
-            rate_key: "gpt-3.5-turbo"
-            rpm: 10_000
-            tpm: 50_000_000
-          - name: "gpt-3.5-turbo-0126"
-            rate_key: "gpt-3.5-turbo"
-            rpm: 10_000
-            tpm: 50_000_000
-          - name: "gpt-3.5-turbo-1106"
-            rate_key: "gpt-3.5-turbo"
-            rpm: 10_000
-            tpm: 50_000_000
-          - name: "gpt-4o@batch"
-            rate_key: "gpt-4o@batch"
-            rpm: 1_000_000
-            tpm: 10_000_000_000
-          - name: "gpt-4o-2024-05-13@batch"
-            rate_key: "gpt-4o@batch"
-            rpm: 1_000_000
-            tpm: 10_000_000_000
-          - name: "gpt-4o-2024-08-06@batch"
-            rate_key: "gpt-4o@batch"
-            rpm: 1_000_000
-            tpm: 10_000_000_000
-          - name: "gpt-4o-mini@batch"
-            rate_key: "gpt-4o-mini@batch"
-            rpm: 1_000_000
-            tpm: 15_000_000_000
-          - name: "gpt-4o-mini-2024-07-18@batch"
-            rate_key: "gpt-4o-mini@batch"
-            rpm: 1_000_000
-            tpm: 15_000_000_000
-          - name: "gpt-4-turbo@batch"
-            rate_key: "gpt-4-turbo@batch"
-            rpm: 1_000_000
-            tpm: 300_000_000
-          - name: "gpt-4-turbo-2024-04-09@batch"
-            rate_key: "gpt-4-turbo@batch"
-            rpm: 1_000_000
-            tpm: 300_000_000
-          - name: "gpt-4-turbo-preview@batch"
-            rate_key: "gpt-4-turbo@batch"
-            rpm: 1_000_000
-            tpm: 300_000_000
-          - name: "gpt-4-0125-preview@batch"
-            rate_key: "gpt-4@batch"
-            rpm: 1_000_000
-            tpm: 150_000_000
-          - name: "gpt-4-1106-preview@batch"
-            rate_key: "gpt-4@batch"
-            rpm: 1_000_000
-            tpm: 150_000_000
-          - name: "gpt-4@batch"
-            rate_key: "gpt-4@batch"
-            rpm: 1_000_000
-            tpm: 150_000_000
-          - name: "gpt-4-0613@batch"
-            rate_key: "gpt-4@batch"
-            rpm: 1_000_000
-            tpm: 150_000_000
-          - name: "gpt-3.5-turbo@batch"
-            rate_key: "gpt-3.5-turbo@batch"
-            rpm: 1_000_000
-            tpm: 5_000_000_000
-          - name: "gpt-3.5-turbo-0126@batch"
-            rate_key: "gpt-3.5-turbo@batch"
-            rpm: 1_000_000
-            tpm: 5_000_000_000
-          - name: "gpt-3.5-turbo-1106@batch"
-            rate_key: "gpt-3.5-turbo@batch"
-            rpm: 1_000_000
-            tpm: 5_000_000_000
+          - name: "o3-pro"
+            rate_key: "o3-pro"
+            rpm: 100
+            tpm: 6_000_000
+
+          # o1 series
+          - name: "o1"
+            rate_key: "o1"
+            rpm: 60
+            tpm: 6_000_000
+          - name: "o1-mini"
+            rate_key: "o1-mini"
+            rpm: 60
+            tpm: 6_000_000
   vertex:
     regions:
       default:
