@@ -11,7 +11,6 @@ import (
 
 	"github.com/yanolja/ogem/image"
 	"github.com/yanolja/ogem/openai"
-	"github.com/yanolja/ogem/provider"
 	ogem "github.com/yanolja/ogem/sdk/go"
 	"github.com/yanolja/ogem/utils"
 	"github.com/yanolja/ogem/utils/array"
@@ -213,7 +212,7 @@ func (ep *Endpoint) toClaudeMessage(ctx context.Context, openaiMessage openai.Me
 	}
 
 	claudeMessage := &anthropic.MessageParam{
-		Role:    anthropic.MessageParamRole(provider.ToGeminiRole(openaiMessage.Role)),
+		Role:    anthropic.MessageParamRole(toClaudeRole(openaiMessage.Role)),
 		Content: blocks,
 	}
 
@@ -239,6 +238,23 @@ func (ep *Endpoint) toClaudeSystemMessage(ctx context.Context, openAiRequest *op
 		}
 	}
 	return nil, nil
+}
+
+func toClaudeRole(role string) string {
+	switch strings.ToLower(role) {
+	case "assistant":
+		return "assistant"
+	case "user":
+		return "user"
+	case "system":
+		return "user"
+	case "tool":
+		return "user"
+	case "function":
+		return "user"
+	default:
+		return "user"
+	}
 }
 
 func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
