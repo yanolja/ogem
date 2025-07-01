@@ -606,7 +606,7 @@ func TestCacheManager_ConvertToCacheRequest(t *testing.T) {
 
 	cacheReq := manager.convertToCacheRequest(request)
 
-	assert.Equal(t, "gpt-4", cacheReq.Model)
+	assert.Equal(t, "gpt-4o", cacheReq.Model)
 	assert.Len(t, cacheReq.Messages, 1)
 	assert.Equal(t, "user", cacheReq.Messages[0].Role)
 
@@ -842,7 +842,7 @@ func TestCacheRequest_Structure(t *testing.T) {
 		},
 	}
 
-	assert.Equal(t, "gpt-4", cacheReq.Model)
+	assert.Equal(t, "gpt-4o", cacheReq.Model)
 	assert.Len(t, cacheReq.Messages, 1)
 	assert.Equal(t, "user", cacheReq.Messages[0].Role)
 	assert.Equal(t, 0.8, cacheReq.Settings["temperature"])

@@ -27,9 +27,14 @@ func NewTenantAPI(tenantManager *TenantManager, logger *zap.SugaredLogger) *Tena
 
 // RegisterRoutes registers all tenant API routes
 func (api *TenantAPI) RegisterRoutes(router *mux.Router) {
+	// Statistics and analytics (most specific)
+	router.HandleFunc("/tenants/stats", api.GetTenantStats).Methods("GET")
+
 	// Tenant management
 	router.HandleFunc("/tenants", api.CreateTenant).Methods("POST")
 	router.HandleFunc("/tenants", api.ListTenants).Methods("GET")
+
+	// Routes with tenant_id
 	router.HandleFunc("/tenants/{tenant_id}", api.GetTenant).Methods("GET")
 	router.HandleFunc("/tenants/{tenant_id}", api.UpdateTenant).Methods("PUT")
 	router.HandleFunc("/tenants/{tenant_id}", api.DeleteTenant).Methods("DELETE")
@@ -58,8 +63,7 @@ func (api *TenantAPI) RegisterRoutes(router *mux.Router) {
 	// Access control
 	router.HandleFunc("/tenants/{tenant_id}/access-check", api.CheckTenantAccess).Methods("POST")
 	
-	// Statistics and analytics
-	router.HandleFunc("/tenants/stats", api.GetTenantStats).Methods("GET")
+	// Analytics (also has tenant_id)
 	router.HandleFunc("/tenants/{tenant_id}/analytics", api.GetTenantAnalytics).Methods("GET")
 }
 

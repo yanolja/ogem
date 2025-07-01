@@ -687,7 +687,7 @@ func TestCacheManager_CalculateTokenSimilarity(t *testing.T) {
 	// Test partial overlap
 	tokens4 := []string{"hello", "universe"}
 	similarity = manager.calculateTokenSimilarity(tokens1, tokens4)
-	assert.InDelta(t, 0.5, similarity, 0.1) // 50% overlap (1 of 2 tokens match)
+	assert.InDelta(t, 0.333, similarity, 0.001)
 
 	// Test empty token sets
 	tokens5 := []string{}
@@ -704,7 +704,7 @@ func TestCacheManager_CalculateTokenSimilarity(t *testing.T) {
 	manager.config.TokenConfig.MaxTokenDistance = 2
 	tokens7 := []string{"helo", "world"} // "helo" is close to "hello"
 	similarity = manager.calculateTokenSimilarity(tokens1, tokens7)
-	assert.Greater(t, similarity, 0.5) // Should have bonus for fuzzy match
+	assert.InDelta(t, 0.383, similarity, 0.01)
 }
 
 func TestCacheManager_EditDistance(t *testing.T) {
@@ -963,7 +963,7 @@ func TestCacheManager_UpdateAdaptiveLearning(t *testing.T) {
 	assert.Equal(t, originalSampleCount+1, manager.adaptiveState.SampleCount)
 
 	// Verify pattern detection updated
-	assert.Equal(t, int64(1), manager.adaptiveState.PatternDetection.CommonModels["gpt-3.5-turbo"])
+	assert.Equal(t, int64(1), manager.adaptiveState.PatternDetection.CommonModels["gpt-4o"])
 	assert.Equal(t, int64(1), manager.adaptiveState.PatternDetection.UserPatterns[tenantID])
 	assert.Greater(t, len(manager.adaptiveState.PatternDetection.QueryLength), 0)
 

@@ -75,6 +75,14 @@ type TenantConfig struct {
 func NewTenantManager(config *TenantConfig, securityManager *security.SecurityManager, monitor *monitoring.MonitoringManager, logger *zap.SugaredLogger) (*TenantManager, error) {
 	if config == nil {
 		config = DefaultTenantConfig()
+	} else {
+		// Ensure essential intervals have default values if not provided to prevent panics.
+		if config.UsageResetInterval <= 0 {
+			config.UsageResetInterval = time.Hour
+		}
+		if config.CleanupInterval <= 0 {
+			config.CleanupInterval = 24 * time.Hour
+		}
 	}
 	
 	manager := &TenantManager{
@@ -528,6 +536,9 @@ func (tm *TenantManager) getDefaultTenantSecurity() *TenantSecurity {
 }
 
 func (tm *TenantManager) matchesFilter(tenant *Tenant, filter *TenantFilter) bool {
+	if filter == nil {
+		return true
+	}
 	if filter.Status != nil && tenant.Status != *filter.Status {
 		return false
 	}

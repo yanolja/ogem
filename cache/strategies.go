@@ -13,9 +13,9 @@ import (
 func (cm *CacheManager) lookupExact(req *CacheRequest, tenantID string) (*CacheLookupResult, error) {
 	key := cm.generateCacheKey(req, tenantID)
 	
-	cm.memoryMutex.RLock()
+	cm.mutex.RLock()
 	entry, exists := cm.memoryCache[key]
-	cm.memoryMutex.RUnlock()
+	cm.mutex.RUnlock()
 	
 	if !exists || time.Now().After(entry.ExpiresAt) {
 		return &CacheLookupResult{
@@ -46,56 +46,57 @@ func (cm *CacheManager) lookupSemantic(ctx context.Context, req *CacheRequest, t
 		// Fall back to exact matching
 		return cm.lookupExact(req, tenantID)
 	}
-	
-	cm.memoryMutex.RLock()
-	defer cm.memoryMutex.RUnlock()
-	
+
+	cm.mutex.RLock()
+
 	var bestMatch *CacheEntry
 	var bestSimilarity float64
 	threshold := cm.config.SemanticConfig.SimilarityThreshold
-	
+
 	// Search through cached entries for semantic matches
 	for _, entry := range cm.memoryCache {
 		// Skip entries from different tenants if tenant isolation is enabled
 		if cm.config.PerTenantLimits && entry.TenantID != tenantID {
 			continue
 		}
-		
+
 		// Skip expired entries
 		if time.Now().After(entry.ExpiresAt) {
 			continue
 		}
-		
+
 		// Skip entries without embeddings
 		if len(entry.Embedding) == 0 {
 			continue
 		}
-		
+
 		// Skip entries with different models (semantic matching should be model-specific)
 		if entry.Request.Model != req.Model {
 			continue
 		}
-		
+
 		// Calculate semantic similarity
 		similarity := cm.calculateCosineSimilarity(reqEmbedding, entry.Embedding)
-		
+
 		if similarity >= threshold && similarity > bestSimilarity {
 			bestSimilarity = similarity
 			bestMatch = entry
 		}
 	}
-	
+
 	if bestMatch == nil {
+		cm.mutex.RUnlock()
 		return &CacheLookupResult{
 			Found:    false,
 			Strategy: StrategySemantic,
 			Source:   "memory",
 		}, nil
 	}
-	
+
 	// Update access tracking
+	cm.mutex.RUnlock()
 	cm.updateEntryAccess(bestMatch)
-	
+
 	return &CacheLookupResult{
 		Found:      true,
 		Entry:      bestMatch,
@@ -107,8 +108,8 @@ func (cm *CacheManager) lookupSemantic(ctx context.Context, req *CacheRequest, t
 
 // lookupToken performs token-based fuzzy cache matching
 func (cm *CacheManager) lookupToken(req *CacheRequest, tenantID string) (*CacheLookupResult, error) {
-	cm.memoryMutex.RLock()
-	defer cm.memoryMutex.RUnlock()
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
 	
 	var bestMatch *CacheEntry
 	var bestSimilarity float64
@@ -154,7 +155,9 @@ func (cm *CacheManager) lookupToken(req *CacheRequest, tenantID string) (*CacheL
 	}
 	
 	// Update access tracking
+	cm.mutex.RUnlock()
 	cm.updateEntryAccess(bestMatch)
+	cm.mutex.RLock()
 	
 	return &CacheLookupResult{
 		Found:      true,
@@ -356,35 +359,25 @@ func (cm *CacheManager) calculateTokenSimilarity(tokensA, tokensB []string) floa
 	}
 	
 	// Create token frequency maps
-	freqA := make(map[string]int)
-	freqB := make(map[string]int)
+	setA := make(map[string]bool)
+	setB := make(map[string]bool)
 	
 	for _, token := range tokensA {
-		freqA[token]++
+		setA[token] = true
 	}
 	for _, token := range tokensB {
-		freqB[token]++
+		setB[token] = true
 	}
 	
-	// Calculate Jaccard similarity with frequency weighting
+	// Calculate Jaccard similarity
 	intersection := 0
-	union := 0
-	
-	allTokens := make(map[string]bool)
-	for token := range freqA {
-		allTokens[token] = true
-	}
-	for token := range freqB {
-		allTokens[token] = true
+	for token := range setA {
+		if setB[token] {
+			intersection++
+		}
 	}
 	
-	for token := range allTokens {
-		countA := freqA[token]
-		countB := freqB[token]
-		
-		intersection += min(countA, countB)
-		union += max(countA, countB)
-	}
+	union := len(setA) + len(setB) - intersection
 	
 	if union == 0 {
 		return 0.0
@@ -470,27 +463,27 @@ func (cm *CacheManager) editDistance(a, b string) int {
 
 // updateEntryAccess updates access tracking for a cache entry
 func (cm *CacheManager) updateEntryAccess(entry *CacheEntry) {
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+
 	now := time.Now()
-	
+
 	// Update entry access info
 	entry.AccessCount++
 	entry.LastAccess = now
-	
+
 	// Update LRU order
-	cm.memoryMutex.Lock()
-	defer cm.memoryMutex.Unlock()
-	
 	// Remove from current position
 	cm.removeFromAccessOrder(entry.Key)
-	
+
 	// Add to end (most recently used)
 	cm.accessOrder = append(cm.accessOrder, entry.Key)
 }
 
 // storeEntry stores a cache entry in the backend
 func (cm *CacheManager) storeEntry(entry *CacheEntry) error {
-	cm.memoryMutex.Lock()
-	defer cm.memoryMutex.Unlock()
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
 	
 	// Check memory limits before storing
 	if int64(len(cm.memoryCache)) >= cm.config.MaxEntries {
@@ -548,12 +541,12 @@ func (cm *CacheManager) compressEntry(entry *CacheEntry) error {
 
 // updateLookupStats updates cache lookup statistics
 func (cm *CacheManager) updateLookupStats(result *CacheLookupResult, tenantID string) {
-	cm.statsMutex.Lock()
-	defer cm.statsMutex.Unlock()
-	
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+
 	if result.Found {
 		cm.stats.Hits++
-		
+
 		// Update strategy-specific stats
 		switch result.Strategy {
 		case StrategyExact:
@@ -566,7 +559,7 @@ func (cm *CacheManager) updateLookupStats(result *CacheLookupResult, tenantID st
 	} else {
 		cm.stats.Misses++
 	}
-	
+
 	// Update tenant-specific stats
 	if cm.config.PerTenantLimits && tenantID != "" {
 		tenantStats, exists := cm.stats.TenantStats[tenantID]
@@ -574,27 +567,27 @@ func (cm *CacheManager) updateLookupStats(result *CacheLookupResult, tenantID st
 			tenantStats = &TenantCacheStats{}
 			cm.stats.TenantStats[tenantID] = tenantStats
 		}
-		
+
 		if result.Found {
 			tenantStats.Hits++
 		} else {
 			tenantStats.Misses++
 		}
-		
+
 		total := tenantStats.Hits + tenantStats.Misses
 		if total > 0 {
 			tenantStats.HitRate = float64(tenantStats.Hits) / float64(total)
 		}
 	}
-	
+
 	// Update total entries count
 	cm.stats.TotalEntries = int64(len(cm.memoryCache))
 }
 
 // updateStoreStats updates cache store statistics
 func (cm *CacheManager) updateStoreStats(entry *CacheEntry) {
-	cm.statsMutex.Lock()
-	defer cm.statsMutex.Unlock()
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
 	
 	cm.stats.Stores++
 	cm.stats.TotalEntries = int64(len(cm.memoryCache))
@@ -659,7 +652,6 @@ func (cm *CacheManager) performAdaptiveTuning() {
 	}
 	
 	if cm.adaptiveState.SampleCount < cm.config.AdaptiveConfig.MinSamples {
-		cm.adaptiveState.SampleCount++
 		return
 	}
 	
