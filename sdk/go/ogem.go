@@ -736,13 +736,19 @@ const (
 	ModelGPT4TurboPreview = "gpt-4-turbo-preview"
 
 	// Claude Models
+	ModelClaudeOpus4    = "claude-opus-4-20250514"
+	ModelClaudeSonnet4  = "claude-sonnet-4-20250514"
+	ModelClaude37Sonnet = "claude-3-7-sonnet-20250219"
 	ModelClaude35Sonnet = "claude-3-5-sonnet-20241022"
-	ModelClaude35Haiku  = "claude-3.5-haiku-20241022"
+	ModelClaude35Haiku  = "claude-3-5-haiku-20241022"
+	ModelClaude3Haiku   = "claude-3-haiku-20240307"
 
 	// Gemini Models
 	ModelGemini25Pro       = "gemini-2.5-pro"
 	ModelGemini25Flash     = "gemini-2.5-flash"
 	ModelGemini25FlashLite = "gemini-2.5-flash-lite"
+	ModelGemini20Flash     = "gemini-2.0-flash"
+	ModelGemini20FlashLite = "gemini-2.0-flash-lite"
 
 	// Embedding Models
 	ModelEmbedding3Small = "text-embedding-3-small"

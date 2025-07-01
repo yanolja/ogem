@@ -12,6 +12,7 @@ import (
 	"github.com/yanolja/ogem/image"
 	"github.com/yanolja/ogem/openai"
 	"github.com/yanolja/ogem/provider"
+	ogem "github.com/yanolja/ogem/sdk/go"
 	"github.com/yanolja/ogem/utils"
 	"github.com/yanolja/ogem/utils/array"
 )
@@ -128,7 +129,7 @@ func (ep *Endpoint) toClaudeParams(ctx context.Context, openaiRequest *openai.Ch
 		params.MaxTokens = int64(*openaiRequest.MaxCompletionTokens)
 	}
 	if params.MaxTokens == 0 {
-		if standardizeModelName(openaiRequest.Model) == "claude-3.5-sonnet-20241022" {
+		if standardizeModelName(openaiRequest.Model) == ogem.ModelClaude35Sonnet {
 			params.MaxTokens = 8192
 		} else {
 			params.MaxTokens = 4096
@@ -437,7 +438,7 @@ func toClaudeParams(openaiRequest *openai.ChatCompletionRequest) (*anthropic.Mes
 		params.MaxTokens = int64(*openaiRequest.MaxCompletionTokens)
 	}
 	if params.MaxTokens == 0 {
-		if standardizeModelName(openaiRequest.Model) == "claude-3.5-sonnet-20241022" {
+		if standardizeModelName(openaiRequest.Model) == ogem.ModelClaude35Sonnet {
 			params.MaxTokens = 8192
 		} else {
 			params.MaxTokens = 4096
@@ -789,13 +790,13 @@ func toOpenAiFinishReason(claudeStopReason anthropic.MessageStopReason) string {
 func standardizeModelName(model string) string {
 	switch strings.TrimRight(model, "0123456789@-") {
 	case "claude-3-5-sonnet":
-		return "claude-3.5-sonnet-20241022"
+		return ogem.ModelClaude35Sonnet
 	case "claude-3-opus":
-		return "claude-3-opus-20240229"
+		return ogem.ModelClaudeOpus4
 	case "claude-3-sonnet":
-		return "claude-3-sonnet-20240229"
+		return ogem.ModelClaudeSonnet4
 	case "claude-3-haiku":
-		return "claude-3-haiku-20240307"
+		return ogem.ModelClaude3Haiku
 	}
 	return model
 }
