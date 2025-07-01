@@ -363,72 +363,72 @@ providers:
             tpm: 20_000_000
   vclaude:
     regions:
-      # All regions must support the claude-3-5-haiku model because it is used for ping tests.
+      # All regions must support the claude-3.5-haiku model because it is used for ping tests.
       default:
         models:
-          - name: "claude-3-5-haiku-20241022"
+          - name: "claude-3.5-haiku-20241022"
             other_names:
-              - "claude-3-5-haiku"
-              - "claude-3-5-haiku@20241022"
-              - "claude-3-5-haiku-20241022"
-            rate_key: "claude-3-5-haiku"
+              - "claude-3.5-haiku"
+              - "claude-3.5-haiku@20241022"
+              - "claude-3.5-haiku-20241022"
+            rate_key: "claude-3.5-haiku"
             rpm: 1_000
             tpm: 100_000
       asia-southeast1:
         models:
-          - name: "claude-3-5-sonnet-20241022"
+          - name: "claude-3.5-sonnet-20241022"
             other_names:
-              - "claude-3-5-sonnet"
-              - "claude-3-5-sonnet@20241022"
-              - "claude-3-5-sonnet-20241022"
-            rate_key: "claude-3-5-sonnet"
+              - "claude-3.5-sonnet"
+              - "claude-3.5-sonnet@20241022"
+              - "claude-3.5-sonnet-20241022"
+            rate_key: "claude-3.5-sonnet"
             rpm: 1_000
             tpm: 80_000
-          - name: "claude-3-5-haiku-20241022"
+          - name: "claude-3.5-haiku-20241022"
             other_names:
-              - "claude-3-5-haiku"
-              - "claude-3-5-haiku@20241022"
-              - "claude-3-5-haiku-20241022"
-            rate_key: "claude-3-5-haiku"
+              - "claude-3.5-haiku"
+              - "claude-3.5-haiku@20241022"
+              - "claude-3.5-haiku-20241022"
+            rate_key: "claude-3.5-haiku"
             rpm: 1_000
             tpm: 100_000
       europe-west1:
         models:
-          - name: "claude-3-5-sonnet-20241022"
+          - name: "claude-3.5-sonnet-20241022"
             other_names:
-              - "claude-3-5-sonnet"
-              - "claude-3-5-sonnet@20241022"
-              - "claude-3-5-sonnet-20241022"
-            rate_key: "claude-3-5-sonnet"
+              - "claude-3.5-sonnet"
+              - "claude-3.5-sonnet@20241022"
+              - "claude-3.5-sonnet-20241022"
+            rate_key: "claude-3.5-sonnet"
             rpm: 1_000
             tpm: 80_000
       europe-west4:
       us-central1:
         models:
-          - name: "claude-3-5-sonnet-20241022"
+          - name: "claude-3.5-sonnet-20241022"
             other_names:
-              - "claude-3-5-sonnet"
-              - "claude-3-5-sonnet@20241022"
-              - "claude-3-5-sonnet-20241022"
-            rate_key: "claude-3-5-sonnet"
+              - "claude-3.5-sonnet"
+              - "claude-3.5-sonnet@20241022"
+              - "claude-3.5-sonnet-20241022"
+            rate_key: "claude-3.5-sonnet"
             rpm: 1_000
             tpm: 80_000
       us-east5:
         models:
-          - name: "claude-3-5-sonnet-20241022"
+          - name: "claude-3.5-sonnet-20241022"
             other_names:
-              - "claude-3-5-sonnet"
-              - "claude-3-5-sonnet@20241022"
-              - "claude-3-5-sonnet-20241022"
-            rate_key: "claude-3-5-sonnet"
+              - "claude-3.5-sonnet"
+              - "claude-3.5-sonnet@20241022"
+              - "claude-3.5-sonnet-20241022"
+            rate_key: "claude-3.5-sonnet"
             rpm: 1_000
             tpm: 80_000
-          - name: "claude-3-5-haiku-20241022"
+          - name: "claude-3.5-haiku-20241022"
             other_names:
-              - "claude-3-5-haiku"
-              - "claude-3-5-haiku@20241022"
-              - "claude-3-5-haiku-20241022"
-            rate_key: "claude-3-5-haiku"
+              - "claude-3.5-haiku"
+              - "claude-3.5-haiku@20241022"
+              - "claude-3.5-haiku-20241022"
+            rate_key: "claude-3.5-haiku"
             rpm: 1_000
             tpm: 100_000
           # Legacy models (deprecated)
