@@ -12,6 +12,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/joho/godotenv"
 	"github.com/rs/cors"
 	"github.com/valkey-io/valkey-go"
 	"github.com/yanolja/ogem/auth"
@@ -22,6 +23,10 @@ import (
 )
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		fmt.Println("Failed to load env file:", err)
+	}
+
 	logger := utils.Must(zap.NewProduction())
 	defer logger.Sync()
 	sugar := logger.Sugar()
@@ -61,7 +66,7 @@ func main() {
 	mux.HandleFunc("/v1/audio/speech", proxy.HandleAuthentication(proxy.HandleAudioSpeech))
 	mux.HandleFunc("/v1/moderations", proxy.HandleAuthentication(proxy.HandleModerations))
 	mux.HandleFunc("/v1/cost/estimate", proxy.HandleCostEstimate) // No authentication required for cost estimation
-	
+
 	// Virtual key management endpoints (only available if virtual keys are enabled)
 	if config.EnableVirtualKeys {
 		mux.HandleFunc("/v1/keys", func(w http.ResponseWriter, r *http.Request) {

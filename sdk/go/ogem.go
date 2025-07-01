@@ -711,8 +711,29 @@ const (
 	// OpenAI Models
 	ModelGPT4o     = "gpt-4o"
 	ModelGPT4oMini = "gpt-4o-mini"
-	ModelO1Preview = "o1-preview"
+
+	// GPT-4.1 Series
+	ModelGPT41     = "gpt-4.1"
+	ModelGPT41Mini = "gpt-4.1-mini"
+	ModelGPT41Nano = "gpt-4.1-nano"
+
+	// o4 Reasoning Models
+	ModelO4Mini = "o4-mini"
+
+	// o3 Reasoning Models
+	ModelO3     = "o3"
+	ModelO3Mini = "o3-mini"
+
+	// o1 Series
+	ModelO1        = "o1"
 	ModelO1Mini    = "o1-mini"
+	ModelO1Preview = "o1-preview"
+
+	// Legacy GPT Models
+	ModelGPT4             = "gpt-4"
+	ModelGPT35Turbo       = "gpt-3.5-turbo"
+	ModelGPT4Turbo        = "gpt-4-turbo"
+	ModelGPT4TurboPreview = "gpt-4-turbo-preview"
 
 	// Claude Models
 	ModelClaude35Sonnet = "claude-3-5-sonnet-20241022"
