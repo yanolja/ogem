@@ -185,60 +185,67 @@ providers:
           # Latest Claude Models (2025)
           
           # Claude 4 Series (Latest)
-          - name: "claude-4-opus"
+          - name: "claude-opus-4-20250514"
             other_names:
-              - "claude-4-opus-latest"
-            rate_key: "claude-4-opus"
+              - "claude-opus-4-0"
+            rate_key: "claude-opus-4"
             rpm: 800
             tpm: 200_000
-          - name: "claude-4-sonnet"
+          - name: "claude-sonnet-4-20250514"
             other_names:
-              - "claude-4-sonnet-latest"
-            rate_key: "claude-4-sonnet"
+              - "claude-sonnet-4-0"
+            rate_key: "claude-sonnet-4"
             rpm: 1_200
             tpm: 150_000
-          - name: "claude-4-haiku"
-            other_names:
-              - "claude-4-haiku-latest"
-            rate_key: "claude-4-haiku"
-            rpm: 2_000
-            tpm: 300_000
           
           # Claude 3.7 Series
-          - name: "claude-3.7-opus"
+          - name: "claude-3-7-sonnet-20250219"
             other_names:
-              - "claude-3.7-opus-latest"
-            rate_key: "claude-3.7-opus"
-            rpm: 900
-            tpm: 180_000
-          - name: "claude-3.7-sonnet"
-            other_names:
-              - "claude-3.7-sonnet-latest"
-            rate_key: "claude-3.7-sonnet"
+              - "claude-3-7-sonnet-latest"
+            rate_key: "claude-3-7-sonnet"
             rpm: 1_100
             tpm: 120_000
-          - name: "claude-3.7-haiku"
+          
+          # Claude 3.5/3 Series
+          - name: "claude-3-5-sonnet-20241022"
             other_names:
-              - "claude-3.7-haiku-latest"
-            rate_key: "claude-3.7-haiku"
-            rpm: 1_800
-            tpm: 250_000
+              - "claude-3-5-sonnet"
+              - "claude-3-5-sonnet@20241022"
+              - "claude-3-5-sonnet-20241022"
+            rate_key: "claude-3-5-sonnet-legacy"
+            rpm: 1_000
+            tpm: 80_000
+          - name: "claude-3-5-haiku-20241022"
+            other_names:
+              - "claude-3-5-haiku"
+              - "claude-3-5-haiku@20241022"
+              - "claude-3-5-haiku-20241022"
+            rate_key: "claude-3-5-haiku-legacy"
+            rpm: 1_000
+            tpm: 100_000
+          - name: "claude-3-haiku-20240307"
+            other_names:
+              - "claude-3-haiku"
+              - "claude-3-haiku@20240307"
+            rate_key: "claude-3-haiku-legacy"
+            rpm: 1_000
+            tpm: 100_000
           
           # Legacy models (deprecated - migrate to 4.x family)
           - name: "claude-3-5-sonnet-20241022"
             other_names:
-              - "claude-3.5-sonnet"
+              - "claude-3-5-sonnet"
               - "claude-3-5-sonnet@20241022"
               - "claude-3-5-sonnet-20241022"
-            rate_key: "claude-3.5-sonnet-legacy"
+            rate_key: "claude-3-5-sonnet-legacy"
             rpm: 1_000
             tpm: 80_000
-          - name: "claude-3.5-haiku-20241022"
+          - name: "claude-3-5-haiku-20241022"
             other_names:
-              - "claude-3.5-haiku"
+              - "claude-3-5-haiku"
               - "claude-3-5-haiku@20241022"
               - "claude-3-5-haiku-20241022"
-            rate_key: "claude-3.5-haiku-legacy"
+            rate_key: "claude-3-5-haiku-legacy"
             rpm: 1_000
             tpm: 100_000
           - name: "claude-3-opus-20240229"
@@ -338,7 +345,7 @@ providers:
             rate_key: "openrouter-gpt4o"
             rpm: 200
             tpm: 10_000_000
-          - name: "anthropic/claude-3.5-sonnet"
+          - name: "anthropic/claude-3-5-sonnet"
             rate_key: "openrouter-claude"
             rpm: 200
             tpm: 10_000_000
@@ -356,43 +363,43 @@ providers:
             tpm: 20_000_000
   vclaude:
     regions:
-      # All regions must support the claude-3.5-haiku model because it is used for ping tests.
+      # All regions must support the claude-3-5-haiku model because it is used for ping tests.
       default:
         models:
-          - name: "claude-3.5-haiku-20241022"
+          - name: "claude-3-5-haiku-20241022"
             other_names:
-              - "claude-3.5-haiku"
+              - "claude-3-5-haiku"
               - "claude-3-5-haiku@20241022"
               - "claude-3-5-haiku-20241022"
-            rate_key: "claude-3.5-haiku"
+            rate_key: "claude-3-5-haiku"
             rpm: 1_000
             tpm: 100_000
       asia-southeast1:
         models:
           - name: "claude-3-5-sonnet-20241022"
             other_names:
-              - "claude-3.5-sonnet"
+              - "claude-3-5-sonnet"
               - "claude-3-5-sonnet@20241022"
               - "claude-3-5-sonnet-20241022"
-            rate_key: "claude-3.5-sonnet"
+            rate_key: "claude-3-5-sonnet"
             rpm: 1_000
             tpm: 80_000
-          - name: "claude-3.5-haiku-20241022"
+          - name: "claude-3-5-haiku-20241022"
             other_names:
-              - "claude-3.5-haiku"
+              - "claude-3-5-haiku"
               - "claude-3-5-haiku@20241022"
               - "claude-3-5-haiku-20241022"
-            rate_key: "claude-3.5-haiku"
+            rate_key: "claude-3-5-haiku"
             rpm: 1_000
             tpm: 100_000
       europe-west1:
         models:
           - name: "claude-3-5-sonnet-20241022"
             other_names:
-              - "claude-3.5-sonnet"
+              - "claude-3-5-sonnet"
               - "claude-3-5-sonnet@20241022"
               - "claude-3-5-sonnet-20241022"
-            rate_key: "claude-3.5-sonnet"
+            rate_key: "claude-3-5-sonnet"
             rpm: 1_000
             tpm: 80_000
       europe-west4:
@@ -400,28 +407,28 @@ providers:
         models:
           - name: "claude-3-5-sonnet-20241022"
             other_names:
-              - "claude-3.5-sonnet"
+              - "claude-3-5-sonnet"
               - "claude-3-5-sonnet@20241022"
               - "claude-3-5-sonnet-20241022"
-            rate_key: "claude-3.5-sonnet"
+            rate_key: "claude-3-5-sonnet"
             rpm: 1_000
             tpm: 80_000
       us-east5:
         models:
           - name: "claude-3-5-sonnet-20241022"
             other_names:
-              - "claude-3.5-sonnet"
+              - "claude-3-5-sonnet"
               - "claude-3-5-sonnet@20241022"
               - "claude-3-5-sonnet-20241022"
-            rate_key: "claude-3.5-sonnet"
+            rate_key: "claude-3-5-sonnet"
             rpm: 1_000
             tpm: 80_000
-          - name: "claude-3.5-haiku-20241022"
+          - name: "claude-3-5-haiku-20241022"
             other_names:
-              - "claude-3.5-haiku"
+              - "claude-3-5-haiku"
               - "claude-3-5-haiku@20241022"
               - "claude-3-5-haiku-20241022"
-            rate_key: "claude-3.5-haiku"
+            rate_key: "claude-3-5-haiku"
             rpm: 1_000
             tpm: 100_000
           # Legacy models (deprecated)

@@ -404,7 +404,7 @@ func (ep *Endpoint) Region() string {
 func (ep *Endpoint) Ping(ctx context.Context) (time.Duration, error) {
 	start := time.Now()
 	_, err := ep.client.New(ctx, anthropic.MessageNewParams{
-		Model:     "claude-3.5-haiku-20241022",
+		Model:     ogem.ModelClaude35Haiku,
 		MaxTokens: int64(1),
 		Messages: []anthropic.MessageParam{
 			anthropic.NewUserMessage(anthropic.NewTextBlock("Ping")),
