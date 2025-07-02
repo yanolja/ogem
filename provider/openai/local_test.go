@@ -4,12 +4,25 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
+
+	"flag"
 
 	"github.com/joho/godotenv"
 	ogem "github.com/yanolja/ogem/sdk/go"
 )
+
+// Dynamic Provider/Region Model Testing
+// Usage:
+//   go test -v -run TestChatCompletion_CombinedContext ./provider/openai/ -provider_region=openai/openai
+//
+// - The -provider_region flag should be in the format <provider>/<region>, matching the structure in config.yaml.
+// - The test will automatically load all model names for that provider/region and run the tests against them.
+// - If the flag is omitted, a default provider/region will be used.
+
+var providerRegionFlag = flag.String("provider_region", "openai/openai", "Provider and region in the format <provider>/<region> (e.g., openai/openai)")
 
 // Helper to get API key and base URL from env
 func getTestClient(t *testing.T) *ogem.Client {
@@ -49,6 +62,21 @@ var gptModels = []string{
 	ogem.ModelGPT4TurboPreview,
 }
 
+var geminiModels = []string{
+	ogem.ModelGemini25Pro,
+	ogem.ModelGemini25Flash,
+	ogem.ModelGemini25FlashLite,
+}
+
+var claudeModels = []string{
+	ogem.ModelClaudeOpus4,
+	ogem.ModelClaudeSonnet4,
+	ogem.ModelClaude37Sonnet,
+	ogem.ModelClaude35Sonnet,
+	ogem.ModelClaude35Haiku,
+	ogem.ModelClaude3Haiku,
+}
+
 // Models that do NOT support function calling (legacy functions parameter)
 var functionNotSupportedModels = []string{
 	ogem.ModelO1Mini,
@@ -63,7 +91,64 @@ var toolNotSupportedModels = []string{
 	ogem.ModelO1Mini,
 }
 
-var testModels = gptModels
+var modelRegistry = map[string]map[string][]string{
+	"openai": {
+		"openai": gptModels,
+	},
+	"claude": {
+		"claude": claudeModels,
+	},
+	"gemini": {
+		"gemini": geminiModels,
+	},
+}
+
+func getTestModelsFromConfig(t *testing.T) []string {
+	flag.Parse()
+	providerRegion := *providerRegionFlag
+	if providerRegion == "" {
+		providerRegion = "openai/openai"
+	}
+
+	parts := strings.SplitN(providerRegion, "/", 2)
+	if len(parts) != 2 {
+		t.Fatalf("Invalid provider_region format: %s. Expected <provider>/<region>", providerRegion)
+	}
+	provider, region := parts[0], parts[1]
+
+	regions, ok := modelRegistry[provider]
+	if !ok {
+		t.Fatalf("Unknown provider: %s. Supported: %v", provider, keys(modelRegistry))
+	}
+	models, ok := regions[region]
+	if !ok {
+		t.Fatalf("Unknown region: %s for provider %s. Supported: %v", region, provider, keys(regions))
+	}
+	if len(models) == 0 {
+		t.Fatalf("No models defined for provider %s region %s", provider, region)
+	}
+	return models
+}
+
+// Helper to get map keys as []string for error messages
+func keys(m interface{}) []string {
+	switch mm := m.(type) {
+	case map[string][]string:
+		var out []string
+		for k := range mm {
+			out = append(out, k)
+		}
+		return out
+	case map[string]map[string][]string:
+		var out []string
+		for k := range mm {
+			out = append(out, k)
+		}
+		return out
+	default:
+		return nil
+	}
+}
 
 // Helper function to check if a model does NOT support functions
 func doesNotSupportFunctions(model string) bool {
@@ -86,6 +171,7 @@ func doesNotSupportTools(model string) bool {
 }
 
 func TestChatCompletion_UserRole(t *testing.T) {
+	testModels := getTestModelsFromConfig(t)
 	client := getTestClient(t)
 
 	// Set timeout for the entire test function
@@ -124,6 +210,7 @@ func TestChatCompletion_UserRole(t *testing.T) {
 }
 
 func TestChatCompletion_AssistantRole(t *testing.T) {
+	testModels := getTestModelsFromConfig(t)
 	client := getTestClient(t)
 
 	// Set timeout for the entire test function
@@ -162,6 +249,7 @@ func TestChatCompletion_AssistantRole(t *testing.T) {
 }
 
 func TestChatCompletion_FunctionRole(t *testing.T) {
+	testModels := getTestModelsFromConfig(t)
 	client := getTestClient(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
@@ -228,6 +316,7 @@ func TestChatCompletion_FunctionRole(t *testing.T) {
 }
 
 func TestChatCompletion_ToolRole(t *testing.T) {
+	testModels := getTestModelsFromConfig(t)
 	client := getTestClient(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
@@ -297,6 +386,7 @@ func TestChatCompletion_ToolRole(t *testing.T) {
 }
 
 func TestChatCompletion_CombinedContext(t *testing.T) {
+	testModels := getTestModelsFromConfig(t)
 	client := getTestClient(t)
 
 	// Set timeout for the entire test function
@@ -381,13 +471,6 @@ func TestChatCompletion_CombinedContext(t *testing.T) {
 						t.Fatal("No choices returned from tools request")
 					}
 
-					// Log the tools response
-					// toolMsg := toolResp.Choices[0].Message
-					// t.Logf("Tools response role: %s, content: %v", toolMsg.Role, toolMsg.Content)
-					// if len(toolMsg.ToolCalls) > 0 {
-					// 	t.Logf("Tools response tool calls: %+v", toolMsg.ToolCalls)
-					// }
-
 					t.Logf("✓ %s tools test completed successfully", model)
 				} else {
 					t.Logf("Skipping tools test for %s (not supported)", model)
@@ -451,8 +534,8 @@ func TestChatCompletion_CombinedContext(t *testing.T) {
 						Content: `{"final_amount": 11614.72, "interest_earned": 1614.72, "effective_rate": 0.0512}`,
 					})
 
-					// Add final user question
-					funcMsgs = append(funcMsgs, ogem.NewUserMessage("What's the effective annual rate?"))
+					// // Add final user question
+					// funcMsgs = append(funcMsgs, ogem.NewUserMessage("What's the effective annual rate?"))
 
 					// Create request with functions
 					funcReq := ogem.NewChatCompletionRequest(model, funcMsgs)
@@ -465,13 +548,6 @@ func TestChatCompletion_CombinedContext(t *testing.T) {
 					if len(funcResp.Choices) == 0 {
 						t.Fatal("No choices returned from functions request")
 					}
-
-					// Log the functions response
-					// funcMsg := funcResp.Choices[0].Message
-					// t.Logf("Functions response role: %s, content: %v", funcMsg.Role, funcMsg.Content)
-					// if funcMsg.FunctionCall != nil {
-					// 	t.Logf("Functions response function call: %+v", funcMsg.FunctionCall)
-					// }
 
 					t.Logf("✓ %s functions test completed successfully", model)
 				} else {

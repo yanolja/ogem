@@ -60,6 +60,17 @@ func (ep *Endpoint) processImageContent(ctx context.Context, imageContent *opena
 }
 
 func (ep *Endpoint) toClaudeMessageBlocks(ctx context.Context, message openai.Message, toolMap map[string]string) ([]anthropic.ContentBlockParamUnion, error) {
+	if message.Role == "tool" {
+		if message.Content == nil || message.Content.String == nil {
+			return nil, fmt.Errorf("tool message must contain a string content")
+		}
+		if message.ToolCallId == nil {
+			return nil, fmt.Errorf("tool message must contain the corresponding tool call ID")
+		}
+		return []anthropic.ContentBlockParamUnion{
+			anthropic.NewToolResultBlock(*message.ToolCallId, *message.Content.String, false),
+		}, nil
+	}
 	if message.ToolCalls != nil && len(message.ToolCalls) > 0 {
 		return array.Map(message.ToolCalls, func(toolCall openai.ToolCall) anthropic.ContentBlockParamUnion {
 			arguments, _ := utils.JsonToMap(toolCall.Function.Arguments)
@@ -609,22 +620,44 @@ func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([
 			anthropic.NewToolResultBlock(*message.ToolCallId, *message.Content.String, false),
 		}, nil
 	}
-	if message.Role == "function" {
-		if message.Content == nil || message.Content.String == nil {
-			return nil, fmt.Errorf("function message must contain a string content")
+	if message.ToolCalls != nil && len(message.ToolCalls) > 0 {
+		toolCalls := make([]anthropic.ContentBlockParamUnion, len(message.ToolCalls))
+		for index, toolCall := range message.ToolCalls {
+			if toolCall.Type != "function" {
+				return nil, fmt.Errorf("unsupported tool call type: %s", toolCall.Type)
+			}
+			arguments, err := utils.JsonToMap(toolCall.Function.Arguments)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse tool arguments: %v", err)
+			}
+			toolCalls[index] = anthropic.ContentBlockParamUnion{
+				OfToolUse: &anthropic.ToolUseBlockParam{
+					ID:    toolCall.Id,
+					Name:  toolCall.Function.Name,
+					Input: arguments,
+				},
+			}
 		}
-		if message.Name == nil {
-			return nil, fmt.Errorf("function message must contain the corresponding function name")
+		return toolCalls, nil
+	}
+	if message.FunctionCall != nil {
+		arguments, err := utils.JsonToMap(message.FunctionCall.Arguments)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse function arguments: %v", err)
 		}
-		toolId, exists := toolMap[*message.Name]
+		toolId, exists := toolMap[message.FunctionCall.Name]
 		if !exists {
-			// If no tool ID exists, create a text block instead of tool_result
-			return []anthropic.ContentBlockParamUnion{
-				anthropic.NewTextBlock(fmt.Sprintf("Function %s result: %s", *message.Name, *message.Content.String)),
-			}, nil
+			// Create a fallback tool ID if not found in the map
+			toolId = fmt.Sprintf("call-%s", message.FunctionCall.Name)
 		}
 		return []anthropic.ContentBlockParamUnion{
-			anthropic.NewToolResultBlock(toolId, *message.Content.String, false),
+			{
+				OfToolUse: &anthropic.ToolUseBlockParam{
+					ID:    toolId,
+					Name:  message.FunctionCall.Name,
+					Input: arguments,
+				},
+			},
 		}, nil
 	}
 	if message.Content != nil {
@@ -647,46 +680,6 @@ func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([
 		return []anthropic.ContentBlockParamUnion{
 			anthropic.NewTextBlock(*message.Refusal),
 		}, nil
-	}
-	if message.FunctionCall != nil {
-		arguments, err := utils.JsonToMap(message.FunctionCall.Arguments)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse function arguments: %v", err)
-		}
-		toolId, exists := toolMap[message.FunctionCall.Name]
-		if !exists {
-			// Create a fallback tool ID if not found in the map
-			toolId = fmt.Sprintf("call-%s", message.FunctionCall.Name)
-		}
-		return []anthropic.ContentBlockParamUnion{
-			{
-				OfToolUse: &anthropic.ToolUseBlockParam{
-					ID:    toolId,
-					Name:  message.FunctionCall.Name,
-					Input: arguments,
-				},
-			},
-		}, nil
-	}
-	if len(message.ToolCalls) > 0 {
-		toolCalls := make([]anthropic.ContentBlockParamUnion, len(message.ToolCalls))
-		for index, toolCall := range message.ToolCalls {
-			if toolCall.Type != "function" {
-				return nil, fmt.Errorf("unsupported tool call type: %s", toolCall.Type)
-			}
-			arguments, err := utils.JsonToMap(toolCall.Function.Arguments)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse tool arguments: %v", err)
-			}
-			toolCalls[index] = anthropic.ContentBlockParamUnion{
-				OfToolUse: &anthropic.ToolUseBlockParam{
-					ID:    toolCall.Id,
-					Name:  toolCall.Function.Name,
-					Input: arguments,
-				},
-			}
-		}
-		return toolCalls, nil
 	}
 	return nil, fmt.Errorf("message must have content, refusal, function_call, or tool_calls")
 }
