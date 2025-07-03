@@ -12,7 +12,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/joho/godotenv"
 	"github.com/rs/cors"
 	"github.com/valkey-io/valkey-go"
 	"github.com/yanolja/ogem/auth"
@@ -23,10 +22,6 @@ import (
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		fmt.Println("Failed to load env file:", err)
-	}
-
 	logger := utils.Must(zap.NewProduction())
 	defer logger.Sync()
 	sugar := logger.Sugar()
