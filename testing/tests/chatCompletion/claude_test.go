@@ -1,3 +1,22 @@
+// Test file for Claude models - /v1/chat/completions endpoint
+//
+// Usage:
+//   - This test suite covers all manually validated Claude models for the /v1/chat/completions endpoint.
+//   - Models are selected via a two-level map in the test file, not dynamically loaded from config.yaml.
+//   - Only models explicitly listed and validated in this file are tested.
+//   - To add or remove models, update the model list in this file.
+//
+// Setup:
+//   - Place a .env file in the parent folder of this test file (claude/.env).
+//   - The .env file must contain:
+//       OGEM_API_KEY=<your api key>
+//       OGEM_BASE_URL=<URL to server>
+//
+// Example usage:
+//   go test -v -run TestChatCompletion_UserContext ./provider/openai/ -provider_region=claude/claude
+//
+// To test all providers at once, run the corresponding test files for each provider.
+
 package tests
 
 import (
