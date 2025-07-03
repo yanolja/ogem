@@ -286,11 +286,6 @@ func toClaudeRole(role string) string {
 	}
 }
 
-type ClaudeDebugResponse struct {
-	Response    *openai.ChatCompletionResponse
-	RequestJSON string
-}
-
 func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
 	claudeParams, err := ep.toClaudeParams(ctx, openaiRequest)
 	if err != nil {

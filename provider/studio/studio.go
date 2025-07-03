@@ -69,14 +69,36 @@ func (ep *Endpoint) toGeminiMessages(ctx context.Context, openAiMessages []opena
 
 	toolMap := make(map[string]string)
 	geminiMessages := make([]*genai.Content, 0, messageCount)
+
 	for _, message := range openAiMessages {
 		if message.Role == "system" {
 			continue
 		}
 
+		// Build toolMap from tool calls in previous messages
 		for _, toolCall := range message.ToolCalls {
 			toolMap[toolCall.Id] = toolCall.Function.Name
 		}
+
+		// Handle function messages by combining them with the previous message
+		if message.Role == "function" {
+			if len(geminiMessages) == 0 {
+				return nil, nil, fmt.Errorf("function message cannot be the first message")
+			}
+
+			// Get the previous message
+			prevMessage := geminiMessages[len(geminiMessages)-1]
+
+			// Add function response to the previous message's parts
+			functionParts, err := ep.toGeminiParts(ctx, message, toolMap)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			prevMessage.Parts = append(prevMessage.Parts, functionParts...)
+			continue
+		}
+
 		parts, err := ep.toGeminiParts(ctx, message, toolMap)
 		if err != nil {
 			return nil, nil, err
@@ -86,6 +108,7 @@ func (ep *Endpoint) toGeminiMessages(ctx context.Context, openAiMessages []opena
 			Parts: parts,
 		})
 	}
+
 	lastIndex := len(geminiMessages) - 1
 	geminiMessages, last := geminiMessages[:lastIndex], geminiMessages[lastIndex]
 	return geminiMessages, last, nil
