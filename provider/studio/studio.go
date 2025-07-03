@@ -80,22 +80,16 @@ func (ep *Endpoint) toGeminiMessages(ctx context.Context, openAiMessages []opena
 			toolMap[toolCall.Id] = toolCall.Function.Name
 		}
 
-		// Handle function messages by combining them with the previous message
+		// Handle function messages as separate messages (Gemini requirement)
 		if message.Role == "function" {
-			if len(geminiMessages) == 0 {
-				return nil, nil, fmt.Errorf("function message cannot be the first message")
-			}
-
-			// Get the previous message
-			prevMessage := geminiMessages[len(geminiMessages)-1]
-
-			// Add function response to the previous message's parts
-			functionParts, err := ep.toGeminiParts(ctx, message, toolMap)
+			parts, err := ep.toGeminiParts(ctx, message, toolMap)
 			if err != nil {
 				return nil, nil, err
 			}
-
-			prevMessage.Parts = append(prevMessage.Parts, functionParts...)
+			geminiMessages = append(geminiMessages, &genai.Content{
+				Role:  "user", // Function responses are treated as user messages in Gemini
+				Parts: parts,
+			})
 			continue
 		}
 
