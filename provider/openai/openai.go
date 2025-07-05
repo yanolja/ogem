@@ -35,7 +35,6 @@ const (
 // Models that don't support the dimensions parameter
 var notSupportDimensionModels = []string{
 	"text-embedding-ada-002",
-	"text-embedding-ada-001",
 }
 
 type (
