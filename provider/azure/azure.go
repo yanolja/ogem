@@ -19,12 +19,18 @@ import (
 
 const REGION = "azure"
 
+// Models that don't support the dimensions parameter
+var notSupportDimensionModels = []string{
+	"text-embedding-ada-002",
+	"text-embedding-ada-001",
+}
+
 type Endpoint struct {
-	apiKey      string
-	baseUrl     *url.URL
-	apiVersion  string
-	client      *http.Client
-	region      string
+	apiKey     string
+	baseUrl    *url.URL
+	apiVersion string
+	client     *http.Client
+	region     string
 }
 
 func NewEndpoint(region string, baseUrl string, apiKey string, apiVersion string) (*Endpoint, error) {
@@ -56,7 +62,7 @@ func (p *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *op
 
 	// Azure uses deployment name instead of model name in URL
 	deploymentName := openaiRequest.Model
-	endpointPath := fmt.Sprintf("%s/openai/deployments/%s/chat/completions?api-version=%s", 
+	endpointPath := fmt.Sprintf("%s/openai/deployments/%s/chat/completions?api-version=%s",
 		p.baseUrl.String(), deploymentName, p.apiVersion)
 
 	httpRequest, err := http.NewRequestWithContext(ctx, "POST", endpointPath, strings.NewReader(string(jsonData)))
@@ -115,7 +121,7 @@ func (p *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiReque
 		}
 
 		deploymentName := openaiRequest.Model
-		endpointPath := fmt.Sprintf("%s/openai/deployments/%s/chat/completions?api-version=%s", 
+		endpointPath := fmt.Sprintf("%s/openai/deployments/%s/chat/completions?api-version=%s",
 			p.baseUrl.String(), deploymentName, p.apiVersion)
 
 		httpRequest, err := http.NewRequestWithContext(ctx, "POST", endpointPath, strings.NewReader(string(jsonData)))
@@ -150,14 +156,14 @@ func (p *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiReque
 		scanner := bufio.NewScanner(httpResponse.Body)
 		for scanner.Scan() {
 			line := scanner.Text()
-			
+
 			if line == "" || strings.HasPrefix(line, ":") {
 				continue
 			}
 
 			if strings.HasPrefix(line, "data: ") {
 				data := strings.TrimPrefix(line, "data: ")
-				
+
 				if data == "[DONE]" {
 					break
 				}
@@ -185,13 +191,30 @@ func (p *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiReque
 }
 
 func (p *Endpoint) GenerateEmbedding(ctx context.Context, embeddingRequest *openai.EmbeddingRequest) (*openai.EmbeddingResponse, error) {
-	jsonData, err := json.Marshal(embeddingRequest)
+	// Check if the model supports dimensions parameter
+	supportsDimensions := true
+	for _, model := range notSupportDimensionModels {
+		if embeddingRequest.Model == model {
+			supportsDimensions = false
+			break
+		}
+	}
+
+	requestCopy := *embeddingRequest
+
+	// Remove dimensions field if model doesn't support it
+	if !supportsDimensions && requestCopy.Dimensions != nil {
+		log.Printf("Model %s does not support dimensions parameter, removing it", embeddingRequest.Model)
+		requestCopy.Dimensions = nil
+	}
+
+	jsonData, err := json.Marshal(requestCopy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %v", err)
 	}
 
 	deploymentName := embeddingRequest.Model
-	endpointPath := fmt.Sprintf("%s/openai/deployments/%s/embeddings?api-version=%s", 
+	endpointPath := fmt.Sprintf("%s/openai/deployments/%s/embeddings?api-version=%s",
 		p.baseUrl.String(), deploymentName, p.apiVersion)
 
 	httpRequest, err := http.NewRequestWithContext(ctx, "POST", endpointPath, strings.NewReader(string(jsonData)))
@@ -240,7 +263,7 @@ func (p *Endpoint) GenerateImage(ctx context.Context, imageRequest *openai.Image
 	if imageRequest.Model != nil {
 		deploymentName = *imageRequest.Model
 	}
-	endpointPath := fmt.Sprintf("%s/openai/deployments/%s/images/generations?api-version=%s", 
+	endpointPath := fmt.Sprintf("%s/openai/deployments/%s/images/generations?api-version=%s",
 		p.baseUrl.String(), deploymentName, p.apiVersion)
 
 	httpRequest, err := http.NewRequestWithContext(ctx, "POST", endpointPath, strings.NewReader(string(jsonData)))
@@ -309,7 +332,7 @@ func (p *Endpoint) TranscribeAudio(ctx context.Context, request *openai.AudioTra
 	writer.Close()
 
 	deploymentName := request.Model
-	endpointPath := fmt.Sprintf("%s/openai/deployments/%s/audio/transcriptions?api-version=%s", 
+	endpointPath := fmt.Sprintf("%s/openai/deployments/%s/audio/transcriptions?api-version=%s",
 		p.baseUrl.String(), deploymentName, p.apiVersion)
 
 	httpRequest, err := http.NewRequestWithContext(ctx, "POST", endpointPath, body)
@@ -375,7 +398,7 @@ func (p *Endpoint) TranslateAudio(ctx context.Context, request *openai.AudioTran
 	writer.Close()
 
 	deploymentName := request.Model
-	endpointPath := fmt.Sprintf("%s/openai/deployments/%s/audio/translations?api-version=%s", 
+	endpointPath := fmt.Sprintf("%s/openai/deployments/%s/audio/translations?api-version=%s",
 		p.baseUrl.String(), deploymentName, p.apiVersion)
 
 	httpRequest, err := http.NewRequestWithContext(ctx, "POST", endpointPath, body)
@@ -421,7 +444,7 @@ func (p *Endpoint) GenerateSpeech(ctx context.Context, request *openai.TextToSpe
 	}
 
 	deploymentName := request.Model
-	endpointPath := fmt.Sprintf("%s/openai/deployments/%s/audio/speech?api-version=%s", 
+	endpointPath := fmt.Sprintf("%s/openai/deployments/%s/audio/speech?api-version=%s",
 		p.baseUrl.String(), deploymentName, p.apiVersion)
 
 	httpRequest, err := http.NewRequestWithContext(ctx, "POST", endpointPath, strings.NewReader(string(jsonData)))
@@ -464,7 +487,7 @@ func (p *Endpoint) ModerateContent(ctx context.Context, request *openai.Moderati
 		return nil, fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	endpointPath := fmt.Sprintf("%s/openai/deployments/text-moderation-latest/moderations?api-version=%s", 
+	endpointPath := fmt.Sprintf("%s/openai/deployments/text-moderation-latest/moderations?api-version=%s",
 		p.baseUrl.String(), p.apiVersion)
 
 	httpRequest, err := http.NewRequestWithContext(ctx, "POST", endpointPath, strings.NewReader(string(jsonData)))
@@ -507,7 +530,7 @@ func (p *Endpoint) CreateFineTuningJob(ctx context.Context, request *openai.Fine
 		return nil, fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	endpointPath := fmt.Sprintf("%s/openai/fine_tuning/jobs?api-version=%s", 
+	endpointPath := fmt.Sprintf("%s/openai/fine_tuning/jobs?api-version=%s",
 		p.baseUrl.String(), p.apiVersion)
 
 	httpRequest, err := http.NewRequestWithContext(ctx, "POST", endpointPath, strings.NewReader(string(jsonData)))
@@ -542,7 +565,7 @@ func (p *Endpoint) CreateFineTuningJob(ctx context.Context, request *openai.Fine
 }
 
 func (p *Endpoint) GetFineTuningJob(ctx context.Context, jobID string) (*openai.FineTuningJob, error) {
-	endpointPath := fmt.Sprintf("%s/openai/fine_tuning/jobs/%s?api-version=%s", 
+	endpointPath := fmt.Sprintf("%s/openai/fine_tuning/jobs/%s?api-version=%s",
 		p.baseUrl.String(), jobID, p.apiVersion)
 
 	httpRequest, err := http.NewRequestWithContext(ctx, "GET", endpointPath, nil)
@@ -576,7 +599,7 @@ func (p *Endpoint) GetFineTuningJob(ctx context.Context, jobID string) (*openai.
 }
 
 func (p *Endpoint) ListFineTuningJobs(ctx context.Context, after *string, limit *int32) (*openai.FineTuningJobList, error) {
-	endpointPath := fmt.Sprintf("%s/openai/fine_tuning/jobs?api-version=%s", 
+	endpointPath := fmt.Sprintf("%s/openai/fine_tuning/jobs?api-version=%s",
 		p.baseUrl.String(), p.apiVersion)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", endpointPath, nil)
@@ -619,7 +642,7 @@ func (p *Endpoint) ListFineTuningJobs(ctx context.Context, after *string, limit 
 }
 
 func (p *Endpoint) CancelFineTuningJob(ctx context.Context, jobID string) (*openai.FineTuningJob, error) {
-	endpointPath := fmt.Sprintf("%s/openai/fine_tuning/jobs/%s/cancel?api-version=%s", 
+	endpointPath := fmt.Sprintf("%s/openai/fine_tuning/jobs/%s/cancel?api-version=%s",
 		p.baseUrl.String(), jobID, p.apiVersion)
 
 	httpRequest, err := http.NewRequestWithContext(ctx, "POST", endpointPath, nil)
