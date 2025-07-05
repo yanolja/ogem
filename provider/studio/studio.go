@@ -75,7 +75,6 @@ func (ep *Endpoint) toGeminiMessages(ctx context.Context, openAiMessages []opena
 			continue
 		}
 
-		// Build toolMap from tool calls in previous messages
 		for _, toolCall := range message.ToolCalls {
 			toolMap[toolCall.Id] = toolCall.Function.Name
 		}
@@ -970,4 +969,10 @@ func toOpenAiFinishReason(finishReason genai.FinishReason) string {
 		// we return "content_filter" for the rest of the cases.
 		return "content_filter"
 	}
+}
+
+// ToGeminiMessagesTest is a test helper to expose message conversion for testing.
+// Do not use this in production.
+func (ep *Endpoint) ToGeminiMessagesTest(ctx context.Context, openAiMessages []openai.Message) ([]*genai.Content, *genai.Content, error) {
+	return ep.toGeminiMessages(ctx, openAiMessages)
 }

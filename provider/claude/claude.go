@@ -84,7 +84,6 @@ func (ep *Endpoint) toClaudeMessageBlocks(ctx context.Context, message openai.Me
 		}
 		toolId, exists := toolMap[message.FunctionCall.Name]
 		if !exists {
-			// Create a fallback tool ID if not found in the map
 			toolId = fmt.Sprintf("call-%s", message.FunctionCall.Name)
 		}
 		return []anthropic.ContentBlockParamUnion{
@@ -106,7 +105,6 @@ func (ep *Endpoint) toClaudeMessageBlocks(ctx context.Context, message openai.Me
 		}
 		toolId, exists := toolMap[*message.Name]
 		if !exists {
-			// If no tool ID exists, create a text block instead of tool_result
 			return []anthropic.ContentBlockParamUnion{
 				anthropic.NewTextBlock(fmt.Sprintf("Function %s result: %s", *message.Name, *message.Content.String)),
 			}, nil
@@ -203,7 +201,6 @@ func (ep *Endpoint) toClaudeMessages(ctx context.Context, messages []openai.Mess
 
 	toolMap := make(map[string]string)
 
-	// First pass: build toolMap from function calls and tool calls
 	for i, message := range messages {
 		if message.FunctionCall != nil {
 			toolId := fmt.Sprintf("call-%s-%d", message.FunctionCall.Name, i)
@@ -534,7 +531,6 @@ func toClaudeMessages(openaiMessages []openai.Message) ([]anthropic.MessageParam
 
 	toolMap := make(map[string]string)
 
-	// First pass: build toolMap from function calls and tool calls
 	for i, message := range openaiMessages {
 		if message.FunctionCall != nil {
 			toolId := fmt.Sprintf("call-%s-%d", message.FunctionCall.Name, i)
@@ -642,7 +638,6 @@ func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([
 		}
 		toolId, exists := toolMap[message.FunctionCall.Name]
 		if !exists {
-			// Create a fallback tool ID if not found in the map
 			toolId = fmt.Sprintf("call-%s", message.FunctionCall.Name)
 		}
 		return []anthropic.ContentBlockParamUnion{
@@ -692,7 +687,6 @@ func toClaudeToolParams(openaiTools []openai.Tool) ([]anthropic.ToolUnionParam, 
 			description = *tool.Function.Description
 		}
 
-		// Extract properties from the function parameters
 		properties := tool.Function.Parameters
 		if props, exists := tool.Function.Parameters.Get("properties"); exists {
 			if propsMap, ok := props.(*orderedmap.Map); ok {
@@ -754,7 +748,6 @@ func toClaudeToolParamsFromFunctions(openaiFunctions []openai.LegacyFunction) []
 			description = *function.Description
 		}
 
-		// Extract properties from the function parameters
 		properties := function.Parameters
 		if props, exists := function.Parameters.Get("properties"); exists {
 			if propsMap, ok := props.(*orderedmap.Map); ok {
@@ -859,4 +852,10 @@ func standardizeModelName(model string) string {
 		return ogem.ModelClaude3Haiku
 	}
 	return model
+}
+
+// ToClaudeMessagesTest is a test helper to expose message conversion for testing.
+// Do not use this in production.
+func (ep *Endpoint) ToClaudeMessagesTest(ctx context.Context, messages []openai.Message) ([]anthropic.MessageParam, error) {
+	return ep.toClaudeMessages(ctx, messages)
 }
