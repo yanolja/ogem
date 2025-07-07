@@ -1,17 +1,3 @@
-// This test file verifies the correctness of the message conversion logic for the Studio provider in the OGEM project.
-// It ensures that OpenAI-style messages are accurately transformed into the format expected by Studio, including handling of user/assistant roles, tool calls, tool results, and chat history.
-//
-// Usage:
-// 1. Ensure Go is installed and dependencies are resolved.
-// 2. Run tests with: go test ./provider/studio/msg_converting_test.go
-//    Or run all Studio provider tests with: go test ./provider/studio/
-// 3. All tests should pass, confirming correct message conversion logic.
-//
-// Coverage:
-// - User and assistant message conversion
-// - Tool call and tool result handling
-// - Chat history and message order preservation
-
 package studio
 
 import (
@@ -166,7 +152,6 @@ func TestGeminiMessages_ChatHistory(t *testing.T) {
 }
 
 func TestGeminiMessages_CombinedChatHistory(t *testing.T) {
-	// First part of the conversation
 	history1 := []openai.Message{
 		{
 			Role:    "user",
@@ -191,7 +176,6 @@ func TestGeminiMessages_CombinedChatHistory(t *testing.T) {
 		},
 	}
 
-	// Second part: tool/function response and user follow-up
 	history2 := []openai.Message{
 		{
 			Role:       "tool",
@@ -204,14 +188,12 @@ func TestGeminiMessages_CombinedChatHistory(t *testing.T) {
 		},
 	}
 
-	// Combine histories
 	combined := append(history1, history2...)
 
 	history, last, err := toGeminiMessages(combined)
 	assert.NoError(t, err)
 	assert.Len(t, history, 4)
 
-	// Check order and content
 	expectedRoles := []string{"user", "model", "model", "function"}
 	expectedContents := []string{
 		"What's the capital of France?",
@@ -226,7 +208,6 @@ func TestGeminiMessages_CombinedChatHistory(t *testing.T) {
 		}
 	}
 
-	// Check the last message (user follow-up)
 	assert.Equal(t, "user", last.Role)
 	assert.Equal(t, "Thank you!", last.Parts[0].Text)
 }

@@ -844,12 +844,16 @@ func standardizeModelName(model string) string {
 	switch strings.TrimRight(model, "0123456789@-") {
 	case "claude-3-5-sonnet":
 		return ogem.ModelClaude35Sonnet
-	case "claude-3-opus":
-		return ogem.ModelClaudeOpus4
-	case "claude-3-sonnet":
-		return ogem.ModelClaudeSonnet4
+	case "claude-3-5-haiku":
+		return ogem.ModelClaude35Haiku
 	case "claude-3-haiku":
 		return ogem.ModelClaude3Haiku
+	case "claude-3-7-sonnet":
+		return ogem.ModelClaude37Sonnet
+	case "claude-opus-4":
+		return ogem.ModelClaudeOpus4
+	case "claude-sonnet-4":
+		return ogem.ModelClaudeSonnet4
 	}
 	return model
 }

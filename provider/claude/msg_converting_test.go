@@ -1,17 +1,3 @@
-// This test file verifies the correctness of the message conversion logic for the Claude provider in the OGEM project.
-// It ensures that OpenAI-style messages are accurately transformed into the format expected by Claude, including handling of user/assistant roles, tool calls, tool results, and chat history.
-//
-// Usage:
-// 1. Ensure Go is installed and dependencies are resolved.
-// 2. Run tests with: go test ./provider/claude/msg_converting_test.go
-//    Or run all Claude provider tests with: go test ./provider/claude/
-// 3. All tests should pass, confirming correct message conversion logic.
-//
-// Coverage:
-// - User and assistant message conversion
-// - Tool call and tool result handling
-// - Chat history and message order preservation
-
 package claude
 
 import (
@@ -94,10 +80,10 @@ func TestClaudeMessages_ToolCall(t *testing.T) {
 	claudeMsgs, err := ep.toClaudeMessages(ctx, messages)
 	assert.NoError(t, err)
 	assert.Len(t, claudeMsgs, 3)
-	// Check tool call block
+
 	assert.Equal(t, "tool-1", claudeMsgs[1].Content[0].OfToolUse.ID)
 	assert.Equal(t, "tool_func", claudeMsgs[1].Content[0].OfToolUse.Name)
-	// Check tool result block
+
 	assert.Equal(t, "tool-1", claudeMsgs[2].Content[0].OfToolResult.ToolUseID)
 	assert.Equal(t, `{"result":"ok"}`, claudeMsgs[2].Content[0].OfToolResult.Content[0].OfText.Text)
 }
