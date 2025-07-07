@@ -970,9 +970,3 @@ func toOpenAiFinishReason(finishReason genai.FinishReason) string {
 		return "content_filter"
 	}
 }
-
-// ToGeminiMessagesTest is a test helper to expose message conversion for testing.
-// Do not use this in production.
-func (ep *Endpoint) ToGeminiMessagesTest(ctx context.Context, openAiMessages []openai.Message) ([]*genai.Content, *genai.Content, error) {
-	return ep.toGeminiMessages(ctx, openAiMessages)
-}

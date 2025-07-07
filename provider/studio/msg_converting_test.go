@@ -1,44 +1,35 @@
-// Test file for Gemini models - /v1/chat/completions endpoint
+// This test file verifies the correctness of the message conversion logic for the Studio provider in the OGEM project.
+// It ensures that OpenAI-style messages are accurately transformed into the format expected by Studio, including handling of user/assistant roles, tool calls, tool results, and chat history.
 //
 // Usage:
-//   - This test suite covers all manually validated Gemini models for the /v1/chat/completions endpoint.
-//   - Models are selected via a two-level map in the test file, not dynamically loaded from config.yaml.
-//   - Only models explicitly listed and validated in this file are tested.
-//   - To add or remove models, update the model list in this file.
+// 1. Ensure Go is installed and dependencies are resolved.
+// 2. Run tests with: go test ./provider/studio/msg_converting_test.go
+//    Or run all Studio provider tests with: go test ./provider/studio/
+// 3. All tests should pass, confirming correct message conversion logic.
 //
-// Setup:
-//   - Place a .env file in the parent folder of this test file (gemini/.env).
-//   - The .env file must contain:
-//       OGEM_API_KEY=<your api key>
-//       OGEM_BASE_URL=<URL to server>
-//
-// Example usage:
-//   go test -v -run TestChatCompletion_UserContext ./provider/openai/ -provider_region=gemini/gemini
-//
-// To test all providers at once, run the corresponding test files for each provider.
+// Coverage:
+// - User and assistant message conversion
+// - Tool call and tool result handling
+// - Chat history and message order preservation
 
-package tests
+package studio
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/yanolja/ogem/openai"
-	"github.com/yanolja/ogem/provider/studio"
 )
 
 func TestGeminiMessages_UserRole(t *testing.T) {
-	ctx := context.Background()
 	messages := []openai.Message{
 		{
 			Role:    "user",
 			Content: &openai.MessageContent{String: ptr("Hello, Gemini!")},
 		},
 	}
-	ep := &studio.Endpoint{}
-	history, last, err := ep.ToGeminiMessagesTest(ctx, messages)
+	history, last, err := toGeminiMessages(messages)
 	assert.NoError(t, err)
 	assert.Len(t, history, 0)
 	assert.NotNil(t, last)
@@ -47,7 +38,6 @@ func TestGeminiMessages_UserRole(t *testing.T) {
 }
 
 func TestGeminiMessages_UserAssistantRoles(t *testing.T) {
-	ctx := context.Background()
 	messages := []openai.Message{
 		{
 			Role:    "user",
@@ -62,8 +52,7 @@ func TestGeminiMessages_UserAssistantRoles(t *testing.T) {
 			Content: &openai.MessageContent{String: ptr("Tell me a joke.")},
 		},
 	}
-	ep := &studio.Endpoint{}
-	history, last, err := ep.ToGeminiMessagesTest(ctx, messages)
+	history, last, err := toGeminiMessages(messages)
 	assert.NoError(t, err)
 	assert.Len(t, history, 2)
 	assert.Equal(t, "user", last.Role)
@@ -71,7 +60,6 @@ func TestGeminiMessages_UserAssistantRoles(t *testing.T) {
 }
 
 func TestGeminiMessages_FunctionCall(t *testing.T) {
-	ctx := context.Background()
 	functionName := "get_weather"
 	functionArgs := `{"location":"Seoul"}`
 	messages := []openai.Message{
@@ -98,8 +86,7 @@ func TestGeminiMessages_FunctionCall(t *testing.T) {
 			ToolCallId: ptr("call1"),
 		},
 	}
-	ep := &studio.Endpoint{}
-	history, last, err := ep.ToGeminiMessagesTest(ctx, messages)
+	history, last, err := toGeminiMessages(messages)
 	assert.NoError(t, err)
 	assert.Len(t, history, 2)
 	assert.Equal(t, "tool", messages[2].Role)
@@ -109,7 +96,6 @@ func TestGeminiMessages_FunctionCall(t *testing.T) {
 }
 
 func TestGeminiMessages_ToolCall(t *testing.T) {
-	ctx := context.Background()
 	messages := []openai.Message{
 		{
 			Role:    "user",
@@ -134,8 +120,7 @@ func TestGeminiMessages_ToolCall(t *testing.T) {
 			ToolCallId: ptr("tool-1"),
 		},
 	}
-	ep := &studio.Endpoint{}
-	history, last, err := ep.ToGeminiMessagesTest(ctx, messages)
+	history, last, err := toGeminiMessages(messages)
 	assert.NoError(t, err)
 	assert.Len(t, history, 2)
 	assert.NotNil(t, last.Parts[0].FunctionResponse)
@@ -144,7 +129,6 @@ func TestGeminiMessages_ToolCall(t *testing.T) {
 }
 
 func TestGeminiMessages_ChatHistory(t *testing.T) {
-	ctx := context.Background()
 	messages := []openai.Message{
 		{
 			Role:    "user",
@@ -167,8 +151,7 @@ func TestGeminiMessages_ChatHistory(t *testing.T) {
 			Content: &openai.MessageContent{String: ptr("What's the weather?")},
 		},
 	}
-	ep := &studio.Endpoint{}
-	history, last, err := ep.ToGeminiMessagesTest(ctx, messages)
+	history, last, err := toGeminiMessages(messages)
 	assert.NoError(t, err)
 	assert.Len(t, history, 4)
 	assert.Equal(t, "user", last.Role)
@@ -183,7 +166,6 @@ func TestGeminiMessages_ChatHistory(t *testing.T) {
 }
 
 func TestGeminiMessages_CombinedChatHistory(t *testing.T) {
-	ctx := context.Background()
 	// First part of the conversation
 	history1 := []openai.Message{
 		{
@@ -225,8 +207,7 @@ func TestGeminiMessages_CombinedChatHistory(t *testing.T) {
 	// Combine histories
 	combined := append(history1, history2...)
 
-	ep := &studio.Endpoint{}
-	history, last, err := ep.ToGeminiMessagesTest(ctx, combined)
+	history, last, err := toGeminiMessages(combined)
 	assert.NoError(t, err)
 	assert.Len(t, history, 4)
 

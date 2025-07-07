@@ -1,23 +1,18 @@
-// Test file for Claude models - /v1/chat/completions endpoint
+// This test file verifies the correctness of the message conversion logic for the Claude provider in the OGEM project.
+// It ensures that OpenAI-style messages are accurately transformed into the format expected by Claude, including handling of user/assistant roles, tool calls, tool results, and chat history.
 //
 // Usage:
-//   - This test suite covers all manually validated Claude models for the /v1/chat/completions endpoint.
-//   - Models are selected via a two-level map in the test file, not dynamically loaded from config.yaml.
-//   - Only models explicitly listed and validated in this file are tested.
-//   - To add or remove models, update the model list in this file.
+// 1. Ensure Go is installed and dependencies are resolved.
+// 2. Run tests with: go test ./provider/claude/msg_converting_test.go
+//    Or run all Claude provider tests with: go test ./provider/claude/
+// 3. All tests should pass, confirming correct message conversion logic.
 //
-// Setup:
-//   - Place a .env file in the parent folder of this test file (claude/.env).
-//   - The .env file must contain:
-//       OGEM_API_KEY=<your api key>
-//       OGEM_BASE_URL=<URL to server>
-//
-// Example usage:
-//   go test -v -run TestChatCompletion_UserContext ./provider/openai/ -provider_region=claude/claude
-//
-// To test all providers at once, run the corresponding test files for each provider.
+// Coverage:
+// - User and assistant message conversion
+// - Tool call and tool result handling
+// - Chat history and message order preservation
 
-package tests
+package claude
 
 import (
 	"context"
@@ -26,7 +21,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/yanolja/ogem/openai"
-	"github.com/yanolja/ogem/provider/claude"
 	"github.com/yanolja/ogem/utils"
 )
 
@@ -38,8 +32,8 @@ func TestClaudeMessages_UserRole(t *testing.T) {
 			Content: &openai.MessageContent{String: utils.ToPtr("Hello, Claude!")},
 		},
 	}
-	ep, _ := claude.NewEndpoint("test-key")
-	claudeMsgs, err := ep.ToClaudeMessagesTest(ctx, messages)
+	ep, _ := NewEndpoint("test-key")
+	claudeMsgs, err := ep.toClaudeMessages(ctx, messages)
 	assert.NoError(t, err)
 	assert.Len(t, claudeMsgs, 1)
 	assert.Equal(t, "user", string(claudeMsgs[0].Role))
@@ -62,8 +56,8 @@ func TestClaudeMessages_UserAssistantRoles(t *testing.T) {
 			Content: &openai.MessageContent{String: utils.ToPtr("Tell me a joke.")},
 		},
 	}
-	ep, _ := claude.NewEndpoint("test-key")
-	claudeMsgs, err := ep.ToClaudeMessagesTest(ctx, messages)
+	ep, _ := NewEndpoint("test-key")
+	claudeMsgs, err := ep.toClaudeMessages(ctx, messages)
 	assert.NoError(t, err)
 	assert.Len(t, claudeMsgs, 3)
 	assert.Equal(t, "user", string(claudeMsgs[2].Role))
@@ -96,8 +90,8 @@ func TestClaudeMessages_ToolCall(t *testing.T) {
 			ToolCallId: utils.ToPtr("tool-1"),
 		},
 	}
-	ep, _ := claude.NewEndpoint("test-key")
-	claudeMsgs, err := ep.ToClaudeMessagesTest(ctx, messages)
+	ep, _ := NewEndpoint("test-key")
+	claudeMsgs, err := ep.toClaudeMessages(ctx, messages)
 	assert.NoError(t, err)
 	assert.Len(t, claudeMsgs, 3)
 	// Check tool call block
@@ -132,8 +126,8 @@ func TestClaudeMessages_ChatHistory(t *testing.T) {
 			Content: &openai.MessageContent{String: utils.ToPtr("What's the weather?")},
 		},
 	}
-	ep, _ := claude.NewEndpoint("test-key")
-	claudeMsgs, err := ep.ToClaudeMessagesTest(ctx, messages)
+	ep, _ := NewEndpoint("test-key")
+	claudeMsgs, err := ep.toClaudeMessages(ctx, messages)
 	assert.NoError(t, err)
 	assert.Len(t, claudeMsgs, 5)
 	roles := []string{"user", "assistant", "user", "assistant", "user"}

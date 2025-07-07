@@ -269,17 +269,17 @@ func (ep *Endpoint) toClaudeSystemMessage(ctx context.Context, openAiRequest *op
 func toClaudeRole(role string) string {
 	switch strings.ToLower(role) {
 	case "assistant":
-		return "assistant"
+		return "assistant" // Claude assistant role
 	case "user":
-		return "user"
+		return "user" // Claude user role
 	case "system":
-		return "user"
+		return "user" // System messages become user messages in Claude
 	case "tool":
-		return "user"
+		return "user" // Tool responses become user messages in Claude
 	case "function":
-		return "user"
+		return "user" // Function responses become user messages in Claude
 	default:
-		return "user"
+		return "user" // Default to user role for unknown roles
 	}
 }
 
@@ -852,10 +852,4 @@ func standardizeModelName(model string) string {
 		return ogem.ModelClaude3Haiku
 	}
 	return model
-}
-
-// ToClaudeMessagesTest is a test helper to expose message conversion for testing.
-// Do not use this in production.
-func (ep *Endpoint) ToClaudeMessagesTest(ctx context.Context, messages []openai.Message) ([]anthropic.MessageParam, error) {
-	return ep.toClaudeMessages(ctx, messages)
 }
