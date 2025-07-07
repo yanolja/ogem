@@ -86,7 +86,7 @@ func (ep *Endpoint) toGeminiMessages(ctx context.Context, openAiMessages []opena
 				return nil, nil, err
 			}
 			geminiMessages = append(geminiMessages, &genai.Content{
-				Role:  "user", // Function responses are treated as user messages in Gemini
+				Role:  "user", // Function responses should be treated as user messages in Gemini request
 				Parts: parts,
 			})
 			continue
