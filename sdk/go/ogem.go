@@ -711,17 +711,44 @@ const (
 	// OpenAI Models
 	ModelGPT4o     = "gpt-4o"
 	ModelGPT4oMini = "gpt-4o-mini"
-	ModelO1Preview = "o1-preview"
+
+	// GPT-4.1 Series
+	ModelGPT41     = "gpt-4.1"
+	ModelGPT41Mini = "gpt-4.1-mini"
+	ModelGPT41Nano = "gpt-4.1-nano"
+
+	// o4 Reasoning Models
+	ModelO4Mini = "o4-mini"
+
+	// o3 Reasoning Models
+	ModelO3     = "o3"
+	ModelO3Mini = "o3-mini"
+
+	// o1 Series
+	ModelO1        = "o1"
 	ModelO1Mini    = "o1-mini"
+	ModelO1Preview = "o1-preview"
+
+	// Legacy GPT Models
+	ModelGPT4             = "gpt-4"
+	ModelGPT35Turbo       = "gpt-3.5-turbo"
+	ModelGPT4Turbo        = "gpt-4-turbo"
+	ModelGPT4TurboPreview = "gpt-4-turbo-preview"
 
 	// Claude Models
+	ModelClaudeOpus4    = "claude-opus-4-20250514"
+	ModelClaudeSonnet4  = "claude-sonnet-4-20250514"
+	ModelClaude37Sonnet = "claude-3-7-sonnet-20250219"
 	ModelClaude35Sonnet = "claude-3-5-sonnet-20241022"
-	ModelClaude35Haiku  = "claude-3.5-haiku-20241022"
+	ModelClaude35Haiku  = "claude-3-5-haiku-20241022"
+	ModelClaude3Haiku   = "claude-3-haiku-20240307"
 
 	// Gemini Models
 	ModelGemini25Pro       = "gemini-2.5-pro"
 	ModelGemini25Flash     = "gemini-2.5-flash"
 	ModelGemini25FlashLite = "gemini-2.5-flash-lite"
+	ModelGemini20Flash     = "gemini-2.0-flash"
+	ModelGemini20FlashLite = "gemini-2.0-flash-lite"
 
 	// Embedding Models
 	ModelEmbedding3Small = "text-embedding-3-small"

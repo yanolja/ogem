@@ -69,6 +69,7 @@ func (ep *Endpoint) toGeminiMessages(ctx context.Context, openAiMessages []opena
 
 	toolMap := make(map[string]string)
 	geminiMessages := make([]*genai.Content, 0, messageCount)
+
 	for _, message := range openAiMessages {
 		if message.Role == "system" {
 			continue
@@ -77,6 +78,20 @@ func (ep *Endpoint) toGeminiMessages(ctx context.Context, openAiMessages []opena
 		for _, toolCall := range message.ToolCalls {
 			toolMap[toolCall.Id] = toolCall.Function.Name
 		}
+
+		// Handle function messages as separate messages (Gemini requirement)
+		if message.Role == "function" {
+			parts, err := ep.toGeminiParts(ctx, message, toolMap)
+			if err != nil {
+				return nil, nil, err
+			}
+			geminiMessages = append(geminiMessages, &genai.Content{
+				Role:  "user", // Function responses should be treated as user messages in Gemini request
+				Parts: parts,
+			})
+			continue
+		}
+
 		parts, err := ep.toGeminiParts(ctx, message, toolMap)
 		if err != nil {
 			return nil, nil, err
@@ -86,6 +101,7 @@ func (ep *Endpoint) toGeminiMessages(ctx context.Context, openAiMessages []opena
 			Parts: parts,
 		})
 	}
+
 	lastIndex := len(geminiMessages) - 1
 	geminiMessages, last := geminiMessages[:lastIndex], geminiMessages[lastIndex]
 	return geminiMessages, last, nil

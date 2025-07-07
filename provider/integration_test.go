@@ -534,7 +534,7 @@ func getModelForProvider(providerName string) string {
 	case "openai", "openai_provider":
 		return "gpt-4o"
 	case "claude", "claude_provider":
-		return "claude-3.5-haiku-20241022"
+		return "claude-3-5-haiku-20241022"
 	case "azure", "azure_provider":
 		return "gpt-35-turbo" // Azure often uses different model names
 	case "vertex", "vertex_provider":

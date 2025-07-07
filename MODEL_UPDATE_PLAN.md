@@ -36,14 +36,14 @@ o4                       # Advanced reasoning (when available)
 # DEPRECATED → LATEST
 claude-3-opus-20240229   → claude-3-5-sonnet-20241022    # Best performance
 claude-3-sonnet-20240229 → claude-3-5-sonnet-20241022    # Balanced
-claude-3-haiku-20240307  → claude-3.5-haiku-20241022     # Fast/cheap
+claude-3-haiku-20240307  → claude-3-5-haiku-20241022     # Fast/cheap
 claude-2.1               → claude-3-5-sonnet-20241022    # Major upgrade
 claude-2                 → claude-3-5-sonnet-20241022    # Major upgrade
-claude-instant-1.2       → claude-3.5-haiku-20241022     # Fast alternative
+claude-instant-1.2       → claude-3-5-haiku-20241022     # Fast alternative
 
 # CURRENT MODELS
 claude-3-5-sonnet-20241022  # Latest flagship
-claude-3.5-haiku-20241022   # Fast and economical
+claude-3-5-haiku-20241022   # Fast and economical
 claude-4                    # Next generation (when available)
 ```
 
@@ -123,7 +123,7 @@ const (
     
     // Claude Latest Models
     Claude35Sonnet = "claude-3-5-sonnet-20241022"
-    Claude35Haiku  = "claude-3.5-haiku-20241022"
+    Claude35Haiku  = "claude-3-5-haiku-20241022"
     Claude4        = "claude-4"     // Future
     
     // Gemini Latest Models
@@ -152,7 +152,7 @@ models:
     vision: "gpt-4o"  # Vision built-in
   anthropic:
     flagship: "claude-3-5-sonnet-20241022"
-    fast: "claude-3.5-haiku-20241022"
+    fast: "claude-3-5-haiku-20241022"
   google:
     flagship: "gemini-2.5-pro"
     fast: "gemini-2.5-flash"
@@ -232,7 +232,7 @@ xargs sed -i 's/gpt-4-vision-preview/gpt-4o/g'
 find . -type f -name "*.go" -o -name "*.js" -o -name "*.py" -o -name "*.yaml" -o -name "*.md" | \
 xargs sed -i 's/claude-3-opus-20240229/claude-3-5-sonnet-20241022/g'
 xargs sed -i 's/claude-3-sonnet-20240229/claude-3-5-sonnet-20241022/g'
-xargs sed -i 's/claude-3-haiku-20240307/claude-3.5-haiku-20241022/g'
+xargs sed -i 's/claude-3-haiku-20240307/claude-3-5-haiku-20241022/g'
 
 # Gemini model updates
 find . -type f -name "*.go" -o -name "*.js" -o -name "*.py" -o -name "*.yaml" -o -name "*.md" | \
