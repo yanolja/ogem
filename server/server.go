@@ -36,6 +36,7 @@ import (
 	"github.com/yanolja/ogem/provider/vertex"
 	"github.com/yanolja/ogem/provider/xai"
 	"github.com/yanolja/ogem/routing"
+	ogemSdk "github.com/yanolja/ogem/sdk/go"
 	"github.com/yanolja/ogem/state"
 	"github.com/yanolja/ogem/utils/array"
 	"github.com/yanolja/ogem/utils/copy"
@@ -1440,9 +1441,17 @@ func (s *ModelProxy) HandleAudioTranscriptions(httpResponse http.ResponseWriter,
 	defer file.Close()
 	audioRequest.File = handler.Filename
 
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		s.logger.Warnw("Failed to read file content", "error", err)
+		http.Error(httpResponse, "Failed to read file content", http.StatusBadRequest)
+		return
+	}
+	audioRequest.FileContent = fileBytes
+
 	// Set default model if not specified
 	if audioRequest.Model == "" {
-		audioRequest.Model = "whisper-1"
+		audioRequest.Model = ogemSdk.ModelOpenAIWhisper1
 	}
 
 	models := strings.Split(audioRequest.Model, ",")
@@ -1513,9 +1522,17 @@ func (s *ModelProxy) HandleAudioTranslations(httpResponse http.ResponseWriter, h
 	defer file.Close()
 	audioRequest.File = handler.Filename
 
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		s.logger.Warnw("Failed to read file content", "error", err)
+		http.Error(httpResponse, "Failed to read file content", http.StatusBadRequest)
+		return
+	}
+	audioRequest.FileContent = fileBytes
+
 	// Set default model if not specified
 	if audioRequest.Model == "" {
-		audioRequest.Model = "whisper-1"
+		audioRequest.Model = ogemSdk.ModelOpenAIWhisper1
 	}
 
 	models := strings.Split(audioRequest.Model, ",")

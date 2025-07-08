@@ -758,6 +758,12 @@ const (
 	ModelGPTImage1 = "gpt-image-1"
 	ModelDALLE3    = "dall-e-3"
 	ModelDALLE2    = "dall-e-2"
+
+	// OpenAI Audio Models
+	ModelOpenAIWhisper1       = "whisper-1"
+	ModelOpenAIWhisperLargeV3 = "whisper-large-v3"
+	ModelOpenAITTS1           = "tts-1"
+	ModelOpenAITTS1HD         = "tts-1-hd"
 )
 
 // Response format constants
