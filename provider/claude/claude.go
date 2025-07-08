@@ -11,9 +11,10 @@ import (
 
 	"github.com/yanolja/ogem/image"
 	"github.com/yanolja/ogem/openai"
-	"github.com/yanolja/ogem/provider"
+	ogem "github.com/yanolja/ogem/sdk/go"
 	"github.com/yanolja/ogem/utils"
 	"github.com/yanolja/ogem/utils/array"
+	"github.com/yanolja/ogem/utils/orderedmap"
 )
 
 // A unique identifier for the Claude provider
@@ -59,6 +60,17 @@ func (ep *Endpoint) processImageContent(ctx context.Context, imageContent *opena
 }
 
 func (ep *Endpoint) toClaudeMessageBlocks(ctx context.Context, message openai.Message, toolMap map[string]string) ([]anthropic.ContentBlockParamUnion, error) {
+	if message.Role == "tool" {
+		if message.Content == nil || message.Content.String == nil {
+			return nil, fmt.Errorf("tool message must contain a string content")
+		}
+		if message.ToolCallId == nil {
+			return nil, fmt.Errorf("tool message must contain the corresponding tool call ID")
+		}
+		return []anthropic.ContentBlockParamUnion{
+			anthropic.NewToolResultBlock(*message.ToolCallId, *message.Content.String, false),
+		}, nil
+	}
 	if message.ToolCalls != nil && len(message.ToolCalls) > 0 {
 		return array.Map(message.ToolCalls, func(toolCall openai.ToolCall) anthropic.ContentBlockParamUnion {
 			arguments, _ := utils.JsonToMap(toolCall.Function.Arguments)
@@ -66,9 +78,22 @@ func (ep *Endpoint) toClaudeMessageBlocks(ctx context.Context, message openai.Me
 		}), nil
 	}
 	if message.FunctionCall != nil {
-		arguments, _ := utils.JsonToMap(message.FunctionCall.Arguments)
+		arguments, err := utils.JsonToMap(message.FunctionCall.Arguments)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse function arguments: %v", err)
+		}
+		toolId, exists := toolMap[message.FunctionCall.Name]
+		if !exists {
+			toolId = fmt.Sprintf("call-%s", message.FunctionCall.Name)
+		}
 		return []anthropic.ContentBlockParamUnion{
-			anthropic.NewToolUseBlock("", arguments, message.FunctionCall.Name),
+			{
+				OfToolUse: &anthropic.ToolUseBlockParam{
+					ID:    toolId,
+					Name:  message.FunctionCall.Name,
+					Input: arguments,
+				},
+			},
 		}, nil
 	}
 	if message.Role == "function" {
@@ -80,7 +105,9 @@ func (ep *Endpoint) toClaudeMessageBlocks(ctx context.Context, message openai.Me
 		}
 		toolId, exists := toolMap[*message.Name]
 		if !exists {
-			return nil, fmt.Errorf("function message must contain the corresponding function name")
+			return []anthropic.ContentBlockParamUnion{
+				anthropic.NewTextBlock(fmt.Sprintf("Function %s result: %s", *message.Name, *message.Content.String)),
+			}, nil
 		}
 		return []anthropic.ContentBlockParamUnion{
 			anthropic.NewToolResultBlock(toolId, *message.Content.String, false),
@@ -128,7 +155,7 @@ func (ep *Endpoint) toClaudeParams(ctx context.Context, openaiRequest *openai.Ch
 		params.MaxTokens = int64(*openaiRequest.MaxCompletionTokens)
 	}
 	if params.MaxTokens == 0 {
-		if standardizeModelName(openaiRequest.Model) == "claude-3.5-sonnet-20241022" {
+		if standardizeModelName(openaiRequest.Model) == ogem.ModelClaude35Sonnet {
 			params.MaxTokens = 8192
 		} else {
 			params.MaxTokens = 4096
@@ -167,22 +194,28 @@ func (ep *Endpoint) toClaudeParams(ctx context.Context, openaiRequest *openai.Ch
 }
 
 func (ep *Endpoint) toClaudeMessages(ctx context.Context, messages []openai.Message) ([]anthropic.MessageParam, error) {
-	claudeMessages := []anthropic.MessageParam{}
+	messageCount := len(messages)
+	if messageCount == 0 {
+		return nil, fmt.Errorf("at least one message is required")
+	}
+
 	toolMap := make(map[string]string)
 
+	for i, message := range messages {
+		if message.FunctionCall != nil {
+			toolId := fmt.Sprintf("call-%s-%d", message.FunctionCall.Name, i)
+			toolMap[message.FunctionCall.Name] = toolId
+		}
+		if message.ToolCalls != nil && len(message.ToolCalls) > 0 {
+			for _, toolCall := range message.ToolCalls {
+				toolMap[toolCall.Function.Name] = toolCall.Id
+			}
+		}
+	}
+
+	claudeMessages := make([]anthropic.MessageParam, 0, len(messages))
 	for _, message := range messages {
 		if message.Role == "system" {
-			continue
-		}
-
-		if message.Role == "function" || message.Role == "tool" {
-			claudeMessage, err := ep.toClaudeMessage(ctx, message, toolMap)
-			if err != nil {
-				return nil, err
-			}
-			if claudeMessage != nil {
-				claudeMessages = append(claudeMessages, *claudeMessage)
-			}
 			continue
 		}
 
@@ -190,15 +223,8 @@ func (ep *Endpoint) toClaudeMessages(ctx context.Context, messages []openai.Mess
 		if err != nil {
 			return nil, err
 		}
-		if claudeMessage != nil {
-			claudeMessages = append(claudeMessages, *claudeMessage)
-		}
+		claudeMessages = append(claudeMessages, *claudeMessage)
 	}
-
-	if len(claudeMessages) == 0 {
-		return nil, fmt.Errorf("at least one message is required")
-	}
-
 	return claudeMessages, nil
 }
 
@@ -212,7 +238,7 @@ func (ep *Endpoint) toClaudeMessage(ctx context.Context, openaiMessage openai.Me
 	}
 
 	claudeMessage := &anthropic.MessageParam{
-		Role:    anthropic.MessageParamRole(provider.ToGeminiRole(openaiMessage.Role)),
+		Role:    anthropic.MessageParamRole(toClaudeRole(openaiMessage.Role)),
 		Content: blocks,
 	}
 
@@ -238,6 +264,23 @@ func (ep *Endpoint) toClaudeSystemMessage(ctx context.Context, openAiRequest *op
 		}
 	}
 	return nil, nil
+}
+
+func toClaudeRole(role string) string {
+	switch strings.ToLower(role) {
+	case "assistant":
+		return "assistant" // Claude assistant role
+	case "user":
+		return "user" // Claude user role
+	case "system":
+		return "user" // System messages become user messages in Claude
+	case "tool":
+		return "user" // Tool responses become user messages in Claude
+	case "function":
+		return "user" // Function responses become user messages in Claude
+	default:
+		return "user" // Default to user role for unknown roles
+	}
 }
 
 func (ep *Endpoint) GenerateChatCompletion(ctx context.Context, openaiRequest *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
@@ -268,22 +311,22 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 		defer close(errorCh)
 
 		// For now, convert streaming to non-streaming by getting the full response and emitting it as chunks
-		openaiResponse, err := ep.GenerateChatCompletion(ctx, openaiRequest)
+		response, err := ep.GenerateChatCompletion(ctx, openaiRequest)
 		if err != nil {
 			errorCh <- err
 			return
 		}
 
 		// Convert the response to streaming format
-		if len(openaiResponse.Choices) > 0 {
-			choice := openaiResponse.Choices[0]
+		if len(response.Choices) > 0 {
+			choice := response.Choices[0]
 
 			// Send role chunk
 			roleChunk := &openai.ChatCompletionStreamResponse{
-				Id:      openaiResponse.Id,
+				Id:      response.Id,
 				Object:  "chat.completion.chunk",
-				Created: openaiResponse.Created,
-				Model:   openaiResponse.Model,
+				Created: response.Created,
+				Model:   response.Model,
 				Choices: []openai.ChoiceDelta{
 					{
 						Index: 0,
@@ -304,10 +347,10 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 			if choice.Message.Content != nil && choice.Message.Content.String != nil {
 				content := *choice.Message.Content.String
 				contentChunk := &openai.ChatCompletionStreamResponse{
-					Id:      openaiResponse.Id,
+					Id:      response.Id,
 					Object:  "chat.completion.chunk",
-					Created: openaiResponse.Created,
-					Model:   openaiResponse.Model,
+					Created: response.Created,
+					Model:   response.Model,
 					Choices: []openai.ChoiceDelta{
 						{
 							Index: 0,
@@ -327,10 +370,10 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 
 			// Send final chunk with finish_reason
 			finalChunk := &openai.ChatCompletionStreamResponse{
-				Id:      openaiResponse.Id,
+				Id:      response.Id,
 				Object:  "chat.completion.chunk",
-				Created: openaiResponse.Created,
-				Model:   openaiResponse.Model,
+				Created: response.Created,
+				Model:   response.Model,
 				Choices: []openai.ChoiceDelta{
 					{
 						Index:        0,
@@ -338,7 +381,7 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 						FinishReason: &choice.FinishReason,
 					},
 				},
-				Usage: &openaiResponse.Usage,
+				Usage: &response.Usage,
 			}
 
 			select {
@@ -403,7 +446,7 @@ func (ep *Endpoint) Region() string {
 func (ep *Endpoint) Ping(ctx context.Context) (time.Duration, error) {
 	start := time.Now()
 	_, err := ep.client.New(ctx, anthropic.MessageNewParams{
-		Model:     "claude-3.5-haiku-20241022",
+		Model:     ogem.ModelClaude35Haiku,
 		MaxTokens: int64(1),
 		Messages: []anthropic.MessageParam{
 			anthropic.NewUserMessage(anthropic.NewTextBlock("Ping")),
@@ -437,7 +480,7 @@ func toClaudeParams(openaiRequest *openai.ChatCompletionRequest) (*anthropic.Mes
 		params.MaxTokens = int64(*openaiRequest.MaxCompletionTokens)
 	}
 	if params.MaxTokens == 0 {
-		if standardizeModelName(openaiRequest.Model) == "claude-3.5-sonnet-20241022" {
+		if standardizeModelName(openaiRequest.Model) == ogem.ModelClaude35Sonnet {
 			params.MaxTokens = 8192
 		} else {
 			params.MaxTokens = 4096
@@ -487,15 +530,25 @@ func toClaudeMessages(openaiMessages []openai.Message) ([]anthropic.MessageParam
 	}
 
 	toolMap := make(map[string]string)
+
+	for i, message := range openaiMessages {
+		if message.FunctionCall != nil {
+			toolId := fmt.Sprintf("call-%s-%d", message.FunctionCall.Name, i)
+			toolMap[message.FunctionCall.Name] = toolId
+		}
+		if message.ToolCalls != nil && len(message.ToolCalls) > 0 {
+			for _, toolCall := range message.ToolCalls {
+				toolMap[toolCall.Function.Name] = toolCall.Id
+			}
+		}
+	}
+
 	claudeMessages := make([]anthropic.MessageParam, 0, len(openaiMessages))
-	for index, message := range openaiMessages {
+	for _, message := range openaiMessages {
 		if message.Role == "system" {
 			continue
 		}
 
-		if message.FunctionCall != nil {
-			toolMap[message.FunctionCall.Name] = fmt.Sprintf("call-%s-%d", message.FunctionCall.Name, index)
-		}
 		claudeMessage, err := toClaudeMessage(message, toolMap)
 		if err != nil {
 			return nil, err
@@ -558,19 +611,43 @@ func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([
 			anthropic.NewToolResultBlock(*message.ToolCallId, *message.Content.String, false),
 		}, nil
 	}
-	if message.Role == "function" {
-		if message.Content == nil || message.Content.String == nil {
-			return nil, fmt.Errorf("function message must contain a string content")
+	if message.ToolCalls != nil && len(message.ToolCalls) > 0 {
+		toolCalls := make([]anthropic.ContentBlockParamUnion, len(message.ToolCalls))
+		for index, toolCall := range message.ToolCalls {
+			if toolCall.Type != "function" {
+				return nil, fmt.Errorf("unsupported tool call type: %s", toolCall.Type)
+			}
+			arguments, err := utils.JsonToMap(toolCall.Function.Arguments)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse tool arguments: %v", err)
+			}
+			toolCalls[index] = anthropic.ContentBlockParamUnion{
+				OfToolUse: &anthropic.ToolUseBlockParam{
+					ID:    toolCall.Id,
+					Name:  toolCall.Function.Name,
+					Input: arguments,
+				},
+			}
 		}
-		if message.Name == nil {
-			return nil, fmt.Errorf("function message must contain the corresponding function name")
+		return toolCalls, nil
+	}
+	if message.FunctionCall != nil {
+		arguments, err := utils.JsonToMap(message.FunctionCall.Arguments)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse function arguments: %v", err)
 		}
-		toolId, exists := toolMap[*message.Name]
+		toolId, exists := toolMap[message.FunctionCall.Name]
 		if !exists {
-			return nil, fmt.Errorf("function message must contain the corresponding function name")
+			toolId = fmt.Sprintf("call-%s", message.FunctionCall.Name)
 		}
 		return []anthropic.ContentBlockParamUnion{
-			anthropic.NewToolResultBlock(toolId, *message.Content.String, false),
+			{
+				OfToolUse: &anthropic.ToolUseBlockParam{
+					ID:    toolId,
+					Name:  message.FunctionCall.Name,
+					Input: arguments,
+				},
+			},
 		}, nil
 	}
 	if message.Content != nil {
@@ -594,45 +671,6 @@ func toClaudeMessageBlocks(message openai.Message, toolMap map[string]string) ([
 			anthropic.NewTextBlock(*message.Refusal),
 		}, nil
 	}
-	if message.FunctionCall != nil {
-		arguments, err := utils.JsonToMap(message.FunctionCall.Arguments)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse function arguments: %v", err)
-		}
-		toolId, exists := toolMap[message.FunctionCall.Name]
-		if !exists {
-			return nil, fmt.Errorf("function message must contain the corresponding function name")
-		}
-		return []anthropic.ContentBlockParamUnion{
-			{
-				OfToolUse: &anthropic.ToolUseBlockParam{
-					ID:    toolId,
-					Name:  message.FunctionCall.Name,
-					Input: arguments,
-				},
-			},
-		}, nil
-	}
-	if len(message.ToolCalls) > 0 {
-		toolCalls := make([]anthropic.ContentBlockParamUnion, len(message.ToolCalls))
-		for index, toolCall := range message.ToolCalls {
-			if toolCall.Type != "function" {
-				return nil, fmt.Errorf("unsupported tool call type: %s", toolCall.Type)
-			}
-			arguments, err := utils.JsonToMap(toolCall.Function.Arguments)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse tool arguments: %v", err)
-			}
-			toolCalls[index] = anthropic.ContentBlockParamUnion{
-				OfToolUse: &anthropic.ToolUseBlockParam{
-					ID:    toolCall.Id,
-					Name:  toolCall.Function.Name,
-					Input: arguments,
-				},
-			}
-		}
-		return toolCalls, nil
-	}
 	return nil, fmt.Errorf("message must have content, refusal, function_call, or tool_calls")
 }
 
@@ -648,12 +686,20 @@ func toClaudeToolParams(openaiTools []openai.Tool) ([]anthropic.ToolUnionParam, 
 		} else {
 			description = *tool.Function.Description
 		}
+
+		properties := tool.Function.Parameters
+		if props, exists := tool.Function.Parameters.Get("properties"); exists {
+			if propsMap, ok := props.(*orderedmap.Map); ok {
+				properties = propsMap
+			}
+		}
+
 		claudeTools[i] = anthropic.ToolUnionParam{
 			OfTool: &anthropic.ToolParam{
 				Name:        tool.Function.Name,
 				Description: anthropic.String(description),
 				InputSchema: anthropic.ToolInputSchemaParam{
-					Properties: tool.Function.Parameters,
+					Properties: properties,
 				},
 			},
 		}
@@ -701,11 +747,19 @@ func toClaudeToolParamsFromFunctions(openaiFunctions []openai.LegacyFunction) []
 		} else {
 			description = *function.Description
 		}
+
+		properties := function.Parameters
+		if props, exists := function.Parameters.Get("properties"); exists {
+			if propsMap, ok := props.(*orderedmap.Map); ok {
+				properties = propsMap
+			}
+		}
+
 		tool := anthropic.ToolParam{
 			Name:        function.Name,
 			Description: anthropic.String(description),
 			InputSchema: anthropic.ToolInputSchemaParam{
-				Properties: function.Parameters,
+				Properties: properties,
 			},
 		}
 		claudeTools[i] = anthropic.ToolUnionParam{OfTool: &tool}
@@ -789,13 +843,17 @@ func toOpenAiFinishReason(claudeStopReason anthropic.MessageStopReason) string {
 func standardizeModelName(model string) string {
 	switch strings.TrimRight(model, "0123456789@-") {
 	case "claude-3-5-sonnet":
-		return "claude-3.5-sonnet-20241022"
-	case "claude-3-opus":
-		return "claude-3-opus-20240229"
-	case "claude-3-sonnet":
-		return "claude-3-sonnet-20240229"
+		return ogem.ModelClaude35Sonnet
+	case "claude-3-5-haiku":
+		return ogem.ModelClaude35Haiku
 	case "claude-3-haiku":
-		return "claude-3-haiku-20240307"
+		return ogem.ModelClaude3Haiku
+	case "claude-3-7-sonnet":
+		return ogem.ModelClaude37Sonnet
+	case "claude-opus-4":
+		return ogem.ModelClaudeOpus4
+	case "claude-sonnet-4":
+		return ogem.ModelClaudeSonnet4
 	}
 	return model
 }
