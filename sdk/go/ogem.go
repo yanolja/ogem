@@ -764,6 +764,9 @@ const (
 	ModelOpenAIWhisperLargeV3 = "whisper-large-v3"
 	ModelOpenAITTS1           = "tts-1"
 	ModelOpenAITTS1HD         = "tts-1-hd"
+
+	// OpenAI Moderation Model
+	ModelOpenAIModeration = "text-moderation-latest"
 )
 
 // Response format constants
