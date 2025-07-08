@@ -497,7 +497,7 @@ func (s *ModelProxy) HandleImages(httpResponse http.ResponseWriter, httpRequest 
 
 	// Set default model if not specified
 	if imageRequest.Model == nil {
-		defaultModel := "dall-e-3"
+		defaultModel := ogemSdk.ModelDALLE3
 		imageRequest.Model = &defaultModel
 	}
 
@@ -1583,7 +1583,7 @@ func (s *ModelProxy) HandleAudioSpeech(httpResponse http.ResponseWriter, httpReq
 
 	// Set default model if not specified
 	if speechRequest.Model == "" {
-		speechRequest.Model = "tts-1"
+		speechRequest.Model = ogemSdk.ModelOpenAITTS1
 	}
 
 	models := strings.Split(speechRequest.Model, ",")
@@ -1632,7 +1632,7 @@ func (s *ModelProxy) HandleModerations(httpResponse http.ResponseWriter, httpReq
 
 	// Set default model if not specified
 	if moderationRequest.Model == nil {
-		defaultModel := "text-moderation-latest"
+		defaultModel := ogemSdk.ModelOpenAIModeration
 		moderationRequest.Model = &defaultModel
 	}
 
