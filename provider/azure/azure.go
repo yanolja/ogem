@@ -19,7 +19,6 @@ import (
 
 const REGION = "azure"
 
-// Models that don't support the dimensions parameter
 var notSupportDimensionModels = []string{
 	"text-embedding-ada-002",
 }
@@ -190,7 +189,6 @@ func (p *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiReque
 }
 
 func (p *Endpoint) GenerateEmbedding(ctx context.Context, embeddingRequest *openai.EmbeddingRequest) (*openai.EmbeddingResponse, error) {
-	// Check if the model supports dimensions parameter
 	supportsDimensions := true
 	for _, model := range notSupportDimensionModels {
 		if embeddingRequest.Model == model {
@@ -201,7 +199,6 @@ func (p *Endpoint) GenerateEmbedding(ctx context.Context, embeddingRequest *open
 
 	requestCopy := *embeddingRequest
 
-	// Remove dimensions field if model doesn't support it
 	if !supportsDimensions && requestCopy.Dimensions != nil {
 		log.Printf("Model %s does not support dimensions parameter, removing it", embeddingRequest.Model)
 		requestCopy.Dimensions = nil
