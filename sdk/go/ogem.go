@@ -750,12 +750,14 @@ const (
 	ModelGemini20Flash     = "gemini-2.0-flash"
 	ModelGemini20FlashLite = "gemini-2.0-flash-lite"
 
-	// Embedding Models
+	// OpenAI Embedding Models
 	ModelEmbedding3Small = "text-embedding-3-small"
 	ModelEmbedding3Large = "text-embedding-3-large"
 
-	// Deprecated Models (use alternatives above)
-	// ModelGPT4, ModelGPT35Turbo, ModelClaude3*, ModelGeminiPro
+	// OpenAI Image Generation Models
+	ModelGPTImage1 = "gpt-image-1"
+	ModelDALLE3    = "dall-e-3"
+	ModelDALLE2    = "dall-e-2"
 )
 
 // Response format constants

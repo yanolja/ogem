@@ -80,6 +80,20 @@ providers:
             rate_key: "gpt-4-turbo-preview"
             rpm: 1000
             tpm: 6000000
+
+          # Image Generation Models
+          - name: "gpt-image-1"
+            rate_key: "gpt-image-1"
+            rpm: 50
+            tpm: 0
+          - name: "dall-e-3"
+            rate_key: "dall-e-3"
+            rpm: 50
+            tpm: 0
+          - name: "dall-e-2"
+            rate_key: "dall-e-2"
+            rpm: 50
+            tpm: 0
   vertex:
     regions:
       default:
