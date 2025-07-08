@@ -1443,7 +1443,7 @@ func (s *ModelProxy) HandleAudioTranscriptions(httpResponse http.ResponseWriter,
 
 	fileBytes, err := io.ReadAll(file)
 	if err != nil {
-		s.logger.Warnw("Failed to read file content", "error", err)
+		s.logger.Errorw("Failed to read file content", "error", err)
 		http.Error(httpResponse, "Failed to read file content", http.StatusBadRequest)
 		return
 	}
@@ -1524,7 +1524,7 @@ func (s *ModelProxy) HandleAudioTranslations(httpResponse http.ResponseWriter, h
 
 	fileBytes, err := io.ReadAll(file)
 	if err != nil {
-		s.logger.Warnw("Failed to read file content", "error", err)
+		s.logger.Errorw("Failed to read file content", "error", err)
 		http.Error(httpResponse, "Failed to read file content", http.StatusBadRequest)
 		return
 	}
