@@ -80,10 +80,6 @@ providers:
             rate_key: "gpt-4-turbo-preview"
             rpm: 1000
             tpm: 6000000
-          - name: "gpt-4-turbo-preview"
-            rate_key: "gpt-4-turbo-preview"
-            rpm: 1000
-            tpm: 6000000
 
           # OpenAI Embedding Models
           - name: "text-embedding-3-large"
