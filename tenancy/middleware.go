@@ -354,9 +354,13 @@ func (tm *TenantMiddleware) handleTenantError(w http.ResponseWriter, r *http.Req
 	errMsg := err.Error()
 	switch {
 	case strings.Contains(errMsg, "identification required but not found"):
+		// Client didn't provide required tenant identification - this is a 400 Bad Request
+		// because the request format is invalid (missing required parameter)
 		statusCode = http.StatusBadRequest
 		errorType = "tenant_required"
 	case strings.Contains(errMsg, "not found") && !strings.Contains(errMsg, "identification required"):
+		// Specific tenant was requested but doesn't exist - this is a 404 Not Found
+		// because the resource (tenant) doesn't exist
 		statusCode = http.StatusNotFound
 		errorType = "tenant_not_found"
 	case strings.Contains(errMsg, "not active"):
