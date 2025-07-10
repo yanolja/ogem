@@ -581,6 +581,11 @@ func TestAPIHandler_RegisterRoutes(t *testing.T) {
 	router := NewRouter(nil, nil, logger)
 	handler := NewAPIHandler(router, logger)
 
+	endpoint := &EndpointStatus{
+		Endpoint: &dummyEndpoint{provider: "openai", region: "us-east-1"},
+	}
+	router.RecordRequestResult(endpoint, 100*time.Millisecond, 0.001, true, "")
+
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
 
@@ -686,9 +691,8 @@ func TestAPIHandler_EdgeCases(t *testing.T) {
 
 		handler.HandleUpdateRoutingConfig(recorder, req)
 
-		// Should handle gracefully - the JSON will unmarshal with string value
-		// but the type assertion will use the default value
-		assert.Equal(t, http.StatusOK, recorder.Code)
+		// Should return 400 for malformed JSON
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
 	})
 
 	// Test endpoint metrics with empty path segments
@@ -728,7 +732,8 @@ func TestAPIHandler_EdgeCases(t *testing.T) {
 
 		handler.HandleResetCircuitBreaker(recorder, req)
 
-		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+		// Should return 404 for non-existent route
+		assert.Equal(t, http.StatusNotFound, recorder.Code)
 	})
 }
 
