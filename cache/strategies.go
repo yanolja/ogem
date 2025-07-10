@@ -48,7 +48,6 @@ func (cm *CacheManager) lookupSemantic(ctx context.Context, req *CacheRequest, t
 	}
 
 	cm.memoryMutex.RLock()
-	defer cm.memoryMutex.RUnlock()
 
 	var bestMatch *CacheEntry
 	var bestSimilarity float64
@@ -84,6 +83,9 @@ func (cm *CacheManager) lookupSemantic(ctx context.Context, req *CacheRequest, t
 			bestMatch = entry
 		}
 	}
+
+	// Release the read lock before updating access to avoid deadlocks
+	cm.memoryMutex.RUnlock()
 
 	if bestMatch == nil {
 		return &CacheLookupResult{
