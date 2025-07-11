@@ -10,6 +10,7 @@ import (
 
 	"github.com/yanolja/ogem"
 	"github.com/yanolja/ogem/openai"
+	ogemSdk "github.com/yanolja/ogem/sdk/go"
 )
 
 func TestNewRouter(t *testing.T) {
@@ -827,8 +828,8 @@ func TestAdaptiveState_Structure(t *testing.T) {
 func TestEndpointStatus_Structure(t *testing.T) {
 	endpoint := &mockEndpoint{provider: "openai", region: "us-east-1"}
 	modelStatus := &ogem.SupportedModel{
-		Name:    "gpt-3.5-turbo",
-		RateKey: "gpt-3.5-turbo",
+		Name:    ogemSdk.ModelGPT35Turbo,
+		RateKey: ogemSdk.ModelGPT35Turbo,
 	}
 
 	status := &EndpointStatus{
