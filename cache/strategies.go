@@ -47,7 +47,30 @@ func (cm *CacheManager) lookupSemantic(ctx context.Context, req *CacheRequest, t
 		return cm.lookupExact(req, tenantID)
 	}
 
+	bestMatch, bestSimilarity := cm.findBestSemanticMatch(reqEmbedding, req, tenantID)
+
+	if bestMatch == nil {
+		return &CacheLookupResult{
+			Found:    false,
+			Strategy: StrategySemantic,
+			Source:   "memory",
+		}, nil
+	}
+
+	cm.updateEntryAccess(bestMatch)
+
+	return &CacheLookupResult{
+		Found:      true,
+		Entry:      bestMatch,
+		Strategy:   StrategySemantic,
+		Similarity: bestSimilarity,
+		Source:     "memory",
+	}, nil
+}
+
+func (cm *CacheManager) findBestSemanticMatch(reqEmbedding []float32, req *CacheRequest, tenantID string) (*CacheEntry, float64) {
 	cm.memoryMutex.RLock()
+	defer cm.memoryMutex.RUnlock()
 
 	var bestMatch *CacheEntry
 	var bestSimilarity float64
@@ -84,39 +107,42 @@ func (cm *CacheManager) lookupSemantic(ctx context.Context, req *CacheRequest, t
 		}
 	}
 
-	// Release the read lock before updating access to avoid deadlocks
-	cm.memoryMutex.RUnlock()
+	return bestMatch, bestSimilarity
+}
+
+// lookupToken performs token-based fuzzy cache matching
+func (cm *CacheManager) lookupToken(req *CacheRequest, tenantID string) (*CacheLookupResult, error) {
+	// Extract normalized tokens from the request
+	reqTokens := cm.extractTokens(req)
+
+	bestMatch, bestSimilarity := cm.findBestTokenMatch(reqTokens, req, tenantID)
 
 	if bestMatch == nil {
 		return &CacheLookupResult{
 			Found:    false,
-			Strategy: StrategySemantic,
+			Strategy: StrategyToken,
 			Source:   "memory",
 		}, nil
 	}
 
-	// Update access tracking
 	cm.updateEntryAccess(bestMatch)
 
 	return &CacheLookupResult{
 		Found:      true,
 		Entry:      bestMatch,
-		Strategy:   StrategySemantic,
+		Strategy:   StrategyToken,
 		Similarity: bestSimilarity,
 		Source:     "memory",
 	}, nil
 }
 
-// lookupToken performs token-based fuzzy cache matching
-func (cm *CacheManager) lookupToken(req *CacheRequest, tenantID string) (*CacheLookupResult, error) {
+func (cm *CacheManager) findBestTokenMatch(reqTokens []string, req *CacheRequest, tenantID string) (*CacheEntry, float64) {
 	cm.memoryMutex.RLock()
+	defer cm.memoryMutex.RUnlock()
 
 	var bestMatch *CacheEntry
 	var bestSimilarity float64
 	threshold := cm.config.TokenConfig.TokenSimilarityThreshold
-
-	// Extract normalized tokens from the request
-	reqTokens := cm.extractTokens(req)
 
 	for _, entry := range cm.memoryCache {
 		// Skip entries from different tenants if tenant isolation is enabled
@@ -146,27 +172,7 @@ func (cm *CacheManager) lookupToken(req *CacheRequest, tenantID string) (*CacheL
 		}
 	}
 
-	// Release the read lock before updating access
-	cm.memoryMutex.RUnlock()
-
-	if bestMatch == nil {
-		return &CacheLookupResult{
-			Found:    false,
-			Strategy: StrategyToken,
-			Source:   "memory",
-		}, nil
-	}
-
-	// Update access tracking (this will acquire its own lock)
-	cm.updateEntryAccess(bestMatch)
-
-	return &CacheLookupResult{
-		Found:      true,
-		Entry:      bestMatch,
-		Strategy:   StrategyToken,
-		Similarity: bestSimilarity,
-		Source:     "memory",
-	}, nil
+	return bestMatch, bestSimilarity
 }
 
 // lookupHybrid combines multiple caching strategies
