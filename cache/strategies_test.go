@@ -1017,5 +1017,3 @@ func TestCacheManager_EstimateQueryLength(t *testing.T) {
 	length = manager.estimateQueryLength(cacheReq)
 	assert.Equal(t, 0, length)
 }
-
-// Helper functions are defined in cache_test.go
