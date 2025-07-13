@@ -91,6 +91,16 @@ func (h *APIHandler) HandleEndpointMetrics(w http.ResponseWriter, r *http.Reques
 	}
 }
 
+type routingConfigUpdate struct {
+	Strategy          *string            `json:"strategy,omitempty"`
+	FallbackStrategy  *string            `json:"fallback_strategy,omitempty"`
+	CostWeight        *float64           `json:"cost_weight,omitempty"`
+	LatencyWeight     *float64           `json:"latency_weight,omitempty"`
+	SuccessRateWeight *float64           `json:"success_rate_weight,omitempty"`
+	LoadWeight        *float64           `json:"load_weight,omitempty"`
+	EndpointWeights   map[string]float64 `json:"endpoint_weights,omitempty"`
+}
+
 // HandleUpdateRoutingConfig updates routing configuration
 func (h *APIHandler) HandleUpdateRoutingConfig(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPatch {
@@ -98,9 +108,8 @@ func (h *APIHandler) HandleUpdateRoutingConfig(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Use interface{} for raw decoding to handle type mismatches gracefully
-	var rawConfig map[string]interface{}
-	if err := json.NewDecoder(r.Body).Decode(&rawConfig); err != nil {
+	var configUpdate routingConfigUpdate
+	if err := json.NewDecoder(r.Body).Decode(&configUpdate); err != nil {
 		h.logger.Warnw("Invalid request body", "error", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -108,70 +117,42 @@ func (h *APIHandler) HandleUpdateRoutingConfig(w http.ResponseWriter, r *http.Re
 
 	config := h.router.config
 
-	getFloat64 := func(key string) *float64 {
-		if val, exists := rawConfig[key]; exists {
-			switch v := val.(type) {
-			case float64:
-				return &v
-			case int:
-				f := float64(v)
-				return &f
-			case string:
-				// Log warning but continue with nil (use existing value)
-				h.logger.Warnw("Invalid type for numeric field", "field", key, "value", v)
-				return nil
-			}
+	if configUpdate.Strategy != nil {
+		config.Strategy = RoutingStrategy(*configUpdate.Strategy)
+	}
+	if configUpdate.FallbackStrategy != nil {
+		config.FallbackStrategy = RoutingStrategy(*configUpdate.FallbackStrategy)
+	}
+
+	weightUpdated := false
+	if configUpdate.CostWeight != nil {
+		config.CostWeight = *configUpdate.CostWeight
+		weightUpdated = true
+	}
+	if configUpdate.LatencyWeight != nil {
+		config.LatencyWeight = *configUpdate.LatencyWeight
+		weightUpdated = true
+	}
+	if configUpdate.SuccessRateWeight != nil {
+		config.SuccessRateWeight = *configUpdate.SuccessRateWeight
+		weightUpdated = true
+	}
+	if configUpdate.LoadWeight != nil {
+		config.LoadWeight = *configUpdate.LoadWeight
+		weightUpdated = true
+	}
+
+	if configUpdate.EndpointWeights != nil {
+		if config.EndpointWeights == nil {
+			config.EndpointWeights = make(map[string]float64)
 		}
-		return nil
-	}
-
-	getStrategy := func(key string) *RoutingStrategy {
-		if val, exists := rawConfig[key]; exists {
-			if strVal, ok := val.(string); ok {
-				strategy := RoutingStrategy(strVal)
-				return &strategy
-			}
-		}
-		return nil
-	}
-
-	if strategy := getStrategy("strategy"); strategy != nil {
-		config.Strategy = *strategy
-	}
-	if fallbackStrategy := getStrategy("fallback_strategy"); fallbackStrategy != nil {
-		config.FallbackStrategy = *fallbackStrategy
-	}
-	if costWeight := getFloat64("cost_weight"); costWeight != nil {
-		config.CostWeight = *costWeight
-	}
-	if latencyWeight := getFloat64("latency_weight"); latencyWeight != nil {
-		config.LatencyWeight = *latencyWeight
-	}
-	if successRateWeight := getFloat64("success_rate_weight"); successRateWeight != nil {
-		config.SuccessRateWeight = *successRateWeight
-	}
-	if loadWeight := getFloat64("load_weight"); loadWeight != nil {
-		config.LoadWeight = *loadWeight
-	}
-
-	if endpointWeights, exists := rawConfig["endpoint_weights"]; exists {
-		if weights, ok := endpointWeights.(map[string]interface{}); ok {
-			if config.EndpointWeights == nil {
-				config.EndpointWeights = make(map[string]float64)
-			}
-			for k, v := range weights {
-				if floatVal, ok := v.(float64); ok {
-					config.EndpointWeights[k] = floatVal
-				} else if intVal, ok := v.(int); ok {
-					config.EndpointWeights[k] = float64(intVal)
-				}
-			}
+		for k, v := range configUpdate.EndpointWeights {
+			config.EndpointWeights[k] = v
 		}
 	}
 
-	// Normalize weights for performance-based routing
-	if getFloat64("cost_weight") != nil || getFloat64("latency_weight") != nil ||
-		getFloat64("success_rate_weight") != nil || getFloat64("load_weight") != nil {
+	// Normalize weights for performance-based routing if any weight was updated
+	if weightUpdated {
 		totalWeight := config.CostWeight + config.LatencyWeight + config.SuccessRateWeight + config.LoadWeight
 		if totalWeight > 0 {
 			config.CostWeight /= totalWeight
