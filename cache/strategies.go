@@ -112,7 +112,6 @@ func (cm *CacheManager) findBestSemanticMatch(reqEmbedding []float32, req *Cache
 
 // lookupToken performs token-based fuzzy cache matching
 func (cm *CacheManager) lookupToken(req *CacheRequest, tenantID string) (*CacheLookupResult, error) {
-	// Extract normalized tokens from the request
 	reqTokens := cm.extractTokens(req)
 
 	bestMatch, bestSimilarity := cm.findBestTokenMatch(reqTokens, req, tenantID)
