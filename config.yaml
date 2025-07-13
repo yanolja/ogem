@@ -120,6 +120,19 @@ providers:
             rate_key: "text-moderation-latest"
             rpm: 1000
             tpm: 6000000
+          # OpenAI Embedding Models
+          - name: "text-embedding-3-large"
+            rate_key: "text-embedding-3-large"
+            rpm: 1000
+            tpm: 1000000
+          - name: "text-embedding-3-small"
+            rate_key: "text-embedding-3-small"
+            rpm: 1000
+            tpm: 1000000
+          - name: "text-embedding-ada-002"
+            rate_key: "text-embedding-ada-002"
+            rpm: 1000
+            tpm: 1000000
   vertex:
     regions:
       default:
@@ -327,6 +340,10 @@ providers:
             tpm: 1_500_000
           - name: "mistral-embed"
             rate_key: "mistral-embed"
+            rpm: 500
+            tpm: 5_000_000
+          - name: "mistral-embed-v2"
+            rate_key: "mistral-embed-v2"
             rpm: 500
             tpm: 5_000_000
           - name: "codestral-latest"
