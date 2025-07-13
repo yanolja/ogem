@@ -36,6 +36,7 @@ import (
 	"github.com/yanolja/ogem/provider/vertex"
 	"github.com/yanolja/ogem/provider/xai"
 	"github.com/yanolja/ogem/routing"
+	ogemSdk "github.com/yanolja/ogem/sdk/go"
 	"github.com/yanolja/ogem/state"
 	"github.com/yanolja/ogem/utils/array"
 	"github.com/yanolja/ogem/utils/copy"
@@ -496,7 +497,7 @@ func (s *ModelProxy) HandleImages(httpResponse http.ResponseWriter, httpRequest 
 
 	// Set default model if not specified
 	if imageRequest.Model == nil {
-		defaultModel := "dall-e-3"
+		defaultModel := ogemSdk.ModelDALLE3
 		imageRequest.Model = &defaultModel
 	}
 
@@ -1440,9 +1441,17 @@ func (s *ModelProxy) HandleAudioTranscriptions(httpResponse http.ResponseWriter,
 	defer file.Close()
 	audioRequest.File = handler.Filename
 
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		s.logger.Errorw("Failed to read file content", "error", err)
+		http.Error(httpResponse, "Failed to read file content", http.StatusBadRequest)
+		return
+	}
+	audioRequest.FileContent = fileBytes
+
 	// Set default model if not specified
 	if audioRequest.Model == "" {
-		audioRequest.Model = "whisper-1"
+		audioRequest.Model = ogemSdk.ModelOpenAIWhisper1
 	}
 
 	models := strings.Split(audioRequest.Model, ",")
@@ -1513,9 +1522,17 @@ func (s *ModelProxy) HandleAudioTranslations(httpResponse http.ResponseWriter, h
 	defer file.Close()
 	audioRequest.File = handler.Filename
 
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		s.logger.Errorw("Failed to read file content", "error", err)
+		http.Error(httpResponse, "Failed to read file content", http.StatusBadRequest)
+		return
+	}
+	audioRequest.FileContent = fileBytes
+
 	// Set default model if not specified
 	if audioRequest.Model == "" {
-		audioRequest.Model = "whisper-1"
+		audioRequest.Model = ogemSdk.ModelOpenAIWhisper1
 	}
 
 	models := strings.Split(audioRequest.Model, ",")
@@ -1566,7 +1583,7 @@ func (s *ModelProxy) HandleAudioSpeech(httpResponse http.ResponseWriter, httpReq
 
 	// Set default model if not specified
 	if speechRequest.Model == "" {
-		speechRequest.Model = "tts-1"
+		speechRequest.Model = ogemSdk.ModelOpenAITTS1
 	}
 
 	models := strings.Split(speechRequest.Model, ",")
@@ -1615,7 +1632,7 @@ func (s *ModelProxy) HandleModerations(httpResponse http.ResponseWriter, httpReq
 
 	// Set default model if not specified
 	if moderationRequest.Model == nil {
-		defaultModel := "text-moderation-latest"
+		defaultModel := ogemSdk.ModelOpenAIModeration
 		moderationRequest.Model = &defaultModel
 	}
 

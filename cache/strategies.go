@@ -12,11 +12,11 @@ import (
 // lookupExact performs exact cache matching
 func (cm *CacheManager) lookupExact(req *CacheRequest, tenantID string) (*CacheLookupResult, error) {
 	key := cm.generateCacheKey(req, tenantID)
-	
+
 	cm.memoryMutex.RLock()
 	entry, exists := cm.memoryCache[key]
 	cm.memoryMutex.RUnlock()
-	
+
 	if !exists || time.Now().After(entry.ExpiresAt) {
 		return &CacheLookupResult{
 			Found:    false,
@@ -24,10 +24,10 @@ func (cm *CacheManager) lookupExact(req *CacheRequest, tenantID string) (*CacheL
 			Source:   "memory",
 		}, nil
 	}
-	
+
 	// Update access tracking
 	cm.updateEntryAccess(entry)
-	
+
 	return &CacheLookupResult{
 		Found:      true,
 		Entry:      entry,
@@ -46,45 +46,9 @@ func (cm *CacheManager) lookupSemantic(ctx context.Context, req *CacheRequest, t
 		// Fall back to exact matching
 		return cm.lookupExact(req, tenantID)
 	}
-	
-	cm.memoryMutex.RLock()
-	defer cm.memoryMutex.RUnlock()
-	
-	var bestMatch *CacheEntry
-	var bestSimilarity float64
-	threshold := cm.config.SemanticConfig.SimilarityThreshold
-	
-	// Search through cached entries for semantic matches
-	for _, entry := range cm.memoryCache {
-		// Skip entries from different tenants if tenant isolation is enabled
-		if cm.config.PerTenantLimits && entry.TenantID != tenantID {
-			continue
-		}
-		
-		// Skip expired entries
-		if time.Now().After(entry.ExpiresAt) {
-			continue
-		}
-		
-		// Skip entries without embeddings
-		if len(entry.Embedding) == 0 {
-			continue
-		}
-		
-		// Skip entries with different models (semantic matching should be model-specific)
-		if entry.Request.Model != req.Model {
-			continue
-		}
-		
-		// Calculate semantic similarity
-		similarity := cm.calculateCosineSimilarity(reqEmbedding, entry.Embedding)
-		
-		if similarity >= threshold && similarity > bestSimilarity {
-			bestSimilarity = similarity
-			bestMatch = entry
-		}
-	}
-	
+
+	bestMatch, bestSimilarity := cm.findBestSemanticMatch(reqEmbedding, req, tenantID)
+
 	if bestMatch == nil {
 		return &CacheLookupResult{
 			Found:    false,
@@ -92,10 +56,9 @@ func (cm *CacheManager) lookupSemantic(ctx context.Context, req *CacheRequest, t
 			Source:   "memory",
 		}, nil
 	}
-	
-	// Update access tracking
+
 	cm.updateEntryAccess(bestMatch)
-	
+
 	return &CacheLookupResult{
 		Found:      true,
 		Entry:      bestMatch,
@@ -105,46 +68,54 @@ func (cm *CacheManager) lookupSemantic(ctx context.Context, req *CacheRequest, t
 	}, nil
 }
 
-// lookupToken performs token-based fuzzy cache matching
-func (cm *CacheManager) lookupToken(req *CacheRequest, tenantID string) (*CacheLookupResult, error) {
+func (cm *CacheManager) findBestSemanticMatch(reqEmbedding []float32, req *CacheRequest, tenantID string) (*CacheEntry, float64) {
 	cm.memoryMutex.RLock()
 	defer cm.memoryMutex.RUnlock()
-	
+
 	var bestMatch *CacheEntry
 	var bestSimilarity float64
-	threshold := cm.config.TokenConfig.TokenSimilarityThreshold
-	
-	// Extract normalized tokens from the request
-	reqTokens := cm.extractTokens(req)
-	
+	threshold := cm.config.SemanticConfig.SimilarityThreshold
+
+	// Search through cached entries for semantic matches
 	for _, entry := range cm.memoryCache {
 		// Skip entries from different tenants if tenant isolation is enabled
 		if cm.config.PerTenantLimits && entry.TenantID != tenantID {
 			continue
 		}
-		
+
 		// Skip expired entries
 		if time.Now().After(entry.ExpiresAt) {
 			continue
 		}
-		
-		// Skip entries with different models
+
+		// Skip entries without embeddings
+		if len(entry.Embedding) == 0 {
+			continue
+		}
+
+		// Skip entries with different models (semantic matching should be model-specific)
 		if entry.Request.Model != req.Model {
 			continue
 		}
-		
-		// Extract tokens from cached entry
-		entryTokens := cm.extractTokens(entry.Request)
-		
-		// Calculate token similarity
-		similarity := cm.calculateTokenSimilarity(reqTokens, entryTokens)
-		
+
+		// Calculate semantic similarity
+		similarity := cm.calculateCosineSimilarity(reqEmbedding, entry.Embedding)
+
 		if similarity >= threshold && similarity > bestSimilarity {
 			bestSimilarity = similarity
 			bestMatch = entry
 		}
 	}
-	
+
+	return bestMatch, bestSimilarity
+}
+
+// lookupToken performs token-based fuzzy cache matching
+func (cm *CacheManager) lookupToken(req *CacheRequest, tenantID string) (*CacheLookupResult, error) {
+	reqTokens := cm.extractTokens(req)
+
+	bestMatch, bestSimilarity := cm.findBestTokenMatch(reqTokens, req, tenantID)
+
 	if bestMatch == nil {
 		return &CacheLookupResult{
 			Found:    false,
@@ -152,10 +123,9 @@ func (cm *CacheManager) lookupToken(req *CacheRequest, tenantID string) (*CacheL
 			Source:   "memory",
 		}, nil
 	}
-	
-	// Update access tracking
+
 	cm.updateEntryAccess(bestMatch)
-	
+
 	return &CacheLookupResult{
 		Found:      true,
 		Entry:      bestMatch,
@@ -165,6 +135,45 @@ func (cm *CacheManager) lookupToken(req *CacheRequest, tenantID string) (*CacheL
 	}, nil
 }
 
+func (cm *CacheManager) findBestTokenMatch(reqTokens []string, req *CacheRequest, tenantID string) (*CacheEntry, float64) {
+	cm.memoryMutex.RLock()
+	defer cm.memoryMutex.RUnlock()
+
+	var bestMatch *CacheEntry
+	var bestSimilarity float64
+	threshold := cm.config.TokenConfig.TokenSimilarityThreshold
+
+	for _, entry := range cm.memoryCache {
+		// Skip entries from different tenants if tenant isolation is enabled
+		if cm.config.PerTenantLimits && entry.TenantID != tenantID {
+			continue
+		}
+
+		// Skip expired entries
+		if time.Now().After(entry.ExpiresAt) {
+			continue
+		}
+
+		// Skip entries with different models
+		if entry.Request.Model != req.Model {
+			continue
+		}
+
+		// Extract tokens from cached entry
+		entryTokens := cm.extractTokens(entry.Request)
+
+		// Calculate token similarity
+		similarity := cm.calculateTokenSimilarity(reqTokens, entryTokens)
+
+		if similarity >= threshold && similarity > bestSimilarity {
+			bestSimilarity = similarity
+			bestMatch = entry
+		}
+	}
+
+	return bestMatch, bestSimilarity
+}
+
 // lookupHybrid combines multiple caching strategies
 func (cm *CacheManager) lookupHybrid(ctx context.Context, req *CacheRequest, tenantID string) (*CacheLookupResult, error) {
 	// Try exact match first (fastest)
@@ -172,7 +181,7 @@ func (cm *CacheManager) lookupHybrid(ctx context.Context, req *CacheRequest, ten
 		result.Strategy = StrategyHybrid
 		return result, nil
 	}
-	
+
 	// Try semantic matching if available
 	if cm.config.SemanticConfig != nil {
 		if result, err := cm.lookupSemantic(ctx, req, tenantID); err == nil && result.Found {
@@ -180,7 +189,7 @@ func (cm *CacheManager) lookupHybrid(ctx context.Context, req *CacheRequest, ten
 			return result, nil
 		}
 	}
-	
+
 	// Try token-based matching as fallback
 	if cm.config.TokenConfig != nil {
 		if result, err := cm.lookupToken(req, tenantID); err == nil && result.Found {
@@ -188,7 +197,7 @@ func (cm *CacheManager) lookupHybrid(ctx context.Context, req *CacheRequest, ten
 			return result, nil
 		}
 	}
-	
+
 	return &CacheLookupResult{
 		Found:    false,
 		Strategy: StrategyHybrid,
@@ -201,7 +210,7 @@ func (cm *CacheManager) generateEmbedding(ctx context.Context, req *CacheRequest
 	if cm.config.SemanticConfig == nil {
 		return nil, fmt.Errorf("semantic config not available")
 	}
-	
+
 	// Extract text content from messages
 	var textContent strings.Builder
 	for _, message := range req.Messages {
@@ -219,16 +228,16 @@ func (cm *CacheManager) generateEmbedding(ctx context.Context, req *CacheRequest
 			}
 		}
 	}
-	
+
 	text := strings.TrimSpace(textContent.String())
 	if text == "" {
 		return nil, fmt.Errorf("no text content found for embedding")
 	}
-	
+
 	// This is a simplified implementation
 	// In production, you would call the actual embedding service
 	embedding := cm.generateSimulatedEmbedding(text)
-	
+
 	return embedding, nil
 }
 
@@ -237,32 +246,32 @@ func (cm *CacheManager) generateSimulatedEmbedding(text string) []float32 {
 	// This is a simplified simulation
 	// In production, this would call an actual embedding API
 	embedding := make([]float32, 384) // Common embedding dimension
-	
+
 	// Generate a deterministic but varied embedding based on text content
 	hash := 0
 	for _, char := range text {
 		hash = hash*31 + int(char)
 	}
-	
+
 	for i := range embedding {
 		// Create a pseudo-random but deterministic value
 		seed := hash + i*7
 		embedding[i] = float32(math.Sin(float64(seed))) * 0.5
 	}
-	
+
 	// Normalize the embedding
 	norm := float32(0)
 	for _, val := range embedding {
 		norm += val * val
 	}
 	norm = float32(math.Sqrt(float64(norm)))
-	
+
 	if norm > 0 {
 		for i := range embedding {
 			embedding[i] /= norm
 		}
 	}
-	
+
 	return embedding
 }
 
@@ -271,26 +280,26 @@ func (cm *CacheManager) calculateCosineSimilarity(a, b []float32) float64 {
 	if len(a) != len(b) {
 		return 0.0
 	}
-	
+
 	var dotProduct, normA, normB float64
-	
+
 	for i := range a {
 		dotProduct += float64(a[i] * b[i])
 		normA += float64(a[i] * a[i])
 		normB += float64(b[i] * b[i])
 	}
-	
+
 	if normA == 0 || normB == 0 {
 		return 0.0
 	}
-	
+
 	return dotProduct / (math.Sqrt(normA) * math.Sqrt(normB))
 }
 
 // extractTokens extracts and normalizes tokens from a cache request
 func (cm *CacheManager) extractTokens(req *CacheRequest) []string {
 	var tokens []string
-	
+
 	// Extract tokens from all messages
 	for _, message := range req.Messages {
 		if message.Content != nil {
@@ -306,14 +315,14 @@ func (cm *CacheManager) extractTokens(req *CacheRequest) []string {
 				}
 				text = strings.Join(parts, " ")
 			}
-			
+
 			if text != "" {
 				messageTokens := cm.tokenizeText(text)
 				tokens = append(tokens, messageTokens...)
 			}
 		}
 	}
-	
+
 	return tokens
 }
 
@@ -323,26 +332,26 @@ func (cm *CacheManager) tokenizeText(text string) []string {
 	tokens := strings.FieldsFunc(text, func(c rune) bool {
 		return c == ' ' || c == '\t' || c == '\n' || c == '\r'
 	})
-	
+
 	var normalizedTokens []string
 	for _, token := range tokens {
 		normalized := token
-		
+
 		// Apply normalization based on config
 		if cm.config.TokenConfig.IgnoreCase {
 			normalized = strings.ToLower(normalized)
 		}
-		
+
 		if cm.config.TokenConfig.RemovePunctuation {
 			// Remove common punctuation
 			normalized = strings.Trim(normalized, ".,!?;:\"'()[]{}+-=")
 		}
-		
+
 		if normalized != "" {
 			normalizedTokens = append(normalizedTokens, normalized)
 		}
 	}
-	
+
 	return normalizedTokens
 }
 
@@ -354,22 +363,22 @@ func (cm *CacheManager) calculateTokenSimilarity(tokensA, tokensB []string) floa
 	if len(tokensA) == 0 || len(tokensB) == 0 {
 		return 0.0
 	}
-	
+
 	// Create token frequency maps
 	freqA := make(map[string]int)
 	freqB := make(map[string]int)
-	
+
 	for _, token := range tokensA {
 		freqA[token]++
 	}
 	for _, token := range tokensB {
 		freqB[token]++
 	}
-	
+
 	// Calculate Jaccard similarity with frequency weighting
 	intersection := 0
 	union := 0
-	
+
 	allTokens := make(map[string]bool)
 	for token := range freqA {
 		allTokens[token] = true
@@ -377,27 +386,27 @@ func (cm *CacheManager) calculateTokenSimilarity(tokensA, tokensB []string) floa
 	for token := range freqB {
 		allTokens[token] = true
 	}
-	
+
 	for token := range allTokens {
 		countA := freqA[token]
 		countB := freqB[token]
-		
+
 		intersection += min(countA, countB)
 		union += max(countA, countB)
 	}
-	
+
 	if union == 0 {
 		return 0.0
 	}
-	
+
 	jaccard := float64(intersection) / float64(union)
-	
+
 	// Apply fuzzy matching if enabled
 	if cm.config.TokenConfig.EnableFuzzyMatching {
 		fuzzyBonus := cm.calculateFuzzyMatchBonus(tokensA, tokensB)
 		jaccard = math.Min(1.0, jaccard+fuzzyBonus*0.1) // Small bonus for fuzzy matches
 	}
-	
+
 	return jaccard
 }
 
@@ -405,7 +414,7 @@ func (cm *CacheManager) calculateTokenSimilarity(tokensA, tokensB []string) floa
 func (cm *CacheManager) calculateFuzzyMatchBonus(tokensA, tokensB []string) float64 {
 	var fuzzyMatches int
 	maxDistance := cm.config.TokenConfig.MaxTokenDistance
-	
+
 	for _, tokenA := range tokensA {
 		for _, tokenB := range tokensB {
 			if tokenA != tokenB && cm.editDistance(tokenA, tokenB) <= maxDistance {
@@ -414,13 +423,13 @@ func (cm *CacheManager) calculateFuzzyMatchBonus(tokensA, tokensB []string) floa
 			}
 		}
 	}
-	
+
 	// Normalize by the smaller token set size
 	minLength := min(len(tokensA), len(tokensB))
 	if minLength == 0 {
 		return 0.0
 	}
-	
+
 	return float64(fuzzyMatches) / float64(minLength)
 }
 
@@ -432,7 +441,7 @@ func (cm *CacheManager) editDistance(a, b string) int {
 	if len(b) == 0 {
 		return len(a)
 	}
-	
+
 	// Create a matrix to store distances
 	rows := len(a) + 1
 	cols := len(b) + 1
@@ -440,7 +449,7 @@ func (cm *CacheManager) editDistance(a, b string) int {
 	for i := range matrix {
 		matrix[i] = make([]int, cols)
 	}
-	
+
 	// Initialize first row and column
 	for i := 0; i <= len(a); i++ {
 		matrix[i][0] = i
@@ -448,7 +457,7 @@ func (cm *CacheManager) editDistance(a, b string) int {
 	for j := 0; j <= len(b); j++ {
 		matrix[0][j] = j
 	}
-	
+
 	// Fill the matrix
 	for i := 1; i <= len(a); i++ {
 		for j := 1; j <= len(b); j++ {
@@ -456,33 +465,33 @@ func (cm *CacheManager) editDistance(a, b string) int {
 			if a[i-1] != b[j-1] {
 				cost = 1
 			}
-			
+
 			deletion := matrix[i-1][j] + 1
 			insertion := matrix[i][j-1] + 1
 			substitution := matrix[i-1][j-1] + cost
-			
+
 			matrix[i][j] = min(deletion, min(insertion, substitution))
 		}
 	}
-	
+
 	return matrix[len(a)][len(b)]
 }
 
 // updateEntryAccess updates access tracking for a cache entry
 func (cm *CacheManager) updateEntryAccess(entry *CacheEntry) {
 	now := time.Now()
-	
+
 	// Update entry access info
 	entry.AccessCount++
 	entry.LastAccess = now
-	
+
 	// Update LRU order
 	cm.memoryMutex.Lock()
 	defer cm.memoryMutex.Unlock()
-	
+
 	// Remove from current position
 	cm.removeFromAccessOrder(entry.Key)
-	
+
 	// Add to end (most recently used)
 	cm.accessOrder = append(cm.accessOrder, entry.Key)
 }
@@ -491,7 +500,7 @@ func (cm *CacheManager) updateEntryAccess(entry *CacheEntry) {
 func (cm *CacheManager) storeEntry(entry *CacheEntry) error {
 	cm.memoryMutex.Lock()
 	defer cm.memoryMutex.Unlock()
-	
+
 	// Check memory limits before storing
 	if int64(len(cm.memoryCache)) >= cm.config.MaxEntries {
 		// Evict oldest entry
@@ -501,11 +510,11 @@ func (cm *CacheManager) storeEntry(entry *CacheEntry) error {
 			cm.accessOrder = cm.accessOrder[1:]
 		}
 	}
-	
+
 	// Store in memory cache
 	cm.memoryCache[entry.Key] = entry
 	cm.accessOrder = append(cm.accessOrder, entry.Key)
-	
+
 	return nil
 }
 
@@ -530,19 +539,19 @@ func (cm *CacheManager) compressEntry(entry *CacheEntry) error {
 	if !cm.config.CompressionEnabled {
 		return nil
 	}
-	
+
 	// Serialize the response for compression
 	responseData, err := json.Marshal(entry.Response)
 	if err != nil {
 		return err
 	}
-	
+
 	entry.OriginalSize = int64(len(responseData))
-	
+
 	// This is a placeholder for actual compression
 	// In production, you would use gzip, zstd, or other compression algorithms
 	entry.Compressed = true
-	
+
 	return nil
 }
 
@@ -550,10 +559,10 @@ func (cm *CacheManager) compressEntry(entry *CacheEntry) error {
 func (cm *CacheManager) updateLookupStats(result *CacheLookupResult, tenantID string) {
 	cm.statsMutex.Lock()
 	defer cm.statsMutex.Unlock()
-	
+
 	if result.Found {
 		cm.stats.Hits++
-		
+
 		// Update strategy-specific stats
 		switch result.Strategy {
 		case StrategyExact:
@@ -566,7 +575,7 @@ func (cm *CacheManager) updateLookupStats(result *CacheLookupResult, tenantID st
 	} else {
 		cm.stats.Misses++
 	}
-	
+
 	// Update tenant-specific stats
 	if cm.config.PerTenantLimits && tenantID != "" {
 		tenantStats, exists := cm.stats.TenantStats[tenantID]
@@ -574,19 +583,19 @@ func (cm *CacheManager) updateLookupStats(result *CacheLookupResult, tenantID st
 			tenantStats = &TenantCacheStats{}
 			cm.stats.TenantStats[tenantID] = tenantStats
 		}
-		
+
 		if result.Found {
 			tenantStats.Hits++
 		} else {
 			tenantStats.Misses++
 		}
-		
+
 		total := tenantStats.Hits + tenantStats.Misses
 		if total > 0 {
 			tenantStats.HitRate = float64(tenantStats.Hits) / float64(total)
 		}
 	}
-	
+
 	// Update total entries count
 	cm.stats.TotalEntries = int64(len(cm.memoryCache))
 }
@@ -595,10 +604,10 @@ func (cm *CacheManager) updateLookupStats(result *CacheLookupResult, tenantID st
 func (cm *CacheManager) updateStoreStats(entry *CacheEntry) {
 	cm.statsMutex.Lock()
 	defer cm.statsMutex.Unlock()
-	
+
 	cm.stats.Stores++
 	cm.stats.TotalEntries = int64(len(cm.memoryCache))
-	
+
 	// Update tenant-specific stats
 	if cm.config.PerTenantLimits && entry.TenantID != "" {
 		tenantStats, exists := cm.stats.TenantStats[entry.TenantID]
@@ -606,7 +615,7 @@ func (cm *CacheManager) updateStoreStats(entry *CacheEntry) {
 			tenantStats = &TenantCacheStats{}
 			cm.stats.TenantStats[entry.TenantID] = tenantStats
 		}
-		
+
 		tenantStats.Entries++
 	}
 }
@@ -616,27 +625,27 @@ func (cm *CacheManager) updateAdaptiveLearning(result *CacheLookupResult, req *C
 	if cm.adaptiveState == nil {
 		return
 	}
-	
+
 	cm.adaptiveState.mutex.Lock()
 	defer cm.adaptiveState.mutex.Unlock()
-	
+
 	cm.adaptiveState.SampleCount++
-	
+
 	// Update pattern detection
 	if cm.config.AdaptiveConfig.EnablePatternDetection && cm.adaptiveState.PatternDetection != nil {
 		cm.adaptiveState.PatternDetection.CommonModels[req.Model]++
-		
+
 		hour := time.Now().Hour()
 		cm.adaptiveState.PatternDetection.TimePatterns[hour]++
-		
+
 		if tenantID != "" {
 			cm.adaptiveState.PatternDetection.UserPatterns[tenantID]++
 		}
-		
+
 		// Track query characteristics
 		queryLength := cm.estimateQueryLength(req)
 		cm.adaptiveState.PatternDetection.QueryLength = append(cm.adaptiveState.PatternDetection.QueryLength, queryLength)
-		
+
 		// Keep only recent samples (limit memory usage)
 		if len(cm.adaptiveState.PatternDetection.QueryLength) > 1000 {
 			cm.adaptiveState.PatternDetection.QueryLength = cm.adaptiveState.PatternDetection.QueryLength[500:]
@@ -649,28 +658,28 @@ func (cm *CacheManager) performAdaptiveTuning() {
 	if cm.adaptiveState == nil || cm.config.AdaptiveConfig == nil {
 		return
 	}
-	
+
 	cm.adaptiveState.mutex.Lock()
 	defer cm.adaptiveState.mutex.Unlock()
-	
+
 	now := time.Now()
 	if now.Sub(cm.adaptiveState.LastEvaluation) < cm.config.AdaptiveConfig.LearningWindow {
 		return
 	}
-	
+
 	if cm.adaptiveState.SampleCount < cm.config.AdaptiveConfig.MinSamples {
 		cm.adaptiveState.SampleCount++
 		return
 	}
-	
+
 	// Calculate current hit rate
 	stats := cm.GetStats()
 	currentHitRate := stats.HitRate
-	
+
 	// Determine if strategy should change
 	var newStrategy CacheStrategy
 	var reason string
-	
+
 	if currentHitRate < cm.config.AdaptiveConfig.LowHitThreshold {
 		// Hit rate is low, try a different strategy
 		switch cm.adaptiveState.CurrentStrategy {
@@ -694,7 +703,7 @@ func (cm *CacheManager) performAdaptiveTuning() {
 			reason = "high hit rate, enabling hybrid caching"
 		}
 	}
-	
+
 	// Apply strategy change if needed
 	if newStrategy != "" && newStrategy != cm.adaptiveState.CurrentStrategy {
 		cm.logger.Infow("Adaptive caching strategy change",
@@ -702,7 +711,7 @@ func (cm *CacheManager) performAdaptiveTuning() {
 			"to", newStrategy,
 			"reason", reason,
 			"hit_rate", currentHitRate)
-		
+
 		cm.adaptiveState.StrategyHistory = append(cm.adaptiveState.StrategyHistory, StrategyChange{
 			Timestamp:    now,
 			FromStrategy: cm.adaptiveState.CurrentStrategy,
@@ -715,10 +724,10 @@ func (cm *CacheManager) performAdaptiveTuning() {
 				"sample_count": cm.adaptiveState.SampleCount,
 			},
 		})
-		
+
 		cm.adaptiveState.CurrentStrategy = newStrategy
 	}
-	
+
 	cm.adaptiveState.LastEvaluation = now
 	cm.adaptiveState.SampleCount = 0
 }

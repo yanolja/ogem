@@ -25,27 +25,27 @@ type TenantMiddleware struct {
 type MiddlewareConfig struct {
 	// Tenant identification method
 	IdentificationMethod TenantIdentificationMethod `yaml:"identification_method"`
-	
+
 	// Header names for tenant identification
-	TenantHeaderName     string `yaml:"tenant_header_name"`
-	TenantDomainHeader   string `yaml:"tenant_domain_header"`
-	
+	TenantHeaderName   string `yaml:"tenant_header_name"`
+	TenantDomainHeader string `yaml:"tenant_domain_header"`
+
 	// URL path configurations
-	TenantPathPrefix     string `yaml:"tenant_path_prefix"`     // e.g., "/t/{tenant_id}"
-	TenantSubdomain      bool   `yaml:"tenant_subdomain"`       // e.g., "tenant.example.com"
-	
+	TenantPathPrefix string `yaml:"tenant_path_prefix"` // e.g., "/t/{tenant_id}"
+	TenantSubdomain  bool   `yaml:"tenant_subdomain"`   // e.g., "tenant.example.com"
+
 	// Default tenant for requests without tenant context
-	DefaultTenantID      string `yaml:"default_tenant_id"`
-	
+	DefaultTenantID string `yaml:"default_tenant_id"`
+
 	// Auto-provisioning settings
-	AutoProvisionTenants bool   `yaml:"auto_provision_tenants"`
-	
+	AutoProvisionTenants bool `yaml:"auto_provision_tenants"`
+
 	// Error handling
-	RequireTenant        bool   `yaml:"require_tenant"`
-	
+	RequireTenant bool `yaml:"require_tenant"`
+
 	// Cache settings for tenant lookup
-	EnableCaching        bool          `yaml:"enable_caching"`
-	CacheTTL            int           `yaml:"cache_ttl_seconds"`
+	EnableCaching bool `yaml:"enable_caching"`
+	CacheTTL      int  `yaml:"cache_ttl_seconds"`
 }
 
 // TenantIdentificationMethod defines how tenants are identified in requests
@@ -64,7 +64,7 @@ func NewTenantMiddleware(tenantManager *TenantManager, authManager *auth.AuthMan
 	if config == nil {
 		config = DefaultMiddlewareConfig()
 	}
-	
+
 	return &TenantMiddleware{
 		tenantManager: tenantManager,
 		authManager:   authManager,
@@ -85,7 +85,7 @@ func DefaultMiddlewareConfig() *MiddlewareConfig {
 		AutoProvisionTenants: false,
 		RequireTenant:        true,
 		EnableCaching:        true,
-		CacheTTL:            300, // 5 minutes
+		CacheTTL:             300, // 5 minutes
 	}
 }
 
@@ -99,7 +99,7 @@ func (tm *TenantMiddleware) Middleware() func(http.Handler) http.Handler {
 				tm.handleTenantError(w, r, err)
 				return
 			}
-			
+
 			// Validate tenant access
 			if tenantCtx != nil && tenantCtx.Tenant != nil {
 				if err := tm.validateTenantAccess(r.Context(), tenantCtx); err != nil {
@@ -107,19 +107,19 @@ func (tm *TenantMiddleware) Middleware() func(http.Handler) http.Handler {
 					return
 				}
 			}
-			
+
 			// Add tenant context to request
 			if tenantCtx != nil {
 				ctx := WithTenantContext(r.Context(), tenantCtx)
 				r = r.WithContext(ctx)
 			}
-			
+
 			// Set response headers for tenant identification
 			if tenantCtx != nil && tenantCtx.Tenant != nil {
 				w.Header().Set("X-Tenant-ID", tenantCtx.Tenant.ID)
 				w.Header().Set("X-Tenant-Name", tenantCtx.Tenant.Name)
 			}
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -131,7 +131,7 @@ func (tm *TenantMiddleware) extractTenantContext(r *http.Request) (*TenantContex
 	var userID string
 	var teamID string
 	var projectID string
-	
+
 	// Extract user information from authentication context
 	if tm.authManager != nil {
 		if authCtx := auth.GetAuthContextFromRequest(r); authCtx != nil {
@@ -150,7 +150,7 @@ func (tm *TenantMiddleware) extractTenantContext(r *http.Request) (*TenantContex
 			}
 		}
 	}
-	
+
 	// Extract tenant ID based on identification method
 	switch tm.config.IdentificationMethod {
 	case IdentificationMethodHeader:
@@ -171,12 +171,12 @@ func (tm *TenantMiddleware) extractTenantContext(r *http.Request) (*TenantContex
 			tenantID = id
 		}
 	}
-	
+
 	// Use default tenant if none found and configured
 	if tenantID == "" && tm.config.DefaultTenantID != "" {
 		tenantID = tm.config.DefaultTenantID
 	}
-	
+
 	// Return early if no tenant identified and not required
 	if tenantID == "" {
 		if tm.config.RequireTenant {
@@ -184,7 +184,7 @@ func (tm *TenantMiddleware) extractTenantContext(r *http.Request) (*TenantContex
 		}
 		return nil, nil
 	}
-	
+
 	// Retrieve tenant information
 	tenant, err := tm.tenantManager.GetTenant(r.Context(), tenantID)
 	if err != nil {
@@ -198,7 +198,7 @@ func (tm *TenantMiddleware) extractTenantContext(r *http.Request) (*TenantContex
 			return nil, fmt.Errorf("tenant %s not found: %v", tenantID, err)
 		}
 	}
-	
+
 	return &TenantContext{
 		Tenant:    tenant,
 		UserID:    userID,
@@ -213,47 +213,47 @@ func (tm *TenantMiddleware) extractFromHeader(r *http.Request) string {
 	if tenantID := r.Header.Get(tm.config.TenantHeaderName); tenantID != "" {
 		return tenantID
 	}
-	
+
 	// Try common alternative headers
 	alternatives := []string{
 		"X-Tenant-ID",
-		"X-Organization-ID", 
+		"X-Organization-ID",
 		"X-Org-ID",
 		"Tenant-ID",
 		"Organization-ID",
 	}
-	
+
 	for _, header := range alternatives {
 		if tenantID := r.Header.Get(header); tenantID != "" {
 			return tenantID
 		}
 	}
-	
+
 	// Try domain-based identification
 	if domain := r.Header.Get(tm.config.TenantDomainHeader); domain != "" {
 		return tm.tenantIDFromDomain(domain)
 	}
-	
+
 	return ""
 }
 
 // extractFromPath extracts tenant ID from URL path
 func (tm *TenantMiddleware) extractFromPath(r *http.Request) string {
 	path := r.URL.Path
-	
+
 	// Remove leading slash and split path components
 	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
-	
+
 	// Look for tenant prefix pattern: /t/{tenant_id}/...
 	if len(parts) >= 2 && parts[0] == strings.TrimPrefix(tm.config.TenantPathPrefix, "/") {
 		return parts[1]
 	}
-	
+
 	// Look for organization prefix pattern: /org/{tenant_id}/...
 	if len(parts) >= 2 && (parts[0] == "org" || parts[0] == "organization") {
 		return parts[1]
 	}
-	
+
 	return ""
 }
 
@@ -262,17 +262,17 @@ func (tm *TenantMiddleware) extractFromSubdomain(r *http.Request) string {
 	if !tm.config.TenantSubdomain {
 		return ""
 	}
-	
+
 	host := r.Host
-	
+
 	// Remove port if present
 	if colonIndex := strings.Index(host, ":"); colonIndex != -1 {
 		host = host[:colonIndex]
 	}
-	
+
 	// Split by dots to get subdomain parts
 	parts := strings.Split(host, ".")
-	
+
 	// For subdomain like "tenant.example.com", tenant ID is the first part
 	if len(parts) >= 3 {
 		subdomain := parts[0]
@@ -281,7 +281,7 @@ func (tm *TenantMiddleware) extractFromSubdomain(r *http.Request) string {
 			return subdomain
 		}
 	}
-	
+
 	return ""
 }
 
@@ -295,22 +295,22 @@ func (tm *TenantMiddleware) tenantIDFromDomain(domain string) string {
 // validateTenantAccess validates if the request is authorized for the tenant
 func (tm *TenantMiddleware) validateTenantAccess(ctx context.Context, tenantCtx *TenantContext) error {
 	tenant := tenantCtx.Tenant
-	
+
 	// Check if tenant is active
 	if !tenant.IsActive() {
 		return fmt.Errorf("tenant %s is not active (status: %s)", tenant.ID, tenant.Status)
 	}
-	
+
 	// Check if tenant subscription is valid
 	if tenant.IsExpired() {
 		return fmt.Errorf("tenant %s subscription has expired", tenant.ID)
 	}
-	
+
 	// Additional validation can be added here
 	// - IP restrictions
 	// - Geographic restrictions
 	// - User membership validation
-	
+
 	return nil
 }
 
@@ -327,15 +327,15 @@ func (tm *TenantMiddleware) autoProvisionTenant(ctx context.Context, tenantID, u
 			"created_by":       userID,
 		},
 	}
-	
+
 	if err := tm.tenantManager.CreateTenant(ctx, tenant); err != nil {
 		return nil, err
 	}
-	
+
 	tm.logger.Infow("Auto-provisioned tenant",
 		"tenant_id", tenantID,
 		"user_id", userID)
-	
+
 	return tenant, nil
 }
 
@@ -346,14 +346,21 @@ func (tm *TenantMiddleware) handleTenantError(w http.ResponseWriter, r *http.Req
 		"path", r.URL.Path,
 		"method", r.Method,
 		"remote_addr", r.RemoteAddr)
-	
+
 	// Determine appropriate HTTP status code
 	var statusCode int
 	var errorType string
-	
+
 	errMsg := err.Error()
 	switch {
-	case strings.Contains(errMsg, "not found"):
+	case strings.Contains(errMsg, "identification required but not found"):
+		// Client didn't provide required tenant identification - this is a 400 Bad Request
+		// because the request format is invalid (missing required parameter)
+		statusCode = http.StatusBadRequest
+		errorType = "tenant_required"
+	case strings.Contains(errMsg, "not found") && !strings.Contains(errMsg, "identification required"):
+		// Specific tenant was requested but doesn't exist - this is a 404 Not Found
+		// because the resource (tenant) doesn't exist
 		statusCode = http.StatusNotFound
 		errorType = "tenant_not_found"
 	case strings.Contains(errMsg, "not active"):
@@ -369,7 +376,7 @@ func (tm *TenantMiddleware) handleTenantError(w http.ResponseWriter, r *http.Req
 		statusCode = http.StatusInternalServerError
 		errorType = "tenant_error"
 	}
-	
+
 	// Prepare error response
 	errorResponse := map[string]interface{}{
 		"error": map[string]interface{}{
@@ -378,11 +385,11 @@ func (tm *TenantMiddleware) handleTenantError(w http.ResponseWriter, r *http.Req
 			"code":    statusCode,
 		},
 	}
-	
+
 	// Set response headers
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	
+
 	// Write error response
 	if err := json.NewEncoder(w).Encode(errorResponse); err != nil {
 		tm.logger.Errorw("Failed to encode error response", "error", err)
@@ -415,16 +422,16 @@ func (tem *TenantEnforcementMiddleware) Middleware() func(http.Handler) http.Han
 				next.ServeHTTP(w, r)
 				return
 			}
-			
+
 			// Enforce tenant-specific restrictions
 			if err := tem.enforceRestrictions(r.Context(), tenantCtx, r); err != nil {
 				tem.handleEnforcementError(w, r, err)
 				return
 			}
-			
+
 			// Add additional security headers
 			tem.addSecurityHeaders(w, tenantCtx.Tenant)
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -433,40 +440,40 @@ func (tem *TenantEnforcementMiddleware) Middleware() func(http.Handler) http.Han
 // enforceRestrictions enforces tenant-specific restrictions
 func (tem *TenantEnforcementMiddleware) enforceRestrictions(ctx context.Context, tenantCtx *TenantContext, r *http.Request) error {
 	tenant := tenantCtx.Tenant
-	
+
 	// Check IP restrictions
 	if tenant.Security != nil {
 		if err := tem.checkIPRestrictions(r, tenant.Security); err != nil {
 			return err
 		}
 	}
-	
+
 	// Check session timeout
 	if tenant.Security != nil && tenant.Security.SessionTimeout > 0 {
 		if err := tem.checkSessionTimeout(r, tenant.Security.SessionTimeout); err != nil {
 			return err
 		}
 	}
-	
+
 	// Check usage limits
 	if err := tem.checkUsageLimits(ctx, tenant, r); err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
 // checkIPRestrictions validates IP-based access restrictions
 func (tem *TenantEnforcementMiddleware) checkIPRestrictions(r *http.Request, security *TenantSecurity) error {
 	clientIP := tem.getClientIP(r)
-	
+
 	// Check blocked IPs
 	for _, blockedIP := range security.BlockedIPs {
 		if tem.matchesIPPattern(clientIP, blockedIP) {
 			return fmt.Errorf("access denied: IP %s is blocked", clientIP)
 		}
 	}
-	
+
 	// Check allowed IPs (if configured)
 	if len(security.AllowedIPs) > 0 {
 		allowed := false
@@ -480,7 +487,7 @@ func (tem *TenantEnforcementMiddleware) checkIPRestrictions(r *http.Request, sec
 			return fmt.Errorf("access denied: IP %s is not in allowed list", clientIP)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -498,11 +505,11 @@ func (tem *TenantEnforcementMiddleware) checkUsageLimits(ctx context.Context, te
 	if err != nil {
 		return fmt.Errorf("failed to check access: %v", err)
 	}
-	
+
 	if !accessResult.Allowed {
 		return fmt.Errorf("access denied: %s", accessResult.Reason)
 	}
-	
+
 	return nil
 }
 
@@ -513,12 +520,12 @@ func (tem *TenantEnforcementMiddleware) getClientIP(r *http.Request) string {
 		ips := strings.Split(forwarded, ",")
 		return strings.TrimSpace(ips[0])
 	}
-	
+
 	// Check for real IP
 	if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
 		return realIP
 	}
-	
+
 	// Fall back to remote address
 	return strings.Split(r.RemoteAddr, ":")[0]
 }
@@ -536,12 +543,12 @@ func (tem *TenantEnforcementMiddleware) addSecurityHeaders(w http.ResponseWriter
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("X-XSS-Protection", "1; mode=block")
-	
+
 	// Add tenant-specific headers
 	if tenant.Security != nil && tenant.Security.EncryptionRequired {
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 	}
-	
+
 	// Add data residency headers if configured
 	if tenant.Settings != nil && tenant.Settings.DataRegion != "" {
 		w.Header().Set("X-Data-Region", tenant.Settings.DataRegion)
@@ -555,11 +562,11 @@ func (tem *TenantEnforcementMiddleware) handleEnforcementError(w http.ResponseWr
 		"path", r.URL.Path,
 		"method", r.Method,
 		"remote_addr", r.RemoteAddr)
-	
+
 	// Determine appropriate HTTP status code
 	var statusCode int
 	errMsg := err.Error()
-	
+
 	switch {
 	case strings.Contains(errMsg, "IP") && strings.Contains(errMsg, "blocked"):
 		statusCode = http.StatusForbidden
@@ -572,7 +579,7 @@ func (tem *TenantEnforcementMiddleware) handleEnforcementError(w http.ResponseWr
 	default:
 		statusCode = http.StatusForbidden
 	}
-	
+
 	// Prepare error response
 	errorResponse := map[string]interface{}{
 		"error": map[string]interface{}{
@@ -581,11 +588,11 @@ func (tem *TenantEnforcementMiddleware) handleEnforcementError(w http.ResponseWr
 			"code":    statusCode,
 		},
 	}
-	
+
 	// Set response headers
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	
+
 	// Write error response
 	if err := json.NewEncoder(w).Encode(errorResponse); err != nil {
 		tem.logger.Errorw("Failed to encode error response", "error", err)

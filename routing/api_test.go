@@ -581,6 +581,11 @@ func TestAPIHandler_RegisterRoutes(t *testing.T) {
 	router := NewRouter(nil, nil, logger)
 	handler := NewAPIHandler(router, logger)
 
+	endpoint := &EndpointStatus{
+		Endpoint: &dummyEndpoint{provider: "openai", region: "us-east-1"},
+	}
+	router.RecordRequestResult(endpoint, 100*time.Millisecond, 0.001, true, "")
+
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
 

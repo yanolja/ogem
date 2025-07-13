@@ -81,6 +81,45 @@ providers:
             rpm: 1000
             tpm: 6000000
 
+          # Image Generation Models
+          - name: "gpt-image-1"
+            rate_key: "gpt-image-1"
+            rpm: 50
+            tpm: 0
+          - name: "dall-e-3"
+            rate_key: "dall-e-3"
+            rpm: 50
+            tpm: 0
+          - name: "dall-e-2"
+            rate_key: "dall-e-2"
+            rpm: 50
+            tpm: 0
+
+          # Audio Transcription/Translation Models
+          - name: "whisper-1"
+            rate_key: "whisper-1"
+            rpm: 1000
+            tpm: 6000000
+          - name: "whisper-large-v3"
+            rate_key: "whisper-large-v3"
+            rpm: 1000
+            tpm: 6000000
+
+          # Audio Speech (Text-to-Speech) Models
+          - name: "tts-1"
+            rate_key: "tts-1"
+            rpm: 1000
+            tpm: 6000000
+          - name: "tts-1-hd"
+            rate_key: "tts-1-hd"
+            rpm: 1000
+            tpm: 6000000
+
+          # Moderation Model
+          - name: "text-moderation-latest"
+            rate_key: "text-moderation-latest"
+            rpm: 1000
+            tpm: 6000000
           # OpenAI Embedding Models
           - name: "text-embedding-3-large"
             rate_key: "text-embedding-3-large"
