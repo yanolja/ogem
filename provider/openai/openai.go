@@ -32,6 +32,10 @@ const (
 	ChatCompletionMethod BatchJobMethod = "POST"
 )
 
+var notSupportDimensionModels = []string{
+	"text-embedding-ada-002",
+}
+
 type (
 	BatchJobStatus string
 	BatchJobMethod string
@@ -238,7 +242,22 @@ func (p *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiReque
 }
 
 func (p *Endpoint) GenerateEmbedding(ctx context.Context, embeddingRequest *openai.EmbeddingRequest) (*openai.EmbeddingResponse, error) {
-	jsonData, err := json.Marshal(embeddingRequest)
+	supportsDimensions := true
+	for _, model := range notSupportDimensionModels {
+		if embeddingRequest.Model == model {
+			supportsDimensions = false
+			break
+		}
+	}
+
+	requestCopy := *embeddingRequest
+
+	if !supportsDimensions && requestCopy.Dimensions != nil {
+		log.Printf("Model %s does not support dimensions parameter, removing it", embeddingRequest.Model)
+		requestCopy.Dimensions = nil
+	}
+
+	jsonData, err := json.Marshal(requestCopy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %v", err)
 	}
