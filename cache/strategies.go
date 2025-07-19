@@ -13,9 +13,9 @@ import (
 func (cm *CacheManager) lookupExact(req *CacheRequest, tenantID string) (*CacheLookupResult, error) {
 	key := cm.generateCacheKey(req, tenantID)
 
-	cm.memoryMutex.RLock()
+	cm.mutex.RLock()
 	entry, exists := cm.memoryCache[key]
-	cm.memoryMutex.RUnlock()
+	cm.mutex.RUnlock()
 
 	if !exists || time.Now().After(entry.ExpiresAt) {
 		return &CacheLookupResult{
@@ -69,8 +69,8 @@ func (cm *CacheManager) lookupSemantic(ctx context.Context, req *CacheRequest, t
 }
 
 func (cm *CacheManager) findBestSemanticMatch(reqEmbedding []float32, req *CacheRequest, tenantID string) (*CacheEntry, float64) {
-	cm.memoryMutex.RLock()
-	defer cm.memoryMutex.RUnlock()
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
 
 	var bestMatch *CacheEntry
 	var bestSimilarity float64
@@ -137,8 +137,8 @@ func (cm *CacheManager) lookupToken(req *CacheRequest, tenantID string) (*CacheL
 }
 
 func (cm *CacheManager) findBestTokenMatch(reqTokens []string, req *CacheRequest, tenantID string) (*CacheEntry, float64) {
-	cm.memoryMutex.RLock()
-	defer cm.memoryMutex.RUnlock()
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
 
 	var bestMatch *CacheEntry
 	var bestSimilarity float64
@@ -480,8 +480,8 @@ func (cm *CacheManager) updateEntryAccess(entry *CacheEntry) {
 	entry.LastAccess = now
 
 	// Update LRU order
-	cm.memoryMutex.Lock()
-	defer cm.memoryMutex.Unlock()
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
 
 	// Remove from current position
 	cm.removeFromAccessOrder(entry.Key)
@@ -492,8 +492,8 @@ func (cm *CacheManager) updateEntryAccess(entry *CacheEntry) {
 
 // storeEntry stores a cache entry in the backend
 func (cm *CacheManager) storeEntry(entry *CacheEntry) error {
-	cm.memoryMutex.Lock()
-	defer cm.memoryMutex.Unlock()
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
 
 	// Check memory limits before storing
 	if int64(len(cm.memoryCache)) >= cm.config.MaxEntries {
@@ -551,8 +551,8 @@ func (cm *CacheManager) compressEntry(entry *CacheEntry) error {
 
 // updateLookupStats updates cache lookup statistics
 func (cm *CacheManager) updateLookupStats(result *CacheLookupResult, tenantID string) {
-	cm.statsMutex.Lock()
-	defer cm.statsMutex.Unlock()
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
 
 	if result.Found {
 		cm.stats.Hits++
@@ -596,8 +596,8 @@ func (cm *CacheManager) updateLookupStats(result *CacheLookupResult, tenantID st
 
 // updateStoreStats updates cache store statistics
 func (cm *CacheManager) updateStoreStats(entry *CacheEntry) {
-	cm.statsMutex.Lock()
-	defer cm.statsMutex.Unlock()
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
 
 	cm.stats.Stores++
 	cm.stats.TotalEntries = int64(len(cm.memoryCache))

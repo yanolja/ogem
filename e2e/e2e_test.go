@@ -1,4 +1,4 @@
-package ogem_test
+package e2e_test
 
 import (
 	"context"
@@ -14,9 +14,8 @@ import (
 	"github.com/yanolja/ogem/cache"
 	"github.com/yanolja/ogem/monitoring"
 	"github.com/yanolja/ogem/openai"
-	openaiProvider "github.com/yanolja/ogem/provider/openai"
+	"github.com/yanolja/ogem/provider/openai"
 	"github.com/yanolja/ogem/routing"
-	"github.com/yanolja/ogem/security"
 	"github.com/yanolja/ogem/tenancy"
 )
 
@@ -41,20 +40,15 @@ func TestCompleteWorkflow(t *testing.T) {
 
 	// 2. Initialize tenant management
 	tenantConfig := &tenancy.TenantConfig{
-		Enabled:            true,
-		TrackUsage:         true,
-		DefaultTenantType:  tenancy.TenantTypeTeam,
-		EnforceLimits:      true,
-		SoftLimitThreshold: 0.8,
-		UsageResetInterval: 24 * time.Hour,
-		CleanupInterval:    1 * time.Hour,
+		EnableTenantIsolation: true,
+		EnableUsageTracking:   true,
+		DefaultLimits: &tenancy.TenantLimits{
+			MaxRequestsPerMinute: 100,
+			MaxTokensPerDay:      10000,
+			MaxCostPerDay:        10.0,
+		},
 	}
-	// Need security manager for tenant manager
-	securityConfig := security.DefaultSecurityConfig()
-	securityManager, err := security.NewSecurityManager(securityConfig, logger)
-	require.NoError(t, err)
-
-	tenantManager, err := tenancy.NewTenantManager(tenantConfig, securityManager, monitor, logger)
+	tenantManager, err := tenancy.NewTenantManager(tenantConfig, monitor, logger)
 	require.NoError(t, err)
 
 	// 3. Initialize caching
@@ -72,7 +66,7 @@ func TestCompleteWorkflow(t *testing.T) {
 	router := routing.NewRouter(routingConfig, monitor, logger)
 
 	// 5. Set up provider endpoints
-	endpoint, err := openaiProvider.NewEndpoint("openai", "openai", "https://api.openai.com/v1", os.Getenv("OPENAI_API_KEY"))
+	endpoint, err := openai.NewEndpoint("openai", "openai", "https://api.openai.com/v1", os.Getenv("OPENAI_API_KEY"))
 	require.NoError(t, err)
 	defer endpoint.Shutdown()
 
@@ -87,17 +81,15 @@ func TestCompleteWorkflow(t *testing.T) {
 	tenant := &tenancy.Tenant{
 		ID:     "test-tenant-e2e",
 		Name:   "Test Tenant E2E",
-		Status: tenancy.TenantStatusActive,
+		Status: tenancy.StatusActive,
 		Subscription: &tenancy.Subscription{
-			PlanName:    "premium",
-			Status:      "active",
-			StartDate:   time.Now(),
-			RenewalDate: time.Now().Add(30 * 24 * time.Hour),
+			Plan:      "premium",
+			ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
 		},
 		Limits: &tenancy.TenantLimits{
-			RequestsPerHour: 3000,
-			TokensPerDay:    5000,
-			CostPerDay:      5.0,
+			MaxRequestsPerMinute: 50,
+			MaxTokensPerDay:      5000,
+			MaxCostPerDay:        5.0,
 		},
 		CreatedAt: time.Now(),
 	}
@@ -146,24 +138,18 @@ func TestCompleteWorkflow(t *testing.T) {
 		// Step 5: Record metrics and usage
 		router.RecordRequestResult(selectedEndpoint, duration, 0.001, true, "")
 
-		err = tenantManager.RecordUsage(ctx, tenant.ID, &tenancy.UsageRecord{
-			Type:      "request",
-			Count:     1,
-			Amount:    0.001,
-			Model:     request.Model,
-			Provider:  "openai",
-			Timestamp: time.Now(),
-		})
-		require.NoError(t, err)
-
-		// Record token usage
-		err = tenantManager.RecordUsage(ctx, tenant.ID, &tenancy.UsageRecord{
-			Type:      "token",
-			Count:     int64(response.Usage.TotalTokens),
-			Amount:    0,
-			Model:     request.Model,
-			Provider:  "openai",
-			Timestamp: time.Now(),
+		err = tenantManager.RecordUsage(ctx, &tenancy.UsageRecord{
+			TenantID:     tenant.ID,
+			UserID:       "user-123",
+			RequestType:  "chat.completion",
+			Model:        request.Model,
+			InputTokens:  response.Usage.PromptTokens,
+			OutputTokens: response.Usage.CompletionTokens,
+			TotalTokens:  response.Usage.TotalTokens,
+			Cost:         0.001,
+			Duration:     duration,
+			Success:      true,
+			Timestamp:    time.Now(),
 		})
 		require.NoError(t, err)
 
@@ -203,9 +189,9 @@ func TestCompleteWorkflow(t *testing.T) {
 		rateLimitTenant := &tenancy.Tenant{
 			ID:     "rate-limit-tenant",
 			Name:   "Rate Limit Test Tenant",
-			Status: tenancy.TenantStatusActive,
+			Status: tenancy.StatusActive,
 			Limits: &tenancy.TenantLimits{
-				RequestsPerHour: 120, // Very low limit for testing (2 per minute)
+				MaxRequestsPerMinute: 2, // Very low limit for testing
 			},
 			CreatedAt: time.Now(),
 		}
@@ -219,13 +205,13 @@ func TestCompleteWorkflow(t *testing.T) {
 		assert.True(t, accessResult.Allowed)
 
 		// Record usage for first request
-		err = tenantManager.RecordUsage(ctx, rateLimitTenant.ID, &tenancy.UsageRecord{
-			Type:      "request",
-			Count:     1,
-			Amount:    0,
-			Model:     request.Model,
-			Provider:  "openai",
-			Timestamp: time.Now(),
+		err = tenantManager.RecordUsage(ctx, &tenancy.UsageRecord{
+			TenantID:    rateLimitTenant.ID,
+			UserID:      "user-456",
+			RequestType: "chat.completion",
+			Model:       request.Model,
+			Success:     true,
+			Timestamp:   time.Now(),
 		})
 		require.NoError(t, err)
 
@@ -235,13 +221,13 @@ func TestCompleteWorkflow(t *testing.T) {
 		assert.True(t, accessResult.Allowed)
 
 		// Record usage for second request
-		err = tenantManager.RecordUsage(ctx, rateLimitTenant.ID, &tenancy.UsageRecord{
-			Type:      "request",
-			Count:     1,
-			Amount:    0,
-			Model:     request.Model,
-			Provider:  "openai",
-			Timestamp: time.Now(),
+		err = tenantManager.RecordUsage(ctx, &tenancy.UsageRecord{
+			TenantID:    rateLimitTenant.ID,
+			UserID:      "user-456",
+			RequestType: "chat.completion",
+			Model:       request.Model,
+			Success:     true,
+			Timestamp:   time.Now(),
 		})
 		require.NoError(t, err)
 
@@ -394,9 +380,9 @@ func TestCompleteWorkflow(t *testing.T) {
 			Method:       "POST",
 			StatusCode:   200,
 			Duration:     duration,
-			InputTokens:  int64(response.Usage.PromptTokens),
-			OutputTokens: int64(response.Usage.CompletionTokens),
-			TotalTokens:  int64(response.Usage.TotalTokens),
+			InputTokens:  response.Usage.PromptTokens,
+			OutputTokens: response.Usage.CompletionTokens,
+			TotalTokens:  response.Usage.TotalTokens,
 			Cost:         0.001,
 			UserID:       "test-user",
 			TeamID:       tenant.ID,
@@ -436,14 +422,14 @@ func TestCompleteWorkflow(t *testing.T) {
 		tenant1 := &tenancy.Tenant{
 			ID:        "isolation-tenant-1",
 			Name:      "Isolation Test Tenant 1",
-			Status:    tenancy.TenantStatusActive,
+			Status:    tenancy.StatusActive,
 			CreatedAt: time.Now(),
 		}
 
 		tenant2 := &tenancy.Tenant{
 			ID:        "isolation-tenant-2",
 			Name:      "Isolation Test Tenant 2",
-			Status:    tenancy.TenantStatusActive,
+			Status:    tenancy.StatusActive,
 			CreatedAt: time.Now(),
 		}
 
@@ -497,30 +483,32 @@ func TestCompleteWorkflow(t *testing.T) {
 		assert.False(t, result.Found)
 
 		// Test usage tracking isolation
-		err = tenantManager.RecordUsage(ctx, tenant1.ID, &tenancy.UsageRecord{
-			Type:      "request",
-			Count:     1,
-			Amount:    0,
-			Timestamp: time.Now(),
+		err = tenantManager.RecordUsage(ctx, &tenancy.UsageRecord{
+			TenantID:    tenant1.ID,
+			UserID:      "user-tenant1",
+			RequestType: "chat.completion",
+			Success:     true,
+			Timestamp:   time.Now(),
 		})
 		require.NoError(t, err)
 
-		err = tenantManager.RecordUsage(ctx, tenant2.ID, &tenancy.UsageRecord{
-			Type:      "request",
-			Count:     1,
-			Amount:    0,
-			Timestamp: time.Now(),
+		err = tenantManager.RecordUsage(ctx, &tenancy.UsageRecord{
+			TenantID:    tenant2.ID,
+			UserID:      "user-tenant2",
+			RequestType: "chat.completion",
+			Success:     true,
+			Timestamp:   time.Now(),
 		})
 		require.NoError(t, err)
 
 		// Verify usage stats are isolated
-		stats1, err := tenantManager.GetUsageMetrics(ctx, tenant1.ID)
+		stats1, err := tenantManager.GetUsageStats(ctx, tenant1.ID, time.Now().Add(-time.Hour), time.Now())
 		require.NoError(t, err)
-		assert.GreaterOrEqual(t, stats1.RequestsThisHour, int64(1))
+		assert.Equal(t, int64(1), stats1.TotalRequests)
 
-		stats2, err := tenantManager.GetUsageMetrics(ctx, tenant2.ID)
+		stats2, err := tenantManager.GetUsageStats(ctx, tenant2.ID, time.Now().Add(-time.Hour), time.Now())
 		require.NoError(t, err)
-		assert.GreaterOrEqual(t, stats2.RequestsThisHour, int64(1))
+		assert.Equal(t, int64(1), stats2.TotalRequests)
 	})
 
 	// Cleanup
@@ -597,10 +585,10 @@ func TestSystemResilience(t *testing.T) {
 	t.Run("tenant_service_failure", func(t *testing.T) {
 		// Test behavior when tenant service is unavailable
 		config := &tenancy.TenantConfig{
-			Enabled:    false, // Disable tenancy
-			TrackUsage: false, // Disable tracking
+			EnableTenantIsolation: false, // Disable isolation
+			EnableUsageTracking:   false, // Disable tracking
 		}
-		tenantManager, err := tenancy.NewTenantManager(config, nil, nil, logger)
+		tenantManager, err := tenancy.NewTenantManager(config, nil, logger)
 		require.NoError(t, err)
 
 		// Operations should still work with minimal tenant functionality
