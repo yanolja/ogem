@@ -1,0 +1,107 @@
+{
+  "scraped_at": "2025-06-20T11:24:43.213168",
+  "providers": {
+    "openai": {
+      "error": "Failed to fetch OpenAI pricing page"
+    },
+    "anthropic": {
+      "provider": "anthropic",
+      "url": "https://www.anthropic.com/pricing",
+      "scraped_at": "2025-06-20T11:24:45.759716",
+      "models": {
+        "claude-3-5-sonnet": {
+          "input_price_per_1m": 3.0,
+          "output_price_per_1m": 15.0,
+          "source": "anthropic_api"
+        },
+        "claude-3-5-haiku": {
+          "input_price_per_1m": 0.8,
+          "output_price_per_1m": 4.0,
+          "source": "anthropic_api"
+        },
+        "claude-3-opus": {
+          "input_price_per_1m": 15.0,
+          "output_price_per_1m": 75.0,
+          "source": "anthropic_api"
+        },
+        "claude-3-sonnet": {
+          "input_price_per_1m": 3.0,
+          "output_price_per_1m": 15.0,
+          "source": "anthropic_api"
+        },
+        "claude-3-haiku": {
+          "input_price_per_1m": 0.25,
+          "output_price_per_1m": 1.25,
+          "source": "anthropic_api"
+        }
+      }
+    },
+    "google": {
+      "provider": "google_cloud",
+      "url": "https://cloud.google.com/vertex-ai/generative-ai/pricing",
+      "scraped_at": "2025-06-20T11:24:48.687755",
+      "models": {
+        "gemini-2.5-pro": {
+          "input_price_per_1m": 1.25,
+          "output_price_per_1m": 5.0,
+          "source": "vertex_ai",
+          "reasoning_price_per_1m": 10.0
+        },
+        "gemini-2.5-flash": {
+          "input_price_per_1m": 0.075,
+          "output_price_per_1m": 0.3,
+          "source": "vertex_ai",
+          "reasoning_price_per_1m": 1.5
+        },
+        "gemini-2.5-flash-8b": {
+          "input_price_per_1m": 0.0375,
+          "output_price_per_1m": 0.15,
+          "source": "vertex_ai",
+          "reasoning_price_per_1m": 0.75
+        },
+        "gemini-1.5-pro": {
+          "input_price_per_1m": 1.25,
+          "output_price_per_1m": 5.0,
+          "source": "vertex_ai"
+        },
+        "gemini-1.5-flash": {
+          "input_price_per_1m": 0.075,
+          "output_price_per_1m": 0.3,
+          "source": "vertex_ai"
+        }
+      }
+    },
+    "azure": {
+      "provider": "azure",
+      "url": "https://azure.microsoft.com/en-us/pricing/details/cognitive-services/openai-service/",
+      "scraped_at": "2025-06-20T11:25:00.006083",
+      "models": {
+        "azure-gpt-4o": {
+          "input_price_per_1m": 5.0,
+          "output_price_per_1m": 15.0,
+          "source": "azure_openai"
+        },
+        "azure-gpt-4o-mini": {
+          "input_price_per_1m": 0.165,
+          "output_price_per_1m": 0.66,
+          "source": "azure_openai"
+        },
+        "azure-gpt-4-turbo": {
+          "input_price_per_1m": 10.0,
+          "output_price_per_1m": 30.0,
+          "source": "azure_openai"
+        },
+        "azure-gpt-4": {
+          "input_price_per_1m": 30.0,
+          "output_price_per_1m": 60.0,
+          "source": "azure_openai"
+        },
+        "azure-gpt-35-turbo": {
+          "input_price_per_1m": 0.5,
+          "output_price_per_1m": 1.5,
+          "source": "azure_openai"
+        }
+      }
+    }
+  }
+}

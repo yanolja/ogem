@@ -185,9 +185,9 @@ func (api *CacheAPI) ListCacheEntries(w http.ResponseWriter, r *http.Request) {
 func (api *CacheAPI) GetCacheEntry(w http.ResponseWriter, r *http.Request) {
 	key := mux.Vars(r)["key"]
 	
-	api.cacheManager.memoryMutex.RLock()
+	api.cacheManager.mutex.RLock()
 	entry, exists := api.cacheManager.memoryCache[key]
-	api.cacheManager.memoryMutex.RUnlock()
+	api.cacheManager.mutex.RUnlock()
 	
 	if !exists {
 		api.writeError(w, http.StatusNotFound, "entry_not_found", "Cache entry not found")
@@ -201,13 +201,13 @@ func (api *CacheAPI) GetCacheEntry(w http.ResponseWriter, r *http.Request) {
 func (api *CacheAPI) DeleteCacheEntry(w http.ResponseWriter, r *http.Request) {
 	key := mux.Vars(r)["key"]
 	
-	api.cacheManager.memoryMutex.Lock()
+	api.cacheManager.mutex.Lock()
 	_, exists := api.cacheManager.memoryCache[key]
 	if exists {
 		delete(api.cacheManager.memoryCache, key)
 		api.cacheManager.removeFromAccessOrder(key)
 	}
-	api.cacheManager.memoryMutex.Unlock()
+	api.cacheManager.mutex.Unlock()
 	
 	if !exists {
 		api.writeError(w, http.StatusNotFound, "entry_not_found", "Cache entry not found")
@@ -501,8 +501,8 @@ type PredictionData struct {
 // Helper methods
 
 func (api *CacheAPI) getCacheEntries(tenantID, model, strategy string, limit, offset int) []*CacheEntryInfo {
-	api.cacheManager.memoryMutex.RLock()
-	defer api.cacheManager.memoryMutex.RUnlock()
+	api.cacheManager.mutex.RLock()
+	defer api.cacheManager.mutex.RUnlock()
 	
 	var entries []*CacheEntryInfo
 	count := 0
@@ -615,8 +615,8 @@ func (api *CacheAPI) generateCacheAnalysis() *CacheAnalysis {
 }
 
 func (api *CacheAPI) generateUsageAnalysis() UsageAnalysis {
-	api.cacheManager.memoryMutex.RLock()
-	defer api.cacheManager.memoryMutex.RUnlock()
+	api.cacheManager.mutex.RLock()
+	defer api.cacheManager.mutex.RUnlock()
 	
 	modelCount := make(map[string]int64)
 	timeCount := make(map[string]int64)

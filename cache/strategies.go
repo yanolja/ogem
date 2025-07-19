@@ -117,6 +117,7 @@ func (cm *CacheManager) lookupToken(req *CacheRequest, tenantID string) (*CacheL
 	bestMatch, bestSimilarity := cm.findBestTokenMatch(reqTokens, req, tenantID)
 
 	if bestMatch == nil {
+		cm.mutex.RUnlock()
 		return &CacheLookupResult{
 			Found:    false,
 			Strategy: StrategyToken,
@@ -365,35 +366,25 @@ func (cm *CacheManager) calculateTokenSimilarity(tokensA, tokensB []string) floa
 	}
 
 	// Create token frequency maps
-	freqA := make(map[string]int)
-	freqB := make(map[string]int)
+	setA := make(map[string]bool)
+	setB := make(map[string]bool)
 
 	for _, token := range tokensA {
-		freqA[token]++
+		setA[token] = true
 	}
 	for _, token := range tokensB {
-		freqB[token]++
+		setB[token] = true
 	}
 
-	// Calculate Jaccard similarity with frequency weighting
+	// Calculate Jaccard similarity
 	intersection := 0
-	union := 0
-
-	allTokens := make(map[string]bool)
-	for token := range freqA {
-		allTokens[token] = true
-	}
-	for token := range freqB {
-		allTokens[token] = true
+	for token := range setA {
+		if setB[token] {
+			intersection++
+		}
 	}
 
-	for token := range allTokens {
-		countA := freqA[token]
-		countB := freqB[token]
-
-		intersection += min(countA, countB)
-		union += max(countA, countB)
-	}
+	union := len(setA) + len(setB) - intersection
 
 	if union == 0 {
 		return 0.0
@@ -479,6 +470,9 @@ func (cm *CacheManager) editDistance(a, b string) int {
 
 // updateEntryAccess updates access tracking for a cache entry
 func (cm *CacheManager) updateEntryAccess(entry *CacheEntry) {
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+
 	now := time.Now()
 
 	// Update entry access info
@@ -668,7 +662,6 @@ func (cm *CacheManager) performAdaptiveTuning() {
 	}
 
 	if cm.adaptiveState.SampleCount < cm.config.AdaptiveConfig.MinSamples {
-		cm.adaptiveState.SampleCount++
 		return
 	}
 

@@ -9,6 +9,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/bedrock"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime/types"
 
@@ -18,8 +20,9 @@ import (
 const REGION = "bedrock"
 
 type Endpoint struct {
-	region string
-	client *bedrockruntime.Client
+	region        string
+	client        *bedrockruntime.Client
+	bedrockClient *bedrock.Client
 }
 
 func NewEndpoint(region string, accessKey string, secretKey string, sessionToken string) (*Endpoint, error) {
@@ -37,22 +40,16 @@ func NewEndpoint(region string, accessKey string, secretKey string, sessionToken
 
 	// Override credentials if provided
 	if accessKey != "" && secretKey != "" {
-		cfg.Credentials = aws.NewCredentialsCache(
-			aws.CredentialsProviderFunc(func(ctx context.Context) (aws.Credentials, error) {
-				return aws.Credentials{
-					AccessKeyID:     accessKey,
-					SecretAccessKey: secretKey,
-					SessionToken:    sessionToken,
-				}, nil
-			}),
-		)
+		cfg.Credentials = credentials.NewStaticCredentialsProvider(accessKey, secretKey, sessionToken)
 	}
 
 	client := bedrockruntime.NewFromConfig(cfg)
+	bedrockClient := bedrock.NewFromConfig(cfg)
 
 	endpoint := &Endpoint{
-		region: region,
-		client: client,
+		region:        region,
+		client:        client,
+		bedrockClient: bedrockClient,
 	}
 
 	return endpoint, nil
@@ -134,12 +131,14 @@ func (p *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiReque
 						return
 					}
 				}
-			// Note: Error handling is done through the stream's Err() method
+			case *types.InvokeModelWithResponseStreamOutput_InternalServerException:
+				errorCh <- fmt.Errorf("bedrock model error: %s", *e.Value.Message)
+				return
 			default:
 				// Unknown event type, ignore
 			}
 		}
-		
+
 		// Check for stream errors
 		if err := response.GetStream().Err(); err != nil {
 			errorCh <- fmt.Errorf("bedrock stream error: %v", err)
@@ -316,20 +315,8 @@ func (p *Endpoint) Region() string {
 func (p *Endpoint) Ping(ctx context.Context) (time.Duration, error) {
 	start := time.Now()
 
-	// Simple ping by invoking a minimal model request
-	payload := map[string]interface{}{
-		"inputText": "ping",
-		"textGenerationConfig": map[string]interface{}{
-			"maxTokenCount": 1,
-		},
-	}
-	payloadBytes, _ := json.Marshal(payload)
-	
-	_, err := p.client.InvokeModel(ctx, &bedrockruntime.InvokeModelInput{
-		ModelId:     aws.String("amazon.titan-text-lite-v1"),
-		Body:        payloadBytes,
-		ContentType: aws.String("application/json"),
-	})
+	// Simple ping by listing available models
+	_, err := p.bedrockClient.ListFoundationModels(ctx, &bedrock.ListFoundationModelsInput{})
 	if err != nil {
 		return 0, fmt.Errorf("bedrock ping failed: %v", err)
 	}

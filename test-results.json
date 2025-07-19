@@ -1,0 +1,3 @@
+{"Time":"2025-06-29T15:52:11.716682102Z","Action":"start","Package":"github.com/yanolja/ogem"}
+{"Time":"2025-06-29T15:52:11.725997882Z","Action":"output","Package":"github.com/yanolja/ogem","Output":"\tgithub.com/yanolja/ogem\t\tcoverage: 0.0% of statements\n"}
+{"Time":"2025-06-29T15:52:11.732167265Z","Action":"pass","Package":"github.com/yanolja/ogem","Elapsed":0.016}

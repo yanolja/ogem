@@ -1,0 +1,197 @@
+=== OGEM Test Results ===
+=== RUN   TestMust0
+=== RUN   TestMust0/should_not_panic_when_error_is_nil
+=== RUN   TestMust0/should_panic_when_error_is_not_nil
+--- PASS: TestMust0 (0.00s)
+    --- PASS: TestMust0/should_not_panic_when_error_is_nil (0.00s)
+    --- PASS: TestMust0/should_panic_when_error_is_not_nil (0.00s)
+=== RUN   TestMust
+=== RUN   TestMust/Return_object_when_no_error
+=== RUN   TestMust/Panic_when_error_is_not_nil
+--- PASS: TestMust (0.00s)
+    --- PASS: TestMust/Return_object_when_no_error (0.00s)
+    --- PASS: TestMust/Panic_when_error_is_not_nil (0.00s)
+=== RUN   TestToPtr
+=== RUN   TestToPtr/String_value
+=== RUN   TestToPtr/Int_value
+=== RUN   TestToPtr/Bool_value
+=== RUN   TestToPtr/Float_value
+=== RUN   TestToPtr/Any_value
+--- PASS: TestToPtr (0.00s)
+    --- PASS: TestToPtr/String_value (0.00s)
+    --- PASS: TestToPtr/Int_value (0.00s)
+    --- PASS: TestToPtr/Bool_value (0.00s)
+    --- PASS: TestToPtr/Float_value (0.00s)
+    --- PASS: TestToPtr/Any_value (0.00s)
+=== RUN   TestJsonToMap
+=== RUN   TestJsonToMap/Valid_json
+=== RUN   TestJsonToMap/Invalid_json
+=== RUN   TestJsonToMap/Empty_json
+--- PASS: TestJsonToMap (0.00s)
+    --- PASS: TestJsonToMap/Valid_json (0.00s)
+    --- PASS: TestJsonToMap/Invalid_json (0.00s)
+    --- PASS: TestJsonToMap/Empty_json (0.00s)
+=== RUN   TestMapToJson
+=== RUN   TestMapToJson/Valid_map_to_JSON
+=== RUN   TestMapToJson/Empty_map_to_JSON
+=== RUN   TestMapToJson/Null_map_to_JSON
+--- PASS: TestMapToJson (0.00s)
+    --- PASS: TestMapToJson/Valid_map_to_JSON (0.00s)
+    --- PASS: TestMapToJson/Empty_map_to_JSON (0.00s)
+    --- PASS: TestMapToJson/Null_map_to_JSON (0.00s)
+PASS
+ok  	github.com/yanolja/ogem/utils	0.010s
+=== RUN   TestMap
+=== RUN   TestMap/Map_int_to_int
+=== RUN   TestMap/Map_string_to_int
+--- PASS: TestMap (0.00s)
+    --- PASS: TestMap/Map_int_to_int (0.00s)
+    --- PASS: TestMap/Map_string_to_int (0.00s)
+=== RUN   TestContains
+=== RUN   TestContains/Contains_int
+=== RUN   TestContains/Contains_string
+=== RUN   TestContains/Contains_any
+--- PASS: TestContains (0.00s)
+    --- PASS: TestContains/Contains_int (0.00s)
+    --- PASS: TestContains/Contains_string (0.00s)
+    --- PASS: TestContains/Contains_any (0.00s)
+=== RUN   TestFind
+=== RUN   TestFind/Find_int
+=== RUN   TestFind/Find_string
+=== RUN   TestFind/Find_a_value_from_a_mixed-type_array
+--- PASS: TestFind (0.00s)
+    --- PASS: TestFind/Find_int (0.00s)
+    --- PASS: TestFind/Find_string (0.00s)
+    --- PASS: TestFind/Find_a_value_from_a_mixed-type_array (0.00s)
+PASS
+ok  	github.com/yanolja/ogem/utils/array	0.006s
+=== RUN   TestDeep
+=== RUN   TestDeep/Deep_copied_int_type
+=== RUN   TestDeep/Deep_copied_bool_type
+=== RUN   TestDeep/Deep_copied_string_type
+=== RUN   TestDeep/Fails_copied_in_case_nil
+=== RUN   TestDeep/Deep_copied_any_types
+=== RUN   TestDeep/Successfully_deep_copy_pointer_types
+=== RUN   TestDeep/Fails_copying_struct{}{}
+--- PASS: TestDeep (0.00s)
+    --- PASS: TestDeep/Deep_copied_int_type (0.00s)
+    --- PASS: TestDeep/Deep_copied_bool_type (0.00s)
+    --- PASS: TestDeep/Deep_copied_string_type (0.00s)
+    --- PASS: TestDeep/Fails_copied_in_case_nil (0.00s)
+    --- PASS: TestDeep/Deep_copied_any_types (0.00s)
+    --- PASS: TestDeep/Successfully_deep_copy_pointer_types (0.00s)
+    --- PASS: TestDeep/Fails_copying_struct{}{} (0.00s)
+PASS
+ok  	github.com/yanolja/ogem/utils/copy	0.005s
+=== RUN   TestHeap
+=== RUN   TestHeap/New_heap
+=== RUN   TestHeap/Push_and_Peek_single_item
+=== RUN   TestHeap/Push_multiple_items_maintains_heap_property
+=== RUN   TestHeap/Pop_maintains_heap_property
+=== RUN   TestHeap/Remove_item
+=== RUN   TestHeap/Update_item
+=== RUN   TestHeap/Max_heap
+--- PASS: TestHeap (0.00s)
+    --- PASS: TestHeap/New_heap (0.00s)
+    --- PASS: TestHeap/Push_and_Peek_single_item (0.00s)
+    --- PASS: TestHeap/Push_multiple_items_maintains_heap_property (0.00s)
+    --- PASS: TestHeap/Pop_maintains_heap_property (0.00s)
+    --- PASS: TestHeap/Remove_item (0.00s)
+    --- PASS: TestHeap/Update_item (0.00s)
+    --- PASS: TestHeap/Max_heap (0.00s)
+PASS
+ok  	github.com/yanolja/ogem/utils/heap	0.006s
+=== RUN   TestOrderedMap
+=== RUN   TestOrderedMap/New_map
+=== RUN   TestOrderedMap/Set_and_Get
+=== RUN   TestOrderedMap/Set_overwrites_existing_key
+=== RUN   TestOrderedMap/Entries_returns_ordered_entries
+=== RUN   TestOrderedMap/JSON_Marshal/Unmarshal
+=== RUN   TestOrderedMap/JSON_Marshal/Unmarshal/Simple_values
+=== RUN   TestOrderedMap/JSON_Marshal/Unmarshal/Nested_maps
+=== RUN   TestOrderedMap/JSON_Marshal/Unmarshal/Complex_JSON
+=== RUN   TestOrderedMap/Array_handling
+=== RUN   TestOrderedMap/Edge_cases
+=== RUN   TestOrderedMap/Edge_cases/Empty_JSON
+=== RUN   TestOrderedMap/Edge_cases/Null_values
+=== RUN   TestOrderedMap/Edge_cases/Invalid_JSON
+=== RUN   TestOrderedMap/Edge_cases/Non-string_keys
+--- PASS: TestOrderedMap (0.00s)
+    --- PASS: TestOrderedMap/New_map (0.00s)
+    --- PASS: TestOrderedMap/Set_and_Get (0.00s)
+    --- PASS: TestOrderedMap/Set_overwrites_existing_key (0.00s)
+    --- PASS: TestOrderedMap/Entries_returns_ordered_entries (0.00s)
+    --- PASS: TestOrderedMap/JSON_Marshal/Unmarshal (0.00s)
+        --- PASS: TestOrderedMap/JSON_Marshal/Unmarshal/Simple_values (0.00s)
+        --- PASS: TestOrderedMap/JSON_Marshal/Unmarshal/Nested_maps (0.00s)
+        --- PASS: TestOrderedMap/JSON_Marshal/Unmarshal/Complex_JSON (0.00s)
+    --- PASS: TestOrderedMap/Array_handling (0.00s)
+    --- PASS: TestOrderedMap/Edge_cases (0.00s)
+        --- PASS: TestOrderedMap/Edge_cases/Empty_JSON (0.00s)
+        --- PASS: TestOrderedMap/Edge_cases/Null_values (0.00s)
+        --- PASS: TestOrderedMap/Edge_cases/Invalid_JSON (0.00s)
+        --- PASS: TestOrderedMap/Edge_cases/Non-string_keys (0.00s)
+PASS
+ok  	github.com/yanolja/ogem/utils/orderedmap	0.008s
+=== RUN   TestMemoryManager
+=== RUN   TestMemoryManager/New_memory_manager
+=== RUN   TestMemoryManager/Allow_and_Disable
+=== RUN   TestMemoryManager/Cache_operations
+=== RUN   TestMemoryManager/Cache_eviction
+=== RUN   TestMemoryManager/Cache_cleanup
+=== RUN   TestMemoryManager/Cache_read_count_updates
+=== RUN   TestMemoryManager/Precise_waiting_durations
+=== RUN   TestMemoryManager/Cleanup_timer_behavior
+=== RUN   TestMemoryManager/Cache_overwrite_behavior
+=== RUN   TestMemoryManager/Cache_eviction_order
+=== RUN   TestMemoryManager/Edge_cases
+=== RUN   TestMemoryManager/Edge_cases/Zero_duration
+=== RUN   TestMemoryManager/Edge_cases/Negative_duration
+=== RUN   TestMemoryManager/Edge_cases/Empty_key
+=== RUN   TestMemoryManager/Edge_cases/Nil_value
+=== RUN   TestMemoryManager/Edge_cases/Very_large_value
+--- PASS: TestMemoryManager (0.04s)
+    --- PASS: TestMemoryManager/New_memory_manager (0.00s)
+    --- PASS: TestMemoryManager/Allow_and_Disable (0.00s)
+    --- PASS: TestMemoryManager/Cache_operations (0.00s)
+    --- PASS: TestMemoryManager/Cache_eviction (0.00s)
+    --- PASS: TestMemoryManager/Cache_cleanup (0.00s)
+    --- PASS: TestMemoryManager/Cache_read_count_updates (0.00s)
+    --- PASS: TestMemoryManager/Precise_waiting_durations (0.00s)
+    --- PASS: TestMemoryManager/Cleanup_timer_behavior (0.00s)
+    --- PASS: TestMemoryManager/Cache_overwrite_behavior (0.00s)
+    --- PASS: TestMemoryManager/Cache_eviction_order (0.02s)
+    --- PASS: TestMemoryManager/Edge_cases (0.00s)
+        --- PASS: TestMemoryManager/Edge_cases/Zero_duration (0.00s)
+        --- PASS: TestMemoryManager/Edge_cases/Negative_duration (0.00s)
+        --- PASS: TestMemoryManager/Edge_cases/Empty_key (0.00s)
+        --- PASS: TestMemoryManager/Edge_cases/Nil_value (0.00s)
+        --- PASS: TestMemoryManager/Edge_cases/Very_large_value (0.00s)
+=== RUN   TestValkeyManager
+=== RUN   TestValkeyManager/Allow_method
+=== RUN   TestValkeyManager/Allow_method/success_when_not_disabled
+=== RUN   TestValkeyManager/Allow_method/not_allowed_when_disabled
+=== RUN   TestValkeyManager/Allow_method/handles_error
+=== RUN   TestValkeyManager/Cache_operations
+=== RUN   TestValkeyManager/Cache_operations/SaveCache_success
+=== RUN   TestValkeyManager/Cache_operations/LoadCache_success
+=== RUN   TestValkeyManager/Cache_operations/LoadCache_handles_nil_value
+=== RUN   TestValkeyManager/Edge_cases
+=== RUN   TestValkeyManager/Edge_cases/context_cancellation
+=== RUN   TestValkeyManager/Edge_cases/zero_duration
+=== RUN   TestValkeyManager/Edge_cases/large_values
+--- PASS: TestValkeyManager (0.00s)
+    --- PASS: TestValkeyManager/Allow_method (0.00s)
+        --- PASS: TestValkeyManager/Allow_method/success_when_not_disabled (0.00s)
+        --- PASS: TestValkeyManager/Allow_method/not_allowed_when_disabled (0.00s)
+        --- PASS: TestValkeyManager/Allow_method/handles_error (0.00s)
+    --- PASS: TestValkeyManager/Cache_operations (0.00s)
+        --- PASS: TestValkeyManager/Cache_operations/SaveCache_success (0.00s)
+        --- PASS: TestValkeyManager/Cache_operations/LoadCache_success (0.00s)
+        --- PASS: TestValkeyManager/Cache_operations/LoadCache_handles_nil_value (0.00s)
+    --- PASS: TestValkeyManager/Edge_cases (0.00s)
+        --- PASS: TestValkeyManager/Edge_cases/context_cancellation (0.00s)
+        --- PASS: TestValkeyManager/Edge_cases/zero_duration (0.00s)
+        --- PASS: TestValkeyManager/Edge_cases/large_values (0.00s)
+PASS
+ok  	github.com/yanolja/ogem/state	0.043s

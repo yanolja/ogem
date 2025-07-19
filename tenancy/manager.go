@@ -76,13 +76,12 @@ func NewTenantManager(config *TenantConfig, securityManager *security.SecurityMa
 	if config == nil {
 		config = DefaultTenantConfig()
 	} else {
-		// Fill in missing intervals with defaults to avoid zero-value panics
-		def := DefaultTenantConfig()
+		// Ensure essential intervals have default values if not provided to prevent panics.
 		if config.UsageResetInterval <= 0 {
-			config.UsageResetInterval = def.UsageResetInterval
+			config.UsageResetInterval = time.Hour
 		}
 		if config.CleanupInterval <= 0 {
-			config.CleanupInterval = def.CleanupInterval
+			config.CleanupInterval = 24 * time.Hour
 		}
 	}
 
@@ -548,7 +547,6 @@ func (tm *TenantManager) matchesFilter(tenant *Tenant, filter *TenantFilter) boo
 	if filter == nil {
 		return true
 	}
-
 	if filter.Status != nil && tenant.Status != *filter.Status {
 		return false
 	}

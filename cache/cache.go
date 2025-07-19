@@ -243,25 +243,16 @@ type CacheRequest struct {
 
 // CacheManager provides intelligent caching capabilities
 type CacheManager struct {
-	config    *CacheConfig
-	backend   CacheBackend
-	strategy  CacheStrategy
-	monitor   *monitoring.MonitoringManager
-	logger    *zap.SugaredLogger
-	
-	// Memory cache
-	memoryCache map[string]*CacheEntry
-	memoryMutex sync.RWMutex
-	
-	// LRU tracking
-	accessOrder []string
-	
-	// Metrics
-	stats       *CacheStats
-	statsMutex  sync.RWMutex
-	
-	// Adaptive state
-	adaptiveState *AdaptiveState
+	config          *CacheConfig
+	memoryCache     map[string]*CacheEntry
+	accessOrder     []string
+	mutex           sync.RWMutex
+	stats           *CacheStats
+	adaptiveState   *AdaptiveState
+	backend         CacheBackend
+	strategy        CacheStrategy
+	monitor         *monitoring.MonitoringManager
+	logger          *zap.SugaredLogger
 	
 	// Background services
 	cleanupTicker *time.Ticker
@@ -544,31 +535,24 @@ func (cm *CacheManager) Store(ctx context.Context, request *openai.ChatCompletio
 
 // Clear removes all cached entries
 func (cm *CacheManager) Clear() error {
-	cm.memoryMutex.Lock()
-	defer cm.memoryMutex.Unlock()
-	
-	// Clear memory cache
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+
+	// Clear all entries from memory cache
 	cm.memoryCache = make(map[string]*CacheEntry)
 	cm.accessOrder = make([]string, 0)
-	
-	// Clear backend-specific storage
-	if err := cm.clearBackend(); err != nil {
-		return err
-	}
-	
-	// Reset statistics
-	cm.statsMutex.Lock()
+
+	// Clear all tenant statistics
 	cm.stats = &CacheStats{TenantStats: make(map[string]*TenantCacheStats)}
-	cm.statsMutex.Unlock()
-	
-	cm.logger.Info("Cache cleared successfully")
+
+	cm.logger.Info("Full cache cleared")
 	return nil
 }
 
 // ClearTenant removes all cached entries for a specific tenant
 func (cm *CacheManager) ClearTenant(tenantID string) error {
-	cm.memoryMutex.Lock()
-	defer cm.memoryMutex.Unlock()
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
 	
 	// Remove tenant entries from memory cache
 	for key, entry := range cm.memoryCache {
@@ -579,9 +563,7 @@ func (cm *CacheManager) ClearTenant(tenantID string) error {
 	}
 	
 	// Clear tenant statistics
-	cm.statsMutex.Lock()
 	delete(cm.stats.TenantStats, tenantID)
-	cm.statsMutex.Unlock()
 	
 	cm.logger.Infow("Tenant cache cleared", "tenant_id", tenantID)
 	return nil
@@ -589,8 +571,8 @@ func (cm *CacheManager) ClearTenant(tenantID string) error {
 
 // GetStats returns current cache statistics
 func (cm *CacheManager) GetStats() *CacheStats {
-	cm.statsMutex.RLock()
-	defer cm.statsMutex.RUnlock()
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
 	
 	// Create a copy to prevent modification
 	statsCopy := *cm.stats
@@ -607,9 +589,7 @@ func (cm *CacheManager) GetStats() *CacheStats {
 	}
 	
 	// Update memory usage (without additional locking since we're already locked)
-	cm.memoryMutex.RLock()
 	entryCount := len(cm.memoryCache)
-	cm.memoryMutex.RUnlock()
 	
 	averageEntrySize := 10.0 // KB estimate
 	statsCopy.MemoryUsageMB = float64(entryCount) * averageEntrySize / 1024.0 // Convert to MB
@@ -792,8 +772,8 @@ func (cm *CacheManager) runAdaptiveTuningService() {
 }
 
 func (cm *CacheManager) performCleanup() {
-	cm.memoryMutex.Lock()
-	defer cm.memoryMutex.Unlock()
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
 	
 	now := time.Now()
 	expiredKeys := make([]string, 0)
@@ -816,9 +796,9 @@ func (cm *CacheManager) performCleanup() {
 		cm.evictOldestEntries(int64(len(cm.memoryCache)) - cm.config.MaxEntries)
 	}
 	
-	cm.statsMutex.Lock()
+	cm.mutex.Lock()
 	cm.stats.Evictions += int64(len(expiredKeys))
-	cm.statsMutex.Unlock()
+	cm.mutex.Unlock()
 	
 	if len(expiredKeys) > 0 {
 		cm.logger.Infow("Cache cleanup completed", "expired_entries", len(expiredKeys))
@@ -874,8 +854,8 @@ func (cm *CacheManager) recordMetrics() {
 }
 
 func (cm *CacheManager) calculateMemoryUsage() float64 {
-	cm.memoryMutex.RLock()
-	defer cm.memoryMutex.RUnlock()
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
 	
 	// This is a simplified calculation
 	// In production, you would measure actual memory usage
