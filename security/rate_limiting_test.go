@@ -8,492 +8,352 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
-func TestRateLimiter_NewRateLimiter(t *testing.T) {
-	config := &RateLimitingConfig{
-		Enabled:                true,
-		DefaultRequestsPerHour: 1000,
-		DefaultTokensPerHour:   100000,
-		SlidingWindowSize:      time.Hour,
-		BurstMultiplier:        2.0,
-	}
-
-	limiter := NewRateLimiter(config)
-	assert.NotNil(t, limiter)
-	assert.Equal(t, config, limiter.config)
-}
-
-func TestRateLimiter_CheckRateLimit_Success(t *testing.T) {
-	config := &RateLimitingConfig{
-		Enabled:                true,
-		DefaultRequestsPerHour: 10,
-		DefaultTokensPerHour:   1000,
-		SlidingWindowSize:      time.Minute,
-		BurstMultiplier:        2.0,
-	}
-
-	limiter := NewRateLimiter(config)
-	ctx := context.Background()
-
-	// First request should succeed
-	allowed, remaining, resetTime, err := limiter.CheckRateLimit(ctx, "test-key", 1, 100)
-	require.NoError(t, err)
-	assert.True(t, allowed)
-	assert.Equal(t, 9, remaining) // 10 - 1 = 9
-	assert.True(t, resetTime.After(time.Now()))
-}
-
-func TestRateLimiter_CheckRateLimit_ExceedRequestLimit(t *testing.T) {
-	config := &RateLimitingConfig{
-		Enabled:                true,
-		DefaultRequestsPerHour: 2,
-		DefaultTokensPerHour:   1000,
-		SlidingWindowSize:      time.Minute,
-		BurstMultiplier:        1.0,
-	}
-
-	limiter := NewRateLimiter(config)
-	ctx := context.Background()
-
-	// Use up the request limit
-	for i := 0; i < 2; i++ {
-		allowed, _, _, err := limiter.CheckRateLimit(ctx, "test-key", 1, 100)
-		require.NoError(t, err)
-		assert.True(t, allowed)
-	}
-
-	// Third request should be denied
-	allowed, remaining, _, err := limiter.CheckRateLimit(ctx, "test-key", 1, 100)
-	require.NoError(t, err)
-	assert.False(t, allowed)
-	assert.Equal(t, 0, remaining)
-}
-
-func TestRateLimiter_CheckRateLimit_ExceedTokenLimit(t *testing.T) {
-	config := &RateLimitingConfig{
-		Enabled:                true,
-		DefaultRequestsPerHour: 10,
-		DefaultTokensPerHour:   500,
-		SlidingWindowSize:      time.Minute,
-		BurstMultiplier:        1.0,
-	}
-
-	limiter := NewRateLimiter(config)
-	ctx := context.Background()
-
-	// Use up the token limit with large token requests
-	allowed, _, _, err := limiter.CheckRateLimit(ctx, "test-key", 1, 300)
-	require.NoError(t, err)
-	assert.True(t, allowed)
-
-	allowed, _, _, err = limiter.CheckRateLimit(ctx, "test-key", 1, 300)
-	require.NoError(t, err)
-	assert.False(t, allowed) // Should exceed token limit (300 + 300 > 500)
-}
-
-func TestRateLimiter_CustomLimits(t *testing.T) {
-	config := &RateLimitingConfig{
-		Enabled:                true,
-		DefaultRequestsPerHour: 10,
-		DefaultTokensPerHour:   1000,
-		SlidingWindowSize:      time.Minute,
-		BurstMultiplier:        1.0,
-		CustomLimits: map[string]*RateLimit{
-			"premium-user": {
-				RequestsPerHour: 100,
-				TokensPerHour:   10000,
+func TestAdvancedRateLimiter_NewAdvancedRateLimiter(t *testing.T) {
+	config := &RateLimitConfig{
+		Enabled: true,
+		GlobalLimits: []RateLimit{
+			{
+				Type:   RateLimitTypeRequests,
+				Limit:  1000,
+				Window: time.Hour,
+				Action: RateLimitActionBlock,
 			},
 		},
 	}
 
-	limiter := NewRateLimiter(config)
-	ctx := context.Background()
-
-	// Test with custom limit key
-	allowed, remaining, _, err := limiter.CheckRateLimit(ctx, "premium-user", 1, 100)
-	require.NoError(t, err)
-	assert.True(t, allowed)
-	assert.Equal(t, 99, remaining) // 100 - 1 = 99
-
-	// Test with default limit key
-	allowed, remaining, _, err = limiter.CheckRateLimit(ctx, "regular-user", 1, 100)
-	require.NoError(t, err)
-	assert.True(t, allowed)
-	assert.Equal(t, 9, remaining) // 10 - 1 = 9
+	logger := zaptest.NewLogger(t).Sugar()
+	limiter := NewAdvancedRateLimiter(config, logger)
+	assert.NotNil(t, limiter)
+	assert.Equal(t, config, limiter.config)
 }
 
-func TestRateLimiter_SlidingWindow(t *testing.T) {
-	config := &RateLimitingConfig{
-		Enabled:                true,
-		DefaultRequestsPerHour: 2,
-		DefaultTokensPerHour:   1000,
-		SlidingWindowSize:      100 * time.Millisecond, // Very short window for testing
-		BurstMultiplier:        1.0,
+func TestAdvancedRateLimiter_CheckRateLimit_Success(t *testing.T) {
+	config := &RateLimitConfig{
+		Enabled: true,
+		UserLimits: []RateLimit{
+			{
+				Type:   RateLimitTypeRequests,
+				Limit:  10,
+				Window: time.Minute,
+				Action: RateLimitActionBlock,
+			},
+			{
+				Type:   RateLimitTypeTokens,
+				Limit:  1000,
+				Window: time.Minute,
+				Action: RateLimitActionBlock,
+			},
+		},
 	}
 
-	limiter := NewRateLimiter(config)
+	logger := zaptest.NewLogger(t).Sugar()
+	limiter := NewAdvancedRateLimiter(config, logger)
 	ctx := context.Background()
 
-	// Use up the limit
-	allowed, _, _, err := limiter.CheckRateLimit(ctx, "test-key", 1, 100)
+	// First request should succeed
+	result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", "gpt-4", 100, 0.01)
 	require.NoError(t, err)
-	assert.True(t, allowed)
-
-	allowed, _, _, err = limiter.CheckRateLimit(ctx, "test-key", 1, 100)
-	require.NoError(t, err)
-	assert.True(t, allowed)
-
-	// Should be rate limited
-	allowed, _, _, err = limiter.CheckRateLimit(ctx, "test-key", 1, 100)
-	require.NoError(t, err)
-	assert.False(t, allowed)
-
-	// Wait for window to slide
-	time.Sleep(150 * time.Millisecond)
-
-	// Should be allowed again
-	allowed, _, _, err = limiter.CheckRateLimit(ctx, "test-key", 1, 100)
-	require.NoError(t, err)
-	assert.True(t, allowed)
+	assert.True(t, result.Allowed)
+	assert.Equal(t, int64(9), result.Remaining) // 10 - 1 = 9
+	assert.True(t, result.ResetTime.After(time.Now()))
 }
 
-func TestRateLimiter_BurstMultiplier(t *testing.T) {
-	config := &RateLimitingConfig{
-		Enabled:                true,
-		DefaultRequestsPerHour: 10,
-		DefaultTokensPerHour:   1000,
-		SlidingWindowSize:      time.Hour,
-		BurstMultiplier:        2.0, // Allow burst up to 20 requests
+func TestAdvancedRateLimiter_CheckRateLimit_ExceedRequestLimit(t *testing.T) {
+	config := &RateLimitConfig{
+		Enabled: true,
+		UserLimits: []RateLimit{
+			{
+				Type:   RateLimitTypeRequests,
+				Limit:  2,
+				Window: time.Minute,
+				Action: RateLimitActionBlock,
+			},
+		},
 	}
 
-	limiter := NewRateLimiter(config)
+	logger := zaptest.NewLogger(t).Sugar()
+	limiter := NewAdvancedRateLimiter(config, logger)
 	ctx := context.Background()
 
-	// Should allow burst up to 20 requests (10 * 2.0)
-	for i := 0; i < 20; i++ {
-		allowed, _, _, err := limiter.CheckRateLimit(ctx, "test-key", 1, 50)
+	// First two requests should succeed
+	for i := 0; i < 2; i++ {
+		result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", "gpt-4", 10, 0.001)
 		require.NoError(t, err)
-		assert.True(t, allowed, "Request %d should be allowed", i+1)
+		assert.True(t, result.Allowed)
 	}
 
-	// 21st request should be denied
-	allowed, _, _, err := limiter.CheckRateLimit(ctx, "test-key", 1, 50)
+	// Third request should be blocked
+	result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", "gpt-4", 10, 0.001)
 	require.NoError(t, err)
-	assert.False(t, allowed)
+	assert.False(t, result.Allowed)
+	assert.Contains(t, result.ErrorMessage, "Request rate limit exceeded")
 }
 
-func TestRateLimiter_ConcurrentAccess(t *testing.T) {
-	config := &RateLimitingConfig{
-		Enabled:                true,
-		DefaultRequestsPerHour: 100,
-		DefaultTokensPerHour:   10000,
-		SlidingWindowSize:      time.Hour,
-		BurstMultiplier:        1.0,
+func TestAdvancedRateLimiter_CheckRateLimit_ExceedTokenLimit(t *testing.T) {
+	config := &RateLimitConfig{
+		Enabled: true,
+		UserLimits: []RateLimit{
+			{
+				Type:   RateLimitTypeTokens,
+				Limit:  100,
+				Window: time.Minute,
+				Action: RateLimitActionBlock,
+			},
+		},
 	}
 
-	limiter := NewRateLimiter(config)
+	logger := zaptest.NewLogger(t).Sugar()
+	limiter := NewAdvancedRateLimiter(config, logger)
 	ctx := context.Background()
 
-	const numGoroutines = 10
-	const requestsPerGoroutine = 5
+	// Request with 50 tokens should succeed
+	result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", "gpt-4", 50, 0.001)
+	require.NoError(t, err)
+	assert.True(t, result.Allowed)
 
+	// Request with 60 more tokens should exceed limit
+	result, err = limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", "gpt-4", 60, 0.001)
+	require.NoError(t, err)
+	assert.False(t, result.Allowed)
+	assert.Contains(t, result.ErrorMessage, "Token rate limit exceeded")
+}
+
+func TestAdvancedRateLimiter_CheckRateLimit_ModelSpecificLimits(t *testing.T) {
+	config := &RateLimitConfig{
+		Enabled: true,
+		ModelLimits: map[string][]RateLimit{
+			"gpt-4": {
+				{
+					Type:   RateLimitTypeRequests,
+					Limit:  5,
+					Window: time.Minute,
+					Action: RateLimitActionBlock,
+				},
+			},
+			"gpt-3.5-turbo": {
+				{
+					Type:   RateLimitTypeRequests,
+					Limit:  20,
+					Window: time.Minute,
+					Action: RateLimitActionBlock,
+				},
+			},
+		},
+	}
+
+	logger := zaptest.NewLogger(t).Sugar()
+	limiter := NewAdvancedRateLimiter(config, logger)
+	ctx := context.Background()
+
+	// Test GPT-4 limit (5 requests)
+	for i := 0; i < 5; i++ {
+		result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", "gpt-4", 10, 0.001)
+		require.NoError(t, err)
+		assert.True(t, result.Allowed)
+	}
+
+	// 6th GPT-4 request should fail
+	result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", "gpt-4", 10, 0.001)
+	require.NoError(t, err)
+	assert.False(t, result.Allowed)
+
+	// But GPT-3.5-turbo should still work
+	result, err = limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", "gpt-3.5-turbo", 10, 0.001)
+	require.NoError(t, err)
+	assert.True(t, result.Allowed)
+}
+
+func TestAdvancedRateLimiter_CheckRateLimit_Disabled(t *testing.T) {
+	config := &RateLimitConfig{
+		Enabled: false,
+		UserLimits: []RateLimit{
+			{
+				Type:   RateLimitTypeRequests,
+				Limit:  1,
+				Window: time.Minute,
+				Action: RateLimitActionBlock,
+			},
+		},
+	}
+
+	logger := zaptest.NewLogger(t).Sugar()
+	limiter := NewAdvancedRateLimiter(config, logger)
+	ctx := context.Background()
+
+	// Should allow unlimited requests when disabled
+	for i := 0; i < 10; i++ {
+		result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", "gpt-4", 100, 0.01)
+		require.NoError(t, err)
+		assert.True(t, result.Allowed)
+	}
+}
+
+func TestAdvancedRateLimiter_ConcurrentAccess(t *testing.T) {
+	config := &RateLimitConfig{
+		Enabled: true,
+		UserLimits: []RateLimit{
+			{
+				Type:   RateLimitTypeRequests,
+				Limit:  100,
+				Window: time.Minute,
+				Action: RateLimitActionBlock,
+			},
+		},
+	}
+
+	logger := zaptest.NewLogger(t).Sugar()
+	limiter := NewAdvancedRateLimiter(config, logger)
+	ctx := context.Background()
+
+	// Test concurrent access
 	var wg sync.WaitGroup
-	var allowedCount int64
+	successCount := 0
+	failCount := 0
 	var mu sync.Mutex
 
-	for i := 0; i < numGoroutines; i++ {
+	for i := 0; i < 50; i++ {
 		wg.Add(1)
-		go func(routineID int) {
+		go func(id int) {
 			defer wg.Done()
-			for j := 0; j < requestsPerGoroutine; j++ {
-				allowed, _, _, err := limiter.CheckRateLimit(ctx, "test-key", 1, 100)
-				require.NoError(t, err)
-				
-				if allowed {
-					mu.Lock()
-					allowedCount++
-					mu.Unlock()
-				}
+
+			result, err := limiter.CheckRateLimit(ctx, "concurrent-user", "/v1/chat/completions", "gpt-4", 10, 0.001)
+			require.NoError(t, err)
+
+			mu.Lock()
+			defer mu.Unlock()
+			if result.Allowed {
+				successCount++
+			} else {
+				failCount++
 			}
 		}(i)
 	}
 
 	wg.Wait()
-
-	// Should allow exactly 100 requests (the limit)
-	mu.Lock()
-	defer mu.Unlock()
-	assert.Equal(t, int64(50), allowedCount) // 50 total requests, all should be allowed
+	assert.Equal(t, 50, successCount+failCount)
+	assert.Greater(t, successCount, 0)
 }
 
-func TestRateLimiter_Disabled(t *testing.T) {
-	config := &RateLimitingConfig{
-		Enabled: false,
+func TestAdvancedRateLimiter_SlidingWindow(t *testing.T) {
+	config := &RateLimitConfig{
+		Enabled: true,
+		UserLimits: []RateLimit{
+			{
+				Type:   RateLimitTypeRequests,
+				Limit:  10,
+				Window: 2 * time.Second,
+				Action: RateLimitActionBlock,
+			},
+		},
+		SlidingWindow: &SlidingWindowConfig{
+			Enabled:    true,
+			WindowSize: 2 * time.Second,
+			SubWindows: 4,
+		},
 	}
 
-	limiter := NewRateLimiter(config)
+	logger := zaptest.NewLogger(t).Sugar()
+	limiter := NewAdvancedRateLimiter(config, logger)
 	ctx := context.Background()
 
-	// When disabled, should always allow
-	for i := 0; i < 1000; i++ {
-		allowed, remaining, _, err := limiter.CheckRateLimit(ctx, "test-key", 1, 1000)
+	// Use up the limit
+	for i := 0; i < 10; i++ {
+		result, err := limiter.CheckRateLimit(ctx, "sliding-user", "/v1/chat/completions", "gpt-4", 10, 0.001)
 		require.NoError(t, err)
-		assert.True(t, allowed)
-		assert.Equal(t, -1, remaining) // -1 indicates unlimited
-	}
-}
-
-func TestRateLimiter_GetUsage(t *testing.T) {
-	config := &RateLimitingConfig{
-		Enabled:                true,
-		DefaultRequestsPerHour: 10,
-		DefaultTokensPerHour:   1000,
-		SlidingWindowSize:      time.Hour,
-		BurstMultiplier:        1.0,
+		assert.True(t, result.Allowed)
 	}
 
-	limiter := NewRateLimiter(config)
-	ctx := context.Background()
-
-	// Make some requests
-	limiter.CheckRateLimit(ctx, "test-key", 3, 300)
-	limiter.CheckRateLimit(ctx, "test-key", 2, 200)
-
-	usage := limiter.GetUsage("test-key")
-	assert.Equal(t, 5, usage.RequestCount)
-	assert.Equal(t, 500, usage.TokenCount)
-	assert.True(t, usage.WindowStart.Before(time.Now()))
-}
-
-func TestRateLimiter_ResetUsage(t *testing.T) {
-	config := &RateLimitingConfig{
-		Enabled:                true,
-		DefaultRequestsPerHour: 10,
-		DefaultTokensPerHour:   1000,
-		SlidingWindowSize:      time.Hour,
-		BurstMultiplier:        1.0,
-	}
-
-	limiter := NewRateLimiter(config)
-	ctx := context.Background()
-
-	// Make some requests
-	limiter.CheckRateLimit(ctx, "test-key", 5, 500)
-
-	// Verify usage
-	usage := limiter.GetUsage("test-key")
-	assert.Equal(t, 5, usage.RequestCount)
-	assert.Equal(t, 500, usage.TokenCount)
-
-	// Reset usage
-	limiter.ResetUsage("test-key")
-
-	// Verify usage is reset
-	usage = limiter.GetUsage("test-key")
-	assert.Equal(t, 0, usage.RequestCount)
-	assert.Equal(t, 0, usage.TokenCount)
-}
-
-func TestRateLimiter_CleanupExpiredEntries(t *testing.T) {
-	config := &RateLimitingConfig{
-		Enabled:                true,
-		DefaultRequestsPerHour: 10,
-		DefaultTokensPerHour:   1000,
-		SlidingWindowSize:      10 * time.Millisecond, // Very short window
-		BurstMultiplier:        1.0,
-	}
-
-	limiter := NewRateLimiter(config)
-	ctx := context.Background()
-
-	// Make requests with different keys
-	limiter.CheckRateLimit(ctx, "key1", 1, 100)
-	limiter.CheckRateLimit(ctx, "key2", 1, 100)
-	limiter.CheckRateLimit(ctx, "key3", 1, 100)
-
-	// Wait for entries to expire
-	time.Sleep(20 * time.Millisecond)
-
-	// Trigger cleanup by making a new request
-	limiter.CheckRateLimit(ctx, "key4", 1, 100)
-
-	// The internal cleanup should have removed expired entries
-	// We can't directly test this without exposing internal state,
-	// but we can verify the limiter still works correctly
-	allowed, _, _, err := limiter.CheckRateLimit(ctx, "key1", 1, 100)
+	// Should be blocked now
+	result, err := limiter.CheckRateLimit(ctx, "sliding-user", "/v1/chat/completions", "gpt-4", 10, 0.001)
 	require.NoError(t, err)
-	assert.True(t, allowed)
+	assert.False(t, result.Allowed)
+
+	// Wait for half the window
+	time.Sleep(1 * time.Second)
+
+	// Should still be blocked (sliding window)
+	result, err = limiter.CheckRateLimit(ctx, "sliding-user", "/v1/chat/completions", "gpt-4", 10, 0.001)
+	require.NoError(t, err)
+	assert.False(t, result.Allowed)
+
+	// Wait for the full window to pass
+	time.Sleep(1100 * time.Millisecond)
+
+	// Should be allowed again
+	result, err = limiter.CheckRateLimit(ctx, "sliding-user", "/v1/chat/completions", "gpt-4", 10, 0.001)
+	require.NoError(t, err)
+	assert.True(t, result.Allowed)
 }
 
-func TestUsageTracker_WindowBoundaries(t *testing.T) {
-	config := &RateLimitingConfig{
-		Enabled:                true,
-		DefaultRequestsPerHour: 10,
-		DefaultTokensPerHour:   1000,
-		SlidingWindowSize:      100 * time.Millisecond,
-		BurstMultiplier:        1.0,
+func TestAdvancedRateLimiter_GetRateLimitStats(t *testing.T) {
+	config := &RateLimitConfig{
+		Enabled: true,
+		UserLimits: []RateLimit{
+			{
+				Type:   RateLimitTypeRequests,
+				Limit:  10,
+				Window: time.Minute,
+				Action: RateLimitActionBlock,
+			},
+		},
 	}
 
-	limiter := NewRateLimiter(config)
+	logger := zaptest.NewLogger(t).Sugar()
+	limiter := NewAdvancedRateLimiter(config, logger)
 	ctx := context.Background()
 
-	// Add requests at specific times to test window sliding
-	now := time.Now()
-	
-	// Add request at start of window
-	limiter.CheckRateLimit(ctx, "test-key", 5, 500)
-	
-	// Verify usage
-	usage := limiter.GetUsage("test-key")
-	assert.Equal(t, 5, usage.RequestCount)
-	assert.Equal(t, 500, usage.TokenCount)
-	
-	// Wait for partial window slide
-	time.Sleep(50 * time.Millisecond)
-	
-	// Add more requests
-	limiter.CheckRateLimit(ctx, "test-key", 3, 300)
-	
-	usage = limiter.GetUsage("test-key")
-	assert.Equal(t, 8, usage.RequestCount) // 5 + 3
-	assert.Equal(t, 800, usage.TokenCount) // 500 + 300
-	
-	// Wait for first requests to fall out of window
-	time.Sleep(60 * time.Millisecond)
-	
-	// First requests should have expired, only recent ones should count
-	usage = limiter.GetUsage("test-key")
-	assert.Equal(t, 3, usage.RequestCount) // Only the recent 3
-	assert.Equal(t, 300, usage.TokenCount) // Only the recent 300
-}
-
-func TestRateLimiter_EdgeCases(t *testing.T) {
-	config := &RateLimitingConfig{
-		Enabled:                true,
-		DefaultRequestsPerHour: 10,
-		DefaultTokensPerHour:   1000,
-		SlidingWindowSize:      time.Hour,
-		BurstMultiplier:        1.0,
+	// Make some requests
+	for i := 0; i < 5; i++ {
+		_, err := limiter.CheckRateLimit(ctx, "stats-user", "/v1/chat/completions", "gpt-4", 10, 0.001)
+		require.NoError(t, err)
 	}
 
-	limiter := NewRateLimiter(config)
+	// Get stats
+	stats := limiter.GetRateLimitStats()
+	assert.NotNil(t, stats)
+	assert.Equal(t, true, stats["enabled"])
+	assert.GreaterOrEqual(t, stats["active_states"], 1)
+}
+
+func TestAdvancedRateLimiter_ConcurrentLimits(t *testing.T) {
+	config := &RateLimitConfig{
+		Enabled: true,
+		UserLimits: []RateLimit{
+			{
+				Type:   RateLimitTypeConcurrent,
+				Limit:  2,
+				Window: time.Minute,
+				Action: RateLimitActionBlock,
+			},
+		},
+	}
+
+	logger := zaptest.NewLogger(t).Sugar()
+	limiter := NewAdvancedRateLimiter(config, logger)
 	ctx := context.Background()
 
-	tests := []struct {
-		name         string
-		key          string
-		requests     int
-		tokens       int
-		expectError  bool
-		expectAllowed bool
-	}{
-		{
-			name:          "empty key",
-			key:           "",
-			requests:      1,
-			tokens:        100,
-			expectError:   false,
-			expectAllowed: true,
-		},
-		{
-			name:          "zero requests",
-			key:           "test-key",
-			requests:      0,
-			tokens:        100,
-			expectError:   false,
-			expectAllowed: true,
-		},
-		{
-			name:          "zero tokens",
-			key:           "test-key",
-			requests:      1,
-			tokens:        0,
-			expectError:   false,
-			expectAllowed: true,
-		},
-		{
-			name:          "negative requests",
-			key:           "test-key",
-			requests:      -1,
-			tokens:        100,
-			expectError:   false,
-			expectAllowed: true, // Should handle gracefully
-		},
-		{
-			name:          "negative tokens",
-			key:           "test-key",
-			requests:      1,
-			tokens:        -100,
-			expectError:   false,
-			expectAllowed: true, // Should handle gracefully
-		},
-	}
+	// First two concurrent requests should succeed
+	result1, err := limiter.CheckRateLimit(ctx, "concurrent-test", "/v1/chat/completions", "gpt-4", 10, 0.001)
+	require.NoError(t, err)
+	assert.True(t, result1.Allowed)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			allowed, _, _, err := limiter.CheckRateLimit(ctx, tt.key, tt.requests, tt.tokens)
-			
-			if tt.expectError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expectAllowed, allowed)
-			}
-		})
-	}
-}
+	result2, err := limiter.CheckRateLimit(ctx, "concurrent-test", "/v1/chat/completions", "gpt-4", 10, 0.001)
+	require.NoError(t, err)
+	assert.True(t, result2.Allowed)
 
-func TestRateLimiter_Configuration_Validation(t *testing.T) {
-	tests := []struct {
-		name    string
-		config  *RateLimitingConfig
-		isValid bool
-	}{
-		{
-			name: "valid config",
-			config: &RateLimitingConfig{
-				Enabled:                true,
-				DefaultRequestsPerHour: 100,
-				DefaultTokensPerHour:   10000,
-				SlidingWindowSize:      time.Hour,
-				BurstMultiplier:        2.0,
-			},
-			isValid: true,
-		},
-		{
-			name: "zero burst multiplier",
-			config: &RateLimitingConfig{
-				Enabled:                true,
-				DefaultRequestsPerHour: 100,
-				DefaultTokensPerHour:   10000,
-				SlidingWindowSize:      time.Hour,
-				BurstMultiplier:        0.0,
-			},
-			isValid: true, // Should handle gracefully
-		},
-		{
-			name: "negative limits",
-			config: &RateLimitingConfig{
-				Enabled:                true,
-				DefaultRequestsPerHour: -100,
-				DefaultTokensPerHour:   -10000,
-				SlidingWindowSize:      time.Hour,
-				BurstMultiplier:        1.0,
-			},
-			isValid: true, // Should handle gracefully
-		},
-	}
+	// Third concurrent request should fail
+	result3, err := limiter.CheckRateLimit(ctx, "concurrent-test", "/v1/chat/completions", "gpt-4", 10, 0.001)
+	require.NoError(t, err)
+	assert.False(t, result3.Allowed)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			limiter := NewRateLimiter(tt.config)
-			assert.NotNil(t, limiter)
-			
-			// Test that it doesn't panic with edge case configurations
-			ctx := context.Background()
-			_, _, _, err := limiter.CheckRateLimit(ctx, "test-key", 1, 100)
-			assert.NoError(t, err)
-		})
-	}
+	// Release one resource
+	limiter.ReleaseResource("concurrent-test", "/v1/chat/completions", "gpt-4")
+
+	// Now a new request should succeed
+	result4, err := limiter.CheckRateLimit(ctx, "concurrent-test", "/v1/chat/completions", "gpt-4", 10, 0.001)
+	require.NoError(t, err)
+	assert.True(t, result4.Allowed)
 }

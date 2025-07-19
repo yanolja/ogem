@@ -32,6 +32,10 @@ const (
 	ChatCompletionMethod BatchJobMethod = "POST"
 )
 
+var notSupportDimensionModels = []string{
+	"text-embedding-ada-002",
+}
+
 type (
 	BatchJobStatus string
 	BatchJobMethod string
@@ -69,7 +73,7 @@ func NewEndpoint(providerName string, region string, baseUrl string, apiKey stri
 	if err != nil {
 		return nil, fmt.Errorf("invalid endpoint: %v", err)
 	}
-	
+
 	// Validate that we have a proper HTTP/HTTPS URL
 	if parsedBaseUrl.Scheme != "http" && parsedBaseUrl.Scheme != "https" {
 		return nil, fmt.Errorf("invalid endpoint: URL must use http or https scheme, got: %s", baseUrl)
@@ -199,7 +203,7 @@ func (p *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiReque
 		scanner := bufio.NewScanner(httpResponse.Body)
 		for scanner.Scan() {
 			line := scanner.Text()
-			
+
 			// Skip empty lines and comments
 			if line == "" || strings.HasPrefix(line, ":") {
 				continue
@@ -208,7 +212,7 @@ func (p *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiReque
 			// Parse SSE format: "data: {...}"
 			if strings.HasPrefix(line, "data: ") {
 				data := strings.TrimPrefix(line, "data: ")
-				
+
 				// Handle termination signal
 				if data == "[DONE]" {
 					break
@@ -237,7 +241,22 @@ func (p *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiReque
 }
 
 func (p *Endpoint) GenerateEmbedding(ctx context.Context, embeddingRequest *openai.EmbeddingRequest) (*openai.EmbeddingResponse, error) {
-	jsonData, err := json.Marshal(embeddingRequest)
+	supportsDimensions := true
+	for _, model := range notSupportDimensionModels {
+		if embeddingRequest.Model == model {
+			supportsDimensions = false
+			break
+		}
+	}
+
+	requestCopy := *embeddingRequest
+
+	if !supportsDimensions && requestCopy.Dimensions != nil {
+		log.Printf("Model %s does not support dimensions parameter, removing it", embeddingRequest.Model)
+		requestCopy.Dimensions = nil
+	}
+
+	jsonData, err := json.Marshal(requestCopy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %v", err)
 	}
@@ -743,9 +762,8 @@ func (p *Endpoint) TranscribeAudio(ctx context.Context, request *openai.AudioTra
 	if err != nil {
 		return nil, fmt.Errorf("failed to create form file: %v", err)
 	}
-	// Note: In a real implementation, you'd read the file content
-	// For now, we'll just write the filename as content
-	_, err = part.Write([]byte(request.File))
+
+	_, err = part.Write(request.FileContent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write file content: %v", err)
 	}
@@ -818,8 +836,8 @@ func (p *Endpoint) TranslateAudio(ctx context.Context, request *openai.AudioTran
 	if err != nil {
 		return nil, fmt.Errorf("failed to create form file: %v", err)
 	}
-	// Note: In a real implementation, you'd read the file content
-	_, err = part.Write([]byte(request.File))
+
+	_, err = part.Write(request.FileContent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write file content: %v", err)
 	}

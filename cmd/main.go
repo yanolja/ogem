@@ -61,7 +61,7 @@ func main() {
 	mux.HandleFunc("/v1/audio/speech", proxy.HandleAuthentication(proxy.HandleAudioSpeech))
 	mux.HandleFunc("/v1/moderations", proxy.HandleAuthentication(proxy.HandleModerations))
 	mux.HandleFunc("/v1/cost/estimate", proxy.HandleCostEstimate) // No authentication required for cost estimation
-	
+
 	// Virtual key management endpoints (only available if virtual keys are enabled)
 	if config.EnableVirtualKeys {
 		mux.HandleFunc("/v1/keys", func(w http.ResponseWriter, r *http.Request) {

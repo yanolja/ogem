@@ -2,6 +2,7 @@ package vertex
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,12 +19,14 @@ func TestNewEndpoint(t *testing.T) {
 		projectID string
 		region    string
 		wantErr   bool
+		skipErr   bool // Skip if credentials error
 	}{
 		{
 			name:      "valid configuration",
 			projectID: "test-project",
 			region:    "us-central1",
 			wantErr:   false,
+			skipErr:   true,
 		},
 		{
 			name:      "empty project ID",
@@ -36,6 +39,12 @@ func TestNewEndpoint(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			endpoint, err := NewEndpoint(tt.projectID, tt.region)
+
+			// Skip test if Google credentials are not available
+			if err != nil && strings.Contains(err.Error(), "Google Cloud credentials not found") && tt.skipErr {
+				t.Skip("Skipping test: Google Cloud credentials not available")
+			}
+
 			if tt.wantErr {
 				assert.Error(t, err)
 				assert.Nil(t, endpoint)
@@ -61,7 +70,7 @@ func TestToGeminiConfig(t *testing.T) {
 			openaiRequest: &openai.ChatCompletionRequest{
 				Model:       "gemini-2.5-pro",
 				Temperature: float32Ptr(0.7),
-				TopP:       float32Ptr(0.9),
+				TopP:        float32Ptr(0.9),
 				MaxTokens:   int32Ptr(100),
 			},
 			wantErr: false,
@@ -177,9 +186,9 @@ func TestToOpenAiResponse(t *testing.T) {
 					FinishReason: genai.FinishReasonStop,
 				}},
 				UsageMetadata: &genai.GenerateContentResponseUsageMetadata{
-					PromptTokenCount:       10,
-					CandidatesTokenCount:   5,
-					TotalTokenCount:        15,
+					PromptTokenCount:     10,
+					CandidatesTokenCount: 5,
+					TotalTokenCount:      15,
 				},
 			},
 			wantErr: false,
@@ -212,9 +221,9 @@ func TestToOpenAiResponse(t *testing.T) {
 
 func TestToGeminiSchema(t *testing.T) {
 	tests := []struct {
-		name    string
-		schema  *orderedmap.Map
-		wantErr bool
+		name     string
+		schema   *orderedmap.Map
+		wantErr  bool
 		validate func(*testing.T, *genai.Schema)
 	}{
 		{

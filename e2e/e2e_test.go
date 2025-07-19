@@ -79,9 +79,9 @@ func TestCompleteWorkflow(t *testing.T) {
 
 	// 6. Create test tenant
 	tenant := &tenancy.Tenant{
-		ID:          "test-tenant-e2e",
-		Name:        "Test Tenant E2E",
-		Status:      tenancy.StatusActive,
+		ID:     "test-tenant-e2e",
+		Name:   "Test Tenant E2E",
+		Status: tenancy.StatusActive,
 		Subscription: &tenancy.Subscription{
 			Plan:      "premium",
 			ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
@@ -139,17 +139,17 @@ func TestCompleteWorkflow(t *testing.T) {
 		router.RecordRequestResult(selectedEndpoint, duration, 0.001, true, "")
 
 		err = tenantManager.RecordUsage(ctx, &tenancy.UsageRecord{
-			TenantID:      tenant.ID,
-			UserID:        "user-123",
-			RequestType:   "chat.completion",
-			Model:         request.Model,
-			InputTokens:   response.Usage.PromptTokens,
-			OutputTokens:  response.Usage.CompletionTokens,
-			TotalTokens:   response.Usage.TotalTokens,
-			Cost:          0.001,
-			Duration:      duration,
-			Success:       true,
-			Timestamp:     time.Now(),
+			TenantID:     tenant.ID,
+			UserID:       "user-123",
+			RequestType:  "chat.completion",
+			Model:        request.Model,
+			InputTokens:  response.Usage.PromptTokens,
+			OutputTokens: response.Usage.CompletionTokens,
+			TotalTokens:  response.Usage.TotalTokens,
+			Cost:         0.001,
+			Duration:     duration,
+			Success:      true,
+			Timestamp:    time.Now(),
 		})
 		require.NoError(t, err)
 

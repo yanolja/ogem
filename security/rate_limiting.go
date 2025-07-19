@@ -14,28 +14,28 @@ import (
 type RateLimitConfig struct {
 	// Enable rate limiting
 	Enabled bool `yaml:"enabled"`
-	
+
 	// Global rate limits
 	GlobalLimits []RateLimit `yaml:"global_limits,omitempty"`
-	
+
 	// Per-user rate limits
 	UserLimits []RateLimit `yaml:"user_limits,omitempty"`
-	
+
 	// Per-endpoint rate limits
 	EndpointLimits map[string][]RateLimit `yaml:"endpoint_limits,omitempty"`
-	
+
 	// Per-model rate limits
 	ModelLimits map[string][]RateLimit `yaml:"model_limits,omitempty"`
-	
+
 	// Burst allowance configuration
 	BurstConfig *BurstConfig `yaml:"burst_config,omitempty"`
-	
+
 	// Sliding window configuration
 	SlidingWindow *SlidingWindowConfig `yaml:"sliding_window,omitempty"`
-	
+
 	// Adaptive rate limiting
 	AdaptiveConfig *AdaptiveRateLimitConfig `yaml:"adaptive_config,omitempty"`
-	
+
 	// Whitelist/blacklist configuration
 	AccessControl *AccessControlConfig `yaml:"access_control,omitempty"`
 }
@@ -44,19 +44,19 @@ type RateLimitConfig struct {
 type RateLimit struct {
 	// Limit type
 	Type RateLimitType `yaml:"type"`
-	
+
 	// Maximum requests allowed
 	Limit int64 `yaml:"limit"`
-	
+
 	// Time window
 	Window time.Duration `yaml:"window"`
-	
+
 	// Priority for conflicting rules
 	Priority int `yaml:"priority"`
-	
+
 	// Action to take when limit exceeded
 	Action RateLimitAction `yaml:"action"`
-	
+
 	// Custom error message
 	ErrorMessage string `yaml:"error_message,omitempty"`
 }
@@ -65,9 +65,9 @@ type RateLimit struct {
 type RateLimitType string
 
 const (
-	RateLimitTypeRequests RateLimitType = "requests"
-	RateLimitTypeTokens   RateLimitType = "tokens"
-	RateLimitTypeCost     RateLimitType = "cost"
+	RateLimitTypeRequests   RateLimitType = "requests"
+	RateLimitTypeTokens     RateLimitType = "tokens"
+	RateLimitTypeCost       RateLimitType = "cost"
 	RateLimitTypeConcurrent RateLimitType = "concurrent"
 )
 
@@ -75,23 +75,23 @@ const (
 type RateLimitAction string
 
 const (
-	RateLimitActionBlock   RateLimitAction = "block"
-	RateLimitActionDelay   RateLimitAction = "delay"
-	RateLimitActionQueue   RateLimitAction = "queue"
-	RateLimitActionWarn    RateLimitAction = "warn"
+	RateLimitActionBlock RateLimitAction = "block"
+	RateLimitActionDelay RateLimitAction = "delay"
+	RateLimitActionQueue RateLimitAction = "queue"
+	RateLimitActionWarn  RateLimitAction = "warn"
 )
 
 // BurstConfig configures burst allowance
 type BurstConfig struct {
 	// Enable burst allowance
 	Enabled bool `yaml:"enabled"`
-	
+
 	// Maximum burst size (multiplier of base limit)
 	BurstMultiplier float64 `yaml:"burst_multiplier"`
-	
+
 	// Burst recovery rate (tokens per second)
 	RecoveryRate float64 `yaml:"recovery_rate"`
-	
+
 	// Minimum time between bursts
 	CooldownPeriod time.Duration `yaml:"cooldown_period"`
 }
@@ -100,10 +100,10 @@ type BurstConfig struct {
 type SlidingWindowConfig struct {
 	// Enable sliding window
 	Enabled bool `yaml:"enabled"`
-	
+
 	// Window size for sliding calculations
 	WindowSize time.Duration `yaml:"window_size"`
-	
+
 	// Number of sub-windows for precision
 	SubWindows int `yaml:"sub_windows"`
 }
@@ -112,16 +112,16 @@ type SlidingWindowConfig struct {
 type AdaptiveRateLimitConfig struct {
 	// Enable adaptive rate limiting
 	Enabled bool `yaml:"enabled"`
-	
+
 	// Factor to adjust limits based on system load
 	LoadFactor float64 `yaml:"load_factor"`
-	
+
 	// Factor to adjust limits based on error rates
 	ErrorFactor float64 `yaml:"error_factor"`
-	
+
 	// Minimum adjustment interval
 	AdjustmentInterval time.Duration `yaml:"adjustment_interval"`
-	
+
 	// Maximum adjustment percentage
 	MaxAdjustment float64 `yaml:"max_adjustment"`
 }
@@ -130,13 +130,13 @@ type AdaptiveRateLimitConfig struct {
 type AccessControlConfig struct {
 	// Whitelisted IP addresses/ranges
 	Whitelist []string `yaml:"whitelist,omitempty"`
-	
+
 	// Blacklisted IP addresses/ranges
 	Blacklist []string `yaml:"blacklist,omitempty"`
-	
+
 	// Trusted proxy headers
 	TrustedProxies []string `yaml:"trusted_proxies,omitempty"`
-	
+
 	// Geolocation restrictions
 	GeoRestrictions *GeoRestrictions `yaml:"geo_restrictions,omitempty"`
 }
@@ -145,10 +145,10 @@ type AccessControlConfig struct {
 type GeoRestrictions struct {
 	// Allowed countries (ISO 3166-1 alpha-2)
 	AllowedCountries []string `yaml:"allowed_countries,omitempty"`
-	
+
 	// Blocked countries
 	BlockedCountries []string `yaml:"blocked_countries,omitempty"`
-	
+
 	// Default action for unknown locations
 	DefaultAction string `yaml:"default_action"` // "allow" or "block"
 }
@@ -157,25 +157,25 @@ type GeoRestrictions struct {
 type RateLimitResult struct {
 	// Whether the request is allowed
 	Allowed bool
-	
+
 	// Rate limit that was applied
 	AppliedLimit *RateLimit
-	
+
 	// Current usage count
 	Current int64
-	
+
 	// Time until reset
 	ResetTime time.Time
-	
+
 	// Remaining requests
 	Remaining int64
-	
+
 	// Action to take
 	Action RateLimitAction
-	
+
 	// Error message if blocked
 	ErrorMessage string
-	
+
 	// Delay duration if action is delay
 	DelayDuration time.Duration
 }
@@ -184,25 +184,25 @@ type RateLimitResult struct {
 type RateLimitState struct {
 	// Current count
 	Count int64
-	
+
 	// Window start time
 	WindowStart time.Time
-	
+
 	// Last access time
 	LastAccess time.Time
-	
+
 	// Burst tokens available
 	BurstTokens float64
-	
+
 	// Historical data for sliding window
 	History []int64
-	
+
 	// Concurrent requests counter
 	Concurrent int64
-	
+
 	// Total cost accumulated
 	TotalCost float64
-	
+
 	// Mutex for thread safety
 	mutex sync.RWMutex
 }
@@ -296,10 +296,11 @@ func (r *AdvancedRateLimiter) CheckRateLimit(ctx context.Context, userID, endpoi
 	}
 
 	// Check each limit
+	var mostRestrictiveResult *RateLimitResult
 	for _, limit := range limits {
 		key := r.generateKey(limit, userID, endpoint, model)
 		result := r.checkLimit(key, limit, tokenCount, cost)
-		
+
 		if !result.Allowed {
 			r.logger.Infow("Rate limit exceeded",
 				"user_id", userID,
@@ -308,11 +309,20 @@ func (r *AdvancedRateLimiter) CheckRateLimit(ctx context.Context, userID, endpoi
 				"limit_type", limit.Type,
 				"current", result.Current,
 				"limit", limit.Limit)
-			
+
 			return result, nil
+		}
+
+		// Keep track of the most restrictive limit (lowest remaining)
+		if mostRestrictiveResult == nil || result.Remaining < mostRestrictiveResult.Remaining {
+			mostRestrictiveResult = result
 		}
 	}
 
+	// Return the most restrictive result which has all the fields populated
+	if mostRestrictiveResult != nil {
+		return mostRestrictiveResult, nil
+	}
 	return &RateLimitResult{Allowed: true}, nil
 }
 
@@ -323,12 +333,17 @@ func (r *AdvancedRateLimiter) checkLimit(key string, limit RateLimit, tokenCount
 
 	state, exists := r.states[key]
 	if !exists {
+		burstTokens := float64(limit.Limit)
+		if r.config.BurstConfig != nil {
+			burstTokens = float64(limit.Limit) * r.config.BurstConfig.BurstMultiplier
+		}
+
 		state = &RateLimitState{
 			WindowStart: time.Now(),
 			LastAccess:  time.Now(),
-			BurstTokens: float64(limit.Limit) * r.config.BurstConfig.BurstMultiplier,
+			BurstTokens: burstTokens,
 		}
-		if r.config.SlidingWindow.Enabled {
+		if r.config.SlidingWindow != nil && r.config.SlidingWindow.Enabled {
 			state.History = make([]int64, r.config.SlidingWindow.SubWindows)
 		}
 		r.states[key] = state
@@ -338,7 +353,7 @@ func (r *AdvancedRateLimiter) checkLimit(key string, limit RateLimit, tokenCount
 	defer state.mutex.Unlock()
 
 	now := time.Now()
-	
+
 	// Update state based on limit type
 	switch limit.Type {
 	case RateLimitTypeRequests:
@@ -360,18 +375,18 @@ func (r *AdvancedRateLimiter) checkRequestsLimit(state *RateLimitState, limit Ra
 	if now.Sub(state.WindowStart) >= limit.Window {
 		state.Count = 0
 		state.WindowStart = now
-		if r.config.SlidingWindow.Enabled {
+		if r.config.SlidingWindow != nil && r.config.SlidingWindow.Enabled {
 			state.History = make([]int64, r.config.SlidingWindow.SubWindows)
 		}
 	}
 
 	// Update sliding window if enabled
-	if r.config.SlidingWindow.Enabled {
+	if r.config.SlidingWindow != nil && r.config.SlidingWindow.Enabled {
 		r.updateSlidingWindow(state, now, increment, limit.Window)
 	}
 
 	// Check burst allowance
-	if r.config.BurstConfig.Enabled {
+	if r.config.BurstConfig != nil && r.config.BurstConfig.Enabled {
 		if state.BurstTokens >= float64(increment) {
 			state.BurstTokens -= float64(increment)
 			state.Count += increment
@@ -497,18 +512,22 @@ func (r *AdvancedRateLimiter) checkConcurrentLimit(state *RateLimitState, limit 
 
 // ReleaseResource decrements concurrent request counter
 func (r *AdvancedRateLimiter) ReleaseResource(userID, endpoint, model string) {
-	concurrentLimit := RateLimit{Type: RateLimitTypeConcurrent}
-	key := r.generateKey(concurrentLimit, userID, endpoint, model)
-
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	if state, exists := r.states[key]; exists {
-		state.mutex.Lock()
-		if state.Concurrent > 0 {
-			state.Concurrent--
+	// Find all concurrent limit keys
+	for key, state := range r.states {
+		// Check if this is a concurrent limit key for this user/endpoint/model
+		if strings.Contains(key, "concurrent") &&
+			strings.Contains(key, userID) &&
+			strings.Contains(key, endpoint) &&
+			strings.Contains(key, model) {
+			state.mutex.Lock()
+			if state.Concurrent > 0 {
+				state.Concurrent--
+			}
+			state.mutex.Unlock()
 		}
-		state.mutex.Unlock()
 	}
 }
 
@@ -516,7 +535,7 @@ func (r *AdvancedRateLimiter) ReleaseResource(userID, endpoint, model string) {
 func (r *AdvancedRateLimiter) updateSlidingWindow(state *RateLimitState, now time.Time, increment int64, window time.Duration) {
 	subWindowDuration := window / time.Duration(len(state.History))
 	subWindowIndex := int(now.Sub(state.WindowStart) / subWindowDuration)
-	
+
 	if subWindowIndex >= len(state.History) {
 		// Shift history
 		shift := subWindowIndex - len(state.History) + 1
@@ -529,7 +548,7 @@ func (r *AdvancedRateLimiter) updateSlidingWindow(state *RateLimitState, now tim
 		subWindowIndex = len(state.History) - 1
 		state.WindowStart = now.Add(-time.Duration(subWindowIndex) * subWindowDuration)
 	}
-	
+
 	state.History[subWindowIndex] += increment
 }
 
@@ -654,7 +673,7 @@ func (r *AdvancedRateLimiter) calculateDelay(state *RateLimitState, limit RateLi
 	// Calculate delay based on how much the limit was exceeded
 	excess := float64(state.Count) / float64(limit.Limit)
 	baseDelay := time.Second
-	
+
 	return time.Duration(float64(baseDelay) * excess)
 }
 
@@ -666,12 +685,12 @@ func (r *AdvancedRateLimiter) cleanupExpiredStates() {
 	for range ticker.C {
 		r.mutex.Lock()
 		now := time.Now()
-		
+
 		for key, state := range r.states {
 			state.mutex.RLock()
 			expired := now.Sub(state.LastAccess) > time.Hour
 			state.mutex.RUnlock()
-			
+
 			if expired {
 				delete(r.states, key)
 			}
@@ -685,15 +704,30 @@ func (r *AdvancedRateLimiter) GetRateLimitStats() map[string]interface{} {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
+	burstEnabled := false
+	if r.config.BurstConfig != nil {
+		burstEnabled = r.config.BurstConfig.Enabled
+	}
+
+	slidingWindowEnabled := false
+	if r.config.SlidingWindow != nil {
+		slidingWindowEnabled = r.config.SlidingWindow.Enabled
+	}
+
+	adaptiveEnabled := false
+	if r.config.AdaptiveConfig != nil {
+		adaptiveEnabled = r.config.AdaptiveConfig.Enabled
+	}
+
 	return map[string]interface{}{
-		"enabled":            r.config.Enabled,
-		"active_states":      len(r.states),
-		"global_limits":      len(r.config.GlobalLimits),
-		"user_limits":        len(r.config.UserLimits),
-		"endpoint_limits":    len(r.config.EndpointLimits),
-		"model_limits":       len(r.config.ModelLimits),
-		"burst_enabled":      r.config.BurstConfig.Enabled,
-		"sliding_window":     r.config.SlidingWindow.Enabled,
-		"adaptive_enabled":   r.config.AdaptiveConfig.Enabled,
+		"enabled":          r.config.Enabled,
+		"active_states":    len(r.states),
+		"global_limits":    len(r.config.GlobalLimits),
+		"user_limits":      len(r.config.UserLimits),
+		"endpoint_limits":  len(r.config.EndpointLimits),
+		"model_limits":     len(r.config.ModelLimits),
+		"burst_enabled":    burstEnabled,
+		"sliding_window":   slidingWindowEnabled,
+		"adaptive_enabled": adaptiveEnabled,
 	}
 }

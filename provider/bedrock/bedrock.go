@@ -47,8 +47,8 @@ func NewEndpoint(region string, accessKey string, secretKey string, sessionToken
 	bedrockClient := bedrock.NewFromConfig(cfg)
 
 	endpoint := &Endpoint{
-		region: region,
-		client: client,
+		region:        region,
+		client:        client,
 		bedrockClient: bedrockClient,
 	}
 
@@ -138,6 +138,11 @@ func (p *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiReque
 				// Unknown event type, ignore
 			}
 		}
+
+		// Check for stream errors
+		if err := response.GetStream().Err(); err != nil {
+			errorCh <- fmt.Errorf("bedrock stream error: %v", err)
+		}
 	}()
 
 	return responseCh, errorCh
@@ -146,50 +151,50 @@ func (p *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiReque
 func (p *Endpoint) GenerateEmbedding(ctx context.Context, embeddingRequest *openai.EmbeddingRequest) (*openai.EmbeddingResponse, error) {
 	// Use Amazon Titan Text Embeddings
 	modelId := "amazon.titan-embed-text-v1"
-	
+
 	embeddingObjects := make([]openai.EmbeddingObject, len(embeddingRequest.Input))
 	totalTokens := int32(0)
-	
+
 	for i, input := range embeddingRequest.Input {
 		payload := map[string]interface{}{
 			"inputText": input,
 		}
-		
+
 		payloadBytes, err := json.Marshal(payload)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal embedding payload: %v", err)
 		}
-		
+
 		request := &bedrockruntime.InvokeModelInput{
 			ModelId:     aws.String(modelId),
 			Body:        payloadBytes,
 			ContentType: aws.String("application/json"),
 			Accept:      aws.String("application/json"),
 		}
-		
+
 		response, err := p.client.InvokeModel(ctx, request)
 		if err != nil {
 			return nil, fmt.Errorf("failed to invoke embedding model: %v", err)
 		}
-		
+
 		var embeddingResponse struct {
-			Embedding []float32 `json:"embedding"`
-			InputTextTokenCount int32 `json:"inputTextTokenCount"`
+			Embedding           []float32 `json:"embedding"`
+			InputTextTokenCount int32     `json:"inputTextTokenCount"`
 		}
-		
+
 		if err := json.Unmarshal(response.Body, &embeddingResponse); err != nil {
 			return nil, fmt.Errorf("failed to parse embedding response: %v", err)
 		}
-		
+
 		embeddingObjects[i] = openai.EmbeddingObject{
 			Object:    "embedding",
 			Embedding: embeddingResponse.Embedding,
 			Index:     int32(i),
 		}
-		
+
 		totalTokens += embeddingResponse.InputTextTokenCount
 	}
-	
+
 	return &openai.EmbeddingResponse{
 		Object: "list",
 		Data:   embeddingObjects,
@@ -204,7 +209,7 @@ func (p *Endpoint) GenerateEmbedding(ctx context.Context, embeddingRequest *open
 func (p *Endpoint) GenerateImage(ctx context.Context, imageRequest *openai.ImageGenerationRequest) (*openai.ImageGenerationResponse, error) {
 	// Use Stability AI SDXL on Bedrock
 	modelId := "stability.stable-diffusion-xl-v1"
-	
+
 	payload := map[string]interface{}{
 		"text_prompts": []map[string]interface{}{
 			{"text": imageRequest.Prompt},
@@ -213,47 +218,47 @@ func (p *Endpoint) GenerateImage(ctx context.Context, imageRequest *openai.Image
 		"seed":      0,
 		"steps":     50,
 	}
-	
+
 	if imageRequest.Size != nil {
 		width, height := parseImageSize(*imageRequest.Size)
 		payload["width"] = width
 		payload["height"] = height
 	}
-	
+
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal image payload: %v", err)
 	}
-	
+
 	request := &bedrockruntime.InvokeModelInput{
 		ModelId:     aws.String(modelId),
 		Body:        payloadBytes,
 		ContentType: aws.String("application/json"),
 		Accept:      aws.String("application/json"),
 	}
-	
+
 	response, err := p.client.InvokeModel(ctx, request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to invoke image model: %v", err)
 	}
-	
+
 	var imageResponse struct {
 		Artifacts []struct {
 			Base64       string `json:"base64"`
 			FinishReason string `json:"finishReason"`
 		} `json:"artifacts"`
 	}
-	
+
 	if err := json.Unmarshal(response.Body, &imageResponse); err != nil {
 		return nil, fmt.Errorf("failed to parse image response: %v", err)
 	}
-	
+
 	if len(imageResponse.Artifacts) == 0 {
 		return nil, fmt.Errorf("no images generated")
 	}
-	
+
 	b64Image := fmt.Sprintf("data:image/png;base64,%s", imageResponse.Artifacts[0].Base64)
-	
+
 	return &openai.ImageGenerationResponse{
 		Created: time.Now().Unix(),
 		Data: []openai.ImageData{
@@ -309,13 +314,13 @@ func (p *Endpoint) Region() string {
 
 func (p *Endpoint) Ping(ctx context.Context) (time.Duration, error) {
 	start := time.Now()
-	
+
 	// Simple ping by listing available models
 	_, err := p.bedrockClient.ListFoundationModels(ctx, &bedrock.ListFoundationModelsInput{})
 	if err != nil {
 		return 0, fmt.Errorf("bedrock ping failed: %v", err)
 	}
-	
+
 	return time.Since(start), nil
 }
 
@@ -382,7 +387,7 @@ func createClaudePayload(openaiRequest *openai.ChatCompletionRequest) ([]byte, e
 	// Convert OpenAI messages to Claude format
 	messages := make([]map[string]interface{}, 0)
 	system := ""
-	
+
 	for _, msg := range openaiRequest.Messages {
 		if msg.Role == "system" {
 			if msg.Content != nil && msg.Content.String != nil {
@@ -390,43 +395,43 @@ func createClaudePayload(openaiRequest *openai.ChatCompletionRequest) ([]byte, e
 			}
 			continue
 		}
-		
+
 		role := msg.Role
 		if role == "assistant" {
 			role = "assistant"
 		} else {
 			role = "user"
 		}
-		
+
 		content := ""
 		if msg.Content != nil && msg.Content.String != nil {
 			content = *msg.Content.String
 		}
-		
+
 		messages = append(messages, map[string]interface{}{
 			"role":    role,
 			"content": content,
 		})
 	}
-	
+
 	payload := map[string]interface{}{
 		"anthropic_version": "bedrock-2023-05-31",
 		"max_tokens":        4096,
 		"messages":          messages,
 	}
-	
+
 	if system != "" {
 		payload["system"] = system
 	}
-	
+
 	if openaiRequest.MaxTokens != nil {
 		payload["max_tokens"] = *openaiRequest.MaxTokens
 	}
-	
+
 	if openaiRequest.Temperature != nil {
 		payload["temperature"] = *openaiRequest.Temperature
 	}
-	
+
 	return json.Marshal(payload)
 }
 
@@ -439,22 +444,22 @@ func createLlamaPayload(openaiRequest *openai.ChatCompletionRequest) ([]byte, er
 			prompt += fmt.Sprintf("<%s>%s</%s>", role, *msg.Content.String, role)
 		}
 	}
-	
+
 	payload := map[string]interface{}{
-		"prompt":            prompt,
-		"max_gen_len":       512,
-		"temperature":       0.7,
-		"top_p":            0.9,
+		"prompt":      prompt,
+		"max_gen_len": 512,
+		"temperature": 0.7,
+		"top_p":       0.9,
 	}
-	
+
 	if openaiRequest.MaxTokens != nil {
 		payload["max_gen_len"] = *openaiRequest.MaxTokens
 	}
-	
+
 	if openaiRequest.Temperature != nil {
 		payload["temperature"] = *openaiRequest.Temperature
 	}
-	
+
 	return json.Marshal(payload)
 }
 
@@ -466,25 +471,25 @@ func createTitanPayload(openaiRequest *openai.ChatCompletionRequest) ([]byte, er
 			prompt += fmt.Sprintf("%s: %s\n", strings.Title(msg.Role), *msg.Content.String)
 		}
 	}
-	
+
 	payload := map[string]interface{}{
 		"inputText": prompt,
 		"textGenerationConfig": map[string]interface{}{
-			"maxTokenCount":   512,
-			"temperature":     0.7,
-			"topP":           0.9,
-			"stopSequences":  []string{},
+			"maxTokenCount": 512,
+			"temperature":   0.7,
+			"topP":          0.9,
+			"stopSequences": []string{},
 		},
 	}
-	
+
 	if openaiRequest.MaxTokens != nil {
 		payload["textGenerationConfig"].(map[string]interface{})["maxTokenCount"] = *openaiRequest.MaxTokens
 	}
-	
+
 	if openaiRequest.Temperature != nil {
 		payload["textGenerationConfig"].(map[string]interface{})["temperature"] = *openaiRequest.Temperature
 	}
-	
+
 	return json.Marshal(payload)
 }
 
@@ -511,23 +516,23 @@ func parseClaudeResponse(responseBody []byte, originalModel string) (*openai.Cha
 		} `json:"usage"`
 		StopReason string `json:"stop_reason"`
 	}
-	
+
 	if err := json.Unmarshal(responseBody, &claudeResp); err != nil {
 		return nil, fmt.Errorf("failed to parse Claude response: %v", err)
 	}
-	
+
 	content := ""
 	for _, c := range claudeResp.Content {
 		if c.Type == "text" {
 			content += c.Text
 		}
 	}
-	
+
 	finishReason := "stop"
 	if claudeResp.StopReason == "max_tokens" {
 		finishReason = "length"
 	}
-	
+
 	return &openai.ChatCompletionResponse{
 		Id:      fmt.Sprintf("chatcmpl-%d", time.Now().Unix()),
 		Object:  "chat.completion",
@@ -553,21 +558,21 @@ func parseClaudeResponse(responseBody []byte, originalModel string) (*openai.Cha
 
 func parseLlamaResponse(responseBody []byte, originalModel string) (*openai.ChatCompletionResponse, error) {
 	var llamaResp struct {
-		Generation       string `json:"generation"`
-		PromptTokenCount int32  `json:"prompt_token_count"`
-		GenerationTokenCount int32 `json:"generation_token_count"`
-		StopReason       string `json:"stop_reason"`
+		Generation           string `json:"generation"`
+		PromptTokenCount     int32  `json:"prompt_token_count"`
+		GenerationTokenCount int32  `json:"generation_token_count"`
+		StopReason           string `json:"stop_reason"`
 	}
-	
+
 	if err := json.Unmarshal(responseBody, &llamaResp); err != nil {
 		return nil, fmt.Errorf("failed to parse Llama response: %v", err)
 	}
-	
+
 	finishReason := "stop"
 	if llamaResp.StopReason == "length" {
 		finishReason = "length"
 	}
-	
+
 	return &openai.ChatCompletionResponse{
 		Id:      fmt.Sprintf("chatcmpl-%d", time.Now().Unix()),
 		Object:  "chat.completion",
@@ -594,27 +599,27 @@ func parseLlamaResponse(responseBody []byte, originalModel string) (*openai.Chat
 func parseTitanResponse(responseBody []byte, originalModel string) (*openai.ChatCompletionResponse, error) {
 	var titanResp struct {
 		Results []struct {
-			OutputText    string `json:"outputText"`
-			TokenCount    int32  `json:"tokenCount"`
+			OutputText       string `json:"outputText"`
+			TokenCount       int32  `json:"tokenCount"`
 			CompletionReason string `json:"completionReason"`
 		} `json:"results"`
 		InputTextTokenCount int32 `json:"inputTextTokenCount"`
 	}
-	
+
 	if err := json.Unmarshal(responseBody, &titanResp); err != nil {
 		return nil, fmt.Errorf("failed to parse Titan response: %v", err)
 	}
-	
+
 	if len(titanResp.Results) == 0 {
 		return nil, fmt.Errorf("no results in Titan response")
 	}
-	
+
 	result := titanResp.Results[0]
 	finishReason := "stop"
 	if result.CompletionReason == "LENGTH" {
 		finishReason = "length"
 	}
-	
+
 	return &openai.ChatCompletionResponse{
 		Id:      fmt.Sprintf("chatcmpl-%d", time.Now().Unix()),
 		Object:  "chat.completion",
@@ -655,11 +660,11 @@ func parseClaudeStreamChunk(chunkData []byte, originalModel string) (*openai.Cha
 			Text string `json:"text"`
 		} `json:"delta"`
 	}
-	
+
 	if err := json.Unmarshal(chunkData, &chunk); err != nil {
 		return nil, fmt.Errorf("failed to parse Claude stream chunk: %v", err)
 	}
-	
+
 	if chunk.Type == "content_block_delta" && chunk.Delta.Type == "text_delta" {
 		return &openai.ChatCompletionStreamResponse{
 			Id:      fmt.Sprintf("chatcmpl-%d", time.Now().Unix()),
@@ -676,7 +681,7 @@ func parseClaudeStreamChunk(chunkData []byte, originalModel string) (*openai.Cha
 			},
 		}, nil
 	}
-	
+
 	return nil, nil
 }
 

@@ -10,8 +10,8 @@ import (
 
 	"github.com/yanolja/ogem"
 	"github.com/yanolja/ogem/openai"
+	ogemSdk "github.com/yanolja/ogem/sdk/go"
 )
-
 
 func TestNewRouter(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
@@ -414,7 +414,7 @@ func TestRouter_FallbackStrategy(t *testing.T) {
 	result, err := router.RouteRequest(ctx, endpoints, request)
 	assert.Error(t, err)
 	assert.Nil(t, result)
-	assert.Contains(t, err.Error(), "routing failed")
+	assert.Contains(t, err.Error(), "no endpoints available")
 }
 
 func TestRouter_RecordRequestResult(t *testing.T) {
@@ -458,7 +458,7 @@ func TestRouter_RecordRequestResult(t *testing.T) {
 
 			if tt.success {
 				assert.Greater(t, metrics.SuccessfulRequests, int64(0))
-				assert.Equal(t, int64(0), metrics.ConsecutiveFailures)
+				assert.Equal(t, 0, metrics.ConsecutiveFailures)
 			} else {
 				assert.Greater(t, metrics.FailedRequests, int64(0))
 				assert.Greater(t, metrics.ConsecutiveFailures, 0)
@@ -605,10 +605,10 @@ func TestRouter_CalculateDynamicWeight(t *testing.T) {
 	// Add metrics
 	endpointKey := router.getEndpointKey(endpoint)
 	router.endpointMetrics[endpointKey] = &EndpointMetrics{
-		TotalRequests:     100,
+		TotalRequests:      100,
 		SuccessfulRequests: 95,
-		RecentSuccessRate: 0.95,
-		RecentLatency:     100 * time.Millisecond,
+		RecentSuccessRate:  0.95,
+		RecentLatency:      100 * time.Millisecond,
 	}
 
 	weight = router.calculateDynamicWeight(endpoint)
@@ -726,7 +726,7 @@ func TestRouter_WeightNormalization(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	config := &RoutingConfig{
 		Strategy:          StrategyPerformanceBased,
-		CostWeight:        0.6,   // Total > 1.0
+		CostWeight:        0.6, // Total > 1.0
 		LatencyWeight:     0.8,
 		SuccessRateWeight: 0.4,
 		LoadWeight:        0.2,
@@ -765,14 +765,14 @@ func TestEndpointMetrics_Structure(t *testing.T) {
 		FailedRequests:       5,
 		ActiveConnections:    3,
 		AverageLatency:       150 * time.Millisecond,
-		AverageCost:         0.002,
-		ThroughputRPM:       60.0,
-		RecentLatency:       120 * time.Millisecond,
-		RecentSuccessRate:   0.96,
-		RecentCost:         0.0018,
-		CircuitState:        CircuitClosed,
-		LastFailureTime:     now,
-		ConsecutiveFailures: 0,
+		AverageCost:          0.002,
+		ThroughputRPM:        60.0,
+		RecentLatency:        120 * time.Millisecond,
+		RecentSuccessRate:    0.96,
+		RecentCost:           0.0018,
+		CircuitState:         CircuitClosed,
+		LastFailureTime:      now,
+		ConsecutiveFailures:  0,
 		ConsecutiveSuccesses: 5,
 	}
 
@@ -828,8 +828,8 @@ func TestAdaptiveState_Structure(t *testing.T) {
 func TestEndpointStatus_Structure(t *testing.T) {
 	endpoint := &mockEndpoint{provider: "openai", region: "us-east-1"}
 	modelStatus := &ogem.SupportedModel{
-		Name:     "gpt-3.5-turbo",
-		RateKey:  "gpt-3.5-turbo",
+		Name:    ogemSdk.ModelGPT35Turbo,
+		RateKey: ogemSdk.ModelGPT35Turbo,
 	}
 
 	status := &EndpointStatus{

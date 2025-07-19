@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -31,6 +32,7 @@ type PrometheusMonitor struct {
 	
 	// Custom metrics map
 	customMetrics map[string]prometheus.Collector
+	metricsMutex  sync.RWMutex
 }
 
 // NewPrometheusMonitor creates a new Prometheus monitor
@@ -195,6 +197,21 @@ func (p *PrometheusMonitor) RecordMetric(metric *Metric) error {
 // recordCounter records a counter metric
 func (p *PrometheusMonitor) recordCounter(metric *Metric) error {
 	// Check if custom counter exists
+	p.metricsMutex.RLock()
+	if collector, exists := p.customMetrics[metric.Name]; exists {
+		p.metricsMutex.RUnlock()
+		if counter, ok := collector.(*prometheus.CounterVec); ok {
+			counter.With(metric.Labels).Add(metric.Value)
+			return nil
+		}
+	}
+	p.metricsMutex.RUnlock()
+	
+	// Need to create new counter - use write lock
+	p.metricsMutex.Lock()
+	defer p.metricsMutex.Unlock()
+	
+	// Double-check after acquiring write lock
 	if collector, exists := p.customMetrics[metric.Name]; exists {
 		if counter, ok := collector.(*prometheus.CounterVec); ok {
 			counter.With(metric.Labels).Add(metric.Value)
@@ -226,6 +243,21 @@ func (p *PrometheusMonitor) recordCounter(metric *Metric) error {
 // recordGauge records a gauge metric
 func (p *PrometheusMonitor) recordGauge(metric *Metric) error {
 	// Check if custom gauge exists
+	p.metricsMutex.RLock()
+	if collector, exists := p.customMetrics[metric.Name]; exists {
+		p.metricsMutex.RUnlock()
+		if gauge, ok := collector.(*prometheus.GaugeVec); ok {
+			gauge.With(metric.Labels).Set(metric.Value)
+			return nil
+		}
+	}
+	p.metricsMutex.RUnlock()
+	
+	// Need to create new gauge - use write lock
+	p.metricsMutex.Lock()
+	defer p.metricsMutex.Unlock()
+	
+	// Double-check after acquiring write lock
 	if collector, exists := p.customMetrics[metric.Name]; exists {
 		if gauge, ok := collector.(*prometheus.GaugeVec); ok {
 			gauge.With(metric.Labels).Set(metric.Value)
@@ -257,6 +289,21 @@ func (p *PrometheusMonitor) recordGauge(metric *Metric) error {
 // recordHistogram records a histogram metric
 func (p *PrometheusMonitor) recordHistogram(metric *Metric) error {
 	// Check if custom histogram exists
+	p.metricsMutex.RLock()
+	if collector, exists := p.customMetrics[metric.Name]; exists {
+		p.metricsMutex.RUnlock()
+		if histogram, ok := collector.(*prometheus.HistogramVec); ok {
+			histogram.With(metric.Labels).Observe(metric.Value)
+			return nil
+		}
+	}
+	p.metricsMutex.RUnlock()
+	
+	// Need to create new histogram - use write lock
+	p.metricsMutex.Lock()
+	defer p.metricsMutex.Unlock()
+	
+	// Double-check after acquiring write lock
 	if collector, exists := p.customMetrics[metric.Name]; exists {
 		if histogram, ok := collector.(*prometheus.HistogramVec); ok {
 			histogram.With(metric.Labels).Observe(metric.Value)
@@ -289,6 +336,21 @@ func (p *PrometheusMonitor) recordHistogram(metric *Metric) error {
 // recordSummary records a summary metric
 func (p *PrometheusMonitor) recordSummary(metric *Metric) error {
 	// Check if custom summary exists
+	p.metricsMutex.RLock()
+	if collector, exists := p.customMetrics[metric.Name]; exists {
+		p.metricsMutex.RUnlock()
+		if summary, ok := collector.(*prometheus.SummaryVec); ok {
+			summary.With(metric.Labels).Observe(metric.Value)
+			return nil
+		}
+	}
+	p.metricsMutex.RUnlock()
+	
+	// Need to create new summary - use write lock
+	p.metricsMutex.Lock()
+	defer p.metricsMutex.Unlock()
+	
+	// Double-check after acquiring write lock
 	if collector, exists := p.customMetrics[metric.Name]; exists {
 		if summary, ok := collector.(*prometheus.SummaryVec); ok {
 			summary.With(metric.Labels).Observe(metric.Value)

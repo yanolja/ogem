@@ -494,7 +494,28 @@ func TestPrometheusMonitor_MetricRegistration(t *testing.T) {
 		"queue_size",
 	}
 
-	// Get metrics from registry
+	// Verify all metrics are created (not nil)
+	assert.NotNil(t, monitor.requestsTotal, "requestsTotal should be initialized")
+	assert.NotNil(t, monitor.requestDuration, "requestDuration should be initialized")
+	assert.NotNil(t, monitor.tokensTotal, "tokensTotal should be initialized")
+	assert.NotNil(t, monitor.costTotal, "costTotal should be initialized")
+	assert.NotNil(t, monitor.errorsTotal, "errorsTotal should be initialized")
+	assert.NotNil(t, monitor.cacheHitsTotal, "cacheHitsTotal should be initialized")
+	assert.NotNil(t, monitor.providerLatency, "providerLatency should be initialized")
+	assert.NotNil(t, monitor.activeConnections, "activeConnections should be initialized")
+	assert.NotNil(t, monitor.queueSize, "queueSize should be initialized")
+	
+	// For vector metrics, we need to create a label combination to see them in the registry
+	// This is expected behavior for Prometheus - vectors don't appear until they have data
+	monitor.requestsTotal.WithLabelValues("test", "test-model", "test", "GET", "200", "user1", "team1").Inc()
+	monitor.requestDuration.WithLabelValues("test", "test-model", "test", "GET").Observe(1.0)
+	monitor.tokensTotal.WithLabelValues("test", "test-model", "input", "user1", "team1").Inc()
+	monitor.costTotal.WithLabelValues("test", "test-model", "user1", "team1").Inc()
+	monitor.errorsTotal.WithLabelValues("test", "test-model", "test", "error").Inc()
+	monitor.cacheHitsTotal.WithLabelValues("test", "true").Inc()
+	monitor.providerLatency.WithLabelValues("test", "test-model").Observe(1.0)
+	
+	// Now gather metrics again
 	metricFamilies, err := monitor.registry.Gather()
 	require.NoError(t, err)
 
@@ -503,7 +524,7 @@ func TestPrometheusMonitor_MetricRegistration(t *testing.T) {
 		registeredMetrics[*mf.Name] = true
 	}
 
-	// Verify all standard metrics are registered
+	// Verify all standard metrics are now visible
 	for _, metricName := range standardMetrics {
 		fullName := config.Namespace + "_" + config.Subsystem + "_" + metricName
 		assert.True(t, registeredMetrics[fullName], "Metric %s should be registered", fullName)

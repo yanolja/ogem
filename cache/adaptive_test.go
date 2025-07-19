@@ -91,7 +91,7 @@ func TestCacheManager_PerformAdaptiveTuning(t *testing.T) {
 	// Test tuning with low hit rate
 	manager.adaptiveState.SampleCount = 10
 	manager.adaptiveState.LastEvaluation = time.Now().Add(-2 * time.Minute)
-	
+
 	// Simulate low hit rate
 	manager.stats.Hits = 2
 	manager.stats.Misses = 8
@@ -113,7 +113,7 @@ func TestCacheManager_PerformAdaptiveTuning(t *testing.T) {
 	manager.adaptiveState.CurrentStrategy = StrategyExact
 	manager.adaptiveState.SampleCount = 10
 	manager.adaptiveState.LastEvaluation = time.Now().Add(-2 * time.Minute)
-	
+
 	// Simulate high hit rate
 	manager.stats.Hits = 9
 	manager.stats.Misses = 1
@@ -167,7 +167,7 @@ func TestCacheManager_AdaptiveTuning_StrategyProgression(t *testing.T) {
 		manager.adaptiveState.CurrentStrategy = currentStrategy
 		manager.adaptiveState.SampleCount = 10
 		manager.adaptiveState.LastEvaluation = time.Now().Add(-2 * time.Minute)
-		
+
 		// Simulate low hit rate
 		manager.stats.Hits = 2
 		manager.stats.Misses = 8
@@ -208,7 +208,7 @@ func TestCacheManager_AdaptivePatternDetection(t *testing.T) {
 	// Create test requests with different models and patterns
 	requests := []*openai.ChatCompletionRequest{
 		{
-			Model: "gpt-4o",
+			Model: "gpt-3.5-turbo",
 			Messages: []openai.Message{
 				{
 					Role: "user",
@@ -219,7 +219,7 @@ func TestCacheManager_AdaptivePatternDetection(t *testing.T) {
 			},
 		},
 		{
-			Model: "gpt-4o",
+			Model: "gpt-3.5-turbo",
 			Messages: []openai.Message{
 				{
 					Role: "user",
@@ -230,7 +230,7 @@ func TestCacheManager_AdaptivePatternDetection(t *testing.T) {
 			},
 		},
 		{
-			Model: "gpt-4o",
+			Model: "gpt-4",
 			Messages: []openai.Message{
 				{
 					Role: "user",

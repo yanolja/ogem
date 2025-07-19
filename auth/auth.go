@@ -23,21 +23,21 @@ type VirtualKey struct {
 	ExpiresAt   *time.Time        `json:"expires_at,omitempty"`
 	IsActive    bool              `json:"is_active"`
 	UsageStats  *UsageStats       `json:"usage_stats,omitempty"`
+	VirtualKey  string            `json:"virtual_key,omitempty"`
+	Permissions []string          `json:"permissions,omitempty"`
 }
 
 type UsageStats struct {
-	TotalTokens   int64   `json:"total_tokens"`
-	TotalRequests int64   `json:"total_requests"`
-	TotalCost     float64 `json:"total_cost"`
+	TotalTokens   int64      `json:"total_tokens"`
+	TotalRequests int64      `json:"total_requests"`
+	TotalCost     float64    `json:"total_cost"`
+	Used          float64    `json:"used"`
 	LastUsed      *time.Time `json:"last_used,omitempty"`
 }
 
 // AuthManager interface for authentication management
 type AuthManager interface {
-	ValidateKey(ctx context.Context, key string) (*VirtualKey, error)
-	CreateKey(ctx context.Context, req *KeyRequest) (*KeyResponse, error)
-	ListKeys(ctx context.Context) ([]*VirtualKey, error)
-	DeleteKey(ctx context.Context, keyID string) error
+	Manager
 }
 
 // AuthContext holds authentication information
@@ -56,13 +56,11 @@ func GetAuthContextFromRequest(r *http.Request) *AuthContext {
 			return ctx
 		}
 	}
-	
 	// Fallback: create basic auth context from headers
 	userID := r.Header.Get("X-User-ID")
 	if userID == "" {
 		return nil
 	}
-	
 	return &AuthContext{
 		UserID:   userID,
 		TenantID: r.Header.Get("X-Tenant-ID"),
@@ -73,13 +71,11 @@ func GetAuthContextFromRequest(r *http.Request) *AuthContext {
 
 // VirtualKeyManager interface for managing virtual keys
 type VirtualKeyManager interface {
-	CreateKey(ctx context.Context, req *KeyRequest) (*KeyResponse, error)
+	CreateKey(ctx context.Context, req *KeyRequest) (*VirtualKey, error)
 	ListKeys(ctx context.Context) ([]*VirtualKey, error)
 	DeleteKey(ctx context.Context, keyID string) error
 	GetKey(ctx context.Context, keyID string) (*VirtualKey, error)
 	UpdateKey(ctx context.Context, keyID string, updates map[string]interface{}) (*VirtualKey, error)
-	ValidateKey(ctx context.Context, key string) (*VirtualKey, error)
-	UpdateUsage(ctx context.Context, keyID string, tokens int64, requests int64, cost float64) error
 }
 
 type KeyRequest struct {
@@ -107,15 +103,13 @@ type KeyResponse struct {
 	ExpiresAt   *time.Time        `json:"expires_at,omitempty"`
 	IsActive    bool              `json:"is_active"`
 	UsageStats  *UsageStats       `json:"usage_stats,omitempty"`
+	VirtualKey  string            `json:"virtual_key,omitempty"`
+	Permissions []string          `json:"permissions,omitempty"`
 }
 
 type Manager interface {
-	CreateKey(ctx context.Context, req *KeyRequest) (*VirtualKey, error)
-	GetKey(ctx context.Context, keyID string) (*VirtualKey, error)
+	VirtualKeyManager
 	GetKeyByValue(ctx context.Context, keyValue string) (*VirtualKey, error)
-	ListKeys(ctx context.Context) ([]*VirtualKey, error)
-	UpdateKey(ctx context.Context, keyID string, updates map[string]interface{}) (*VirtualKey, error)
-	DeleteKey(ctx context.Context, keyID string) error
 	ValidateKey(ctx context.Context, keyValue string, modelName string) (*VirtualKey, error)
 	UpdateUsage(ctx context.Context, keyValue string, tokens int64, cost float64) error
 }

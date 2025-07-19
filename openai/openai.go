@@ -522,21 +522,21 @@ type StreamOptions struct {
 }
 
 type ChatCompletionStreamResponse struct {
-	Id                string               `json:"id"`
-	Object            string               `json:"object"`
-	Created           int64                `json:"created"`
-	Model             string               `json:"model"`
-	ServiceTier       *string              `json:"service_tier,omitempty"`
-	SystemFingerprint string               `json:"system_fingerprint"`
-	Choices           []ChoiceDelta        `json:"choices"`
-	Usage             *Usage               `json:"usage,omitempty"`
+	Id                string        `json:"id"`
+	Object            string        `json:"object"`
+	Created           int64         `json:"created"`
+	Model             string        `json:"model"`
+	ServiceTier       *string       `json:"service_tier,omitempty"`
+	SystemFingerprint string        `json:"system_fingerprint"`
+	Choices           []ChoiceDelta `json:"choices"`
+	Usage             *Usage        `json:"usage,omitempty"`
 }
 
 type ChoiceDelta struct {
-	Index        int32         `json:"index"`
-	Delta        MessageDelta  `json:"delta"`
-	Logprobs     *Logprobs     `json:"logprobs,omitempty"`
-	FinishReason *string       `json:"finish_reason"`
+	Index        int32        `json:"index"`
+	Delta        MessageDelta `json:"delta"`
+	Logprobs     *Logprobs    `json:"logprobs,omitempty"`
+	FinishReason *string      `json:"finish_reason"`
 }
 
 type MessageDelta struct {
@@ -579,11 +579,11 @@ func FinalizeStreamResponse(provider string, region string, model string, respon
 }
 
 type EmbeddingRequest struct {
-	Input          []string  `json:"input"`
-	Model          string    `json:"model"`
-	EncodingFormat *string   `json:"encoding_format,omitempty"`
-	Dimensions     *int32    `json:"dimensions,omitempty"`
-	User           *string   `json:"user,omitempty"`
+	Input          []string `json:"input"`
+	Model          string   `json:"model"`
+	EncodingFormat *string  `json:"encoding_format,omitempty"`
+	Dimensions     *int32   `json:"dimensions,omitempty"`
+	User           *string  `json:"user,omitempty"`
 }
 
 type EmbeddingResponse struct {
@@ -627,12 +627,13 @@ type ImageData struct {
 }
 
 type AudioTranscriptionRequest struct {
-	File           string  `json:"file"`
-	Model          string  `json:"model"`
-	Language       *string `json:"language,omitempty"`
-	Prompt         *string `json:"prompt,omitempty"`
-	ResponseFormat *string `json:"response_format,omitempty"`
+	File           string   `json:"file"`
+	Model          string   `json:"model"`
+	Language       *string  `json:"language,omitempty"`
+	Prompt         *string  `json:"prompt,omitempty"`
+	ResponseFormat *string  `json:"response_format,omitempty"`
 	Temperature    *float32 `json:"temperature,omitempty"`
+	FileContent    []byte   `json:"-"`
 }
 
 type AudioTranscriptionResponse struct {
@@ -640,11 +641,12 @@ type AudioTranscriptionResponse struct {
 }
 
 type AudioTranslationRequest struct {
-	File           string  `json:"file"`
-	Model          string  `json:"model"`
-	Prompt         *string `json:"prompt,omitempty"`
-	ResponseFormat *string `json:"response_format,omitempty"`
+	File           string   `json:"file"`
+	Model          string   `json:"model"`
+	Prompt         *string  `json:"prompt,omitempty"`
+	ResponseFormat *string  `json:"response_format,omitempty"`
 	Temperature    *float32 `json:"temperature,omitempty"`
+	FileContent    []byte   `json:"-"`
 }
 
 type AudioTranslationResponse struct {
@@ -652,10 +654,10 @@ type AudioTranslationResponse struct {
 }
 
 type TextToSpeechRequest struct {
-	Model          string  `json:"model"`
-	Input          string  `json:"input"`
-	Voice          string  `json:"voice"`
-	ResponseFormat *string `json:"response_format,omitempty"`
+	Model          string   `json:"model"`
+	Input          string   `json:"input"`
+	Voice          string   `json:"voice"`
+	ResponseFormat *string  `json:"response_format,omitempty"`
 	Speed          *float32 `json:"speed,omitempty"`
 }
 
@@ -710,13 +712,13 @@ type ModerationCategoryScores struct {
 
 // Fine-tuning types
 type FineTuningJobRequest struct {
-	TrainingFile                  string                         `json:"training_file"`
-	ValidationFile                *string                        `json:"validation_file,omitempty"`
-	Model                         string                         `json:"model"`
-	Hyperparameters              *FineTuningHyperparameters     `json:"hyperparameters,omitempty"`
-	Suffix                        *string                        `json:"suffix,omitempty"`
-	Integrations                  []FineTuningIntegration        `json:"integrations,omitempty"`
-	Seed                          *int32                         `json:"seed,omitempty"`
+	TrainingFile    string                     `json:"training_file"`
+	ValidationFile  *string                    `json:"validation_file,omitempty"`
+	Model           string                     `json:"model"`
+	Hyperparameters *FineTuningHyperparameters `json:"hyperparameters,omitempty"`
+	Suffix          *string                    `json:"suffix,omitempty"`
+	Integrations    []FineTuningIntegration    `json:"integrations,omitempty"`
+	Seed            *int32                     `json:"seed,omitempty"`
 }
 
 type FineTuningHyperparameters struct {
@@ -726,41 +728,41 @@ type FineTuningHyperparameters struct {
 }
 
 type FineTuningIntegration struct {
-	Type           string                       `json:"type"`
-	Wandb          *FineTuningWandbIntegration  `json:"wandb,omitempty"`
+	Type  string                      `json:"type"`
+	Wandb *FineTuningWandbIntegration `json:"wandb,omitempty"`
 }
 
 type FineTuningWandbIntegration struct {
-	Project *string   `json:"project,omitempty"`
-	Name    *string   `json:"name,omitempty"`
-	Entity  *string   `json:"entity,omitempty"`
-	Tags    []string  `json:"tags,omitempty"`
+	Project *string  `json:"project,omitempty"`
+	Name    *string  `json:"name,omitempty"`
+	Entity  *string  `json:"entity,omitempty"`
+	Tags    []string `json:"tags,omitempty"`
 }
 
 type FineTuningJob struct {
-	ID               string                     `json:"id"`
-	Object           string                     `json:"object"`
-	CreatedAt        int64                      `json:"created_at"`
-	FinishedAt       *int64                     `json:"finished_at"`
-	Model            string                     `json:"model"`
-	FineTunedModel   *string                    `json:"fine_tuned_model"`
-	OrganizationID   string                     `json:"organization_id"`
-	Status           string                     `json:"status"`
-	Hyperparameters  FineTuningHyperparameters  `json:"hyperparameters"`
-	TrainingFile     string                     `json:"training_file"`
-	ValidationFile   *string                    `json:"validation_file"`
-	ResultFiles      []string                   `json:"result_files"`
-	TrainedTokens    *int32                     `json:"trained_tokens"`
-	Integrations     []FineTuningIntegration    `json:"integrations,omitempty"`
-	Seed             *int32                     `json:"seed"`
-	EstimatedFinish  *int64                     `json:"estimated_finish"`
-	Error            *FineTuningError           `json:"error,omitempty"`
+	ID              string                    `json:"id"`
+	Object          string                    `json:"object"`
+	CreatedAt       int64                     `json:"created_at"`
+	FinishedAt      *int64                    `json:"finished_at"`
+	Model           string                    `json:"model"`
+	FineTunedModel  *string                   `json:"fine_tuned_model"`
+	OrganizationID  string                    `json:"organization_id"`
+	Status          string                    `json:"status"`
+	Hyperparameters FineTuningHyperparameters `json:"hyperparameters"`
+	TrainingFile    string                    `json:"training_file"`
+	ValidationFile  *string                   `json:"validation_file"`
+	ResultFiles     []string                  `json:"result_files"`
+	TrainedTokens   *int32                    `json:"trained_tokens"`
+	Integrations    []FineTuningIntegration   `json:"integrations,omitempty"`
+	Seed            *int32                    `json:"seed"`
+	EstimatedFinish *int64                    `json:"estimated_finish"`
+	Error           *FineTuningError          `json:"error,omitempty"`
 }
 
 type FineTuningError struct {
-	Code       string  `json:"code"`
-	Message    string  `json:"message"`
-	Param      *string `json:"param,omitempty"`
+	Code    string  `json:"code"`
+	Message string  `json:"message"`
+	Param   *string `json:"param,omitempty"`
 }
 
 type FineTuningJobList struct {
@@ -780,7 +782,7 @@ type FineTuningJobEvent struct {
 }
 
 type FineTuningJobEventData struct {
-	Step    *int32   `json:"step,omitempty"`
+	Step    *int32                  `json:"step,omitempty"`
 	Metrics *map[string]interface{} `json:"metrics,omitempty"`
 }
 
@@ -791,22 +793,22 @@ type FineTuningJobEventList struct {
 }
 
 type FineTuningJobCheckpoint struct {
-	ID              string                       `json:"id"`
-	Object          string                       `json:"object"`
-	CreatedAt       int64                        `json:"created_at"`
-	FineTunedModel  string                       `json:"fine_tuned_model"`
-	FineTuningJobID string                       `json:"fine_tuning_job_id"`
+	ID              string                         `json:"id"`
+	Object          string                         `json:"object"`
+	CreatedAt       int64                          `json:"created_at"`
+	FineTunedModel  string                         `json:"fine_tuned_model"`
+	FineTuningJobID string                         `json:"fine_tuning_job_id"`
 	Metrics         FineTuningJobCheckpointMetrics `json:"metrics"`
-	StepNumber      int32                        `json:"step_number"`
+	StepNumber      int32                          `json:"step_number"`
 }
 
 type FineTuningJobCheckpointMetrics struct {
-	Step                   *int32   `json:"step,omitempty"`
-	TrainLoss              *float32 `json:"train_loss,omitempty"`
-	TrainMeanTokenAccuracy *float32 `json:"train_mean_token_accuracy,omitempty"`
-	ValidLoss              *float32 `json:"valid_loss,omitempty"`
-	ValidMeanTokenAccuracy *float32 `json:"valid_mean_token_accuracy,omitempty"`
-	FullValidLoss          *float32 `json:"full_valid_loss,omitempty"`
+	Step                       *int32   `json:"step,omitempty"`
+	TrainLoss                  *float32 `json:"train_loss,omitempty"`
+	TrainMeanTokenAccuracy     *float32 `json:"train_mean_token_accuracy,omitempty"`
+	ValidLoss                  *float32 `json:"valid_loss,omitempty"`
+	ValidMeanTokenAccuracy     *float32 `json:"valid_mean_token_accuracy,omitempty"`
+	FullValidLoss              *float32 `json:"full_valid_loss,omitempty"`
 	FullValidMeanTokenAccuracy *float32 `json:"full_valid_mean_token_accuracy,omitempty"`
 }
 

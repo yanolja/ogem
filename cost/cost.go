@@ -23,10 +23,10 @@ const (
 
 // ModelPricing contains pricing information for input and output tokens
 type ModelPricing struct {
-	InputTokenPrice    float64 // Price per 1M input tokens
-	OutputTokenPrice   float64 // Price per 1M output tokens
+	InputTokenPrice     float64 // Price per 1M input tokens
+	OutputTokenPrice    float64 // Price per 1M output tokens
 	ReasoningTokenPrice float64 // Price per 1M reasoning tokens (for models that support it)
-	ImagePricing       *ImagePricing
+	ImagePricing        *ImagePricing
 }
 
 // ImagePricing contains pricing information for image generation
@@ -38,7 +38,7 @@ type ImagePricing struct {
 // Define pricing for different models (prices per 1M tokens in USD)
 var modelPricing = map[string]ModelPricing{
 	// Latest OpenAI Models (2025)
-	
+
 	// GPT-4.5 Series (Latest Flagship)
 	"gpt-4.5-turbo": {
 		InputTokenPrice:  2.0,
@@ -48,7 +48,7 @@ var modelPricing = map[string]ModelPricing{
 		InputTokenPrice:  2.5,
 		OutputTokenPrice: 10.0,
 	},
-	
+
 	// GPT-4.1 Series
 	"gpt-4.1-turbo": {
 		InputTokenPrice:  1.8,
@@ -58,21 +58,21 @@ var modelPricing = map[string]ModelPricing{
 		InputTokenPrice:  2.2,
 		OutputTokenPrice: 9.0,
 	},
-	
+
 	// GPT-4o models (Current)
 	"gpt-4o": {
 		InputTokenPrice:  2.5,  // $2.50 per 1M input tokens
 		OutputTokenPrice: 10.0, // $10.00 per 1M output tokens
 	},
 	"gpt-4o-mini": {
-		InputTokenPrice:  0.15,  // $0.15 per 1M input tokens
-		OutputTokenPrice: 0.6,   // $0.60 per 1M output tokens
+		InputTokenPrice:  0.15, // $0.15 per 1M input tokens
+		OutputTokenPrice: 0.6,  // $0.60 per 1M output tokens
 	},
 	"gpt-4o-realtime": {
 		InputTokenPrice:  5.0,
 		OutputTokenPrice: 20.0,
 	},
-	
+
 	// o4 reasoning models (Latest)
 	"o4": {
 		InputTokenPrice:  8.0,
@@ -82,7 +82,7 @@ var modelPricing = map[string]ModelPricing{
 		InputTokenPrice:  2.0,
 		OutputTokenPrice: 6.0,
 	},
-	
+
 	// o3 reasoning models
 	"o3": {
 		InputTokenPrice:  10.0,
@@ -92,7 +92,7 @@ var modelPricing = map[string]ModelPricing{
 		InputTokenPrice:  2.5,
 		OutputTokenPrice: 8.0,
 	},
-	
+
 	// o1 reasoning models (Deprecated)
 	"o1-preview": {
 		InputTokenPrice:  15.0,
@@ -102,7 +102,7 @@ var modelPricing = map[string]ModelPricing{
 		InputTokenPrice:  3.0,
 		OutputTokenPrice: 12.0,
 	},
-	
+
 	// GPT-4 models
 	"gpt-4": {
 		InputTokenPrice:  30.0,
@@ -116,7 +116,7 @@ var modelPricing = map[string]ModelPricing{
 		InputTokenPrice:  10.0,
 		OutputTokenPrice: 30.0,
 	},
-	
+
 	// GPT-3.5 models
 	"gpt-3.5-turbo": {
 		InputTokenPrice:  0.5,
@@ -126,31 +126,31 @@ var modelPricing = map[string]ModelPricing{
 		InputTokenPrice:  0.5,
 		OutputTokenPrice: 1.5,
 	},
-	
+
 	// Azure OpenAI Service pricing (typically different from OpenAI direct)
 	"azure-gpt-4o": {
-		InputTokenPrice:  5.0,   // $5.00 per 1M input tokens (Azure pricing)
-		OutputTokenPrice: 15.0,  // $15.00 per 1M output tokens
+		InputTokenPrice:  5.0,  // $5.00 per 1M input tokens (Azure pricing)
+		OutputTokenPrice: 15.0, // $15.00 per 1M output tokens
 	},
 	"azure-gpt-4o-mini": {
 		InputTokenPrice:  0.165, // $0.165 per 1M input tokens (Azure pricing)
 		OutputTokenPrice: 0.66,  // $0.66 per 1M output tokens
 	},
 	"azure-gpt-4-turbo": {
-		InputTokenPrice:  10.0,  // $10.00 per 1M input tokens
-		OutputTokenPrice: 30.0,  // $30.00 per 1M output tokens
+		InputTokenPrice:  10.0, // $10.00 per 1M input tokens
+		OutputTokenPrice: 30.0, // $30.00 per 1M output tokens
 	},
 	"azure-gpt-4": {
-		InputTokenPrice:  30.0,  // $30.00 per 1M input tokens
-		OutputTokenPrice: 60.0,  // $60.00 per 1M output tokens
+		InputTokenPrice:  30.0, // $30.00 per 1M input tokens
+		OutputTokenPrice: 60.0, // $60.00 per 1M output tokens
 	},
 	"azure-gpt-35-turbo": {
-		InputTokenPrice:  0.5,   // $0.50 per 1M input tokens
-		OutputTokenPrice: 1.5,   // $1.50 per 1M output tokens
+		InputTokenPrice:  0.5, // $0.50 per 1M input tokens
+		OutputTokenPrice: 1.5, // $1.50 per 1M output tokens
 	},
-	
+
 	// Latest Claude Models (2025)
-	
+
 	// Claude 4 Series (Latest)
 	"claude-4-opus": {
 		InputTokenPrice:  8.0,
@@ -164,7 +164,7 @@ var modelPricing = map[string]ModelPricing{
 		InputTokenPrice:  0.4,
 		OutputTokenPrice: 2.0,
 	},
-	
+
 	// Claude 3.7 Series
 	"claude-3.7-opus": {
 		InputTokenPrice:  10.0,
@@ -178,7 +178,7 @@ var modelPricing = map[string]ModelPricing{
 		InputTokenPrice:  0.6,
 		OutputTokenPrice: 3.0,
 	},
-	
+
 	// Claude 3.5 Series (Current)
 	"claude-3-5-sonnet": {
 		InputTokenPrice:  3.0,  // $3.00 per 1M input tokens
@@ -189,14 +189,14 @@ var modelPricing = map[string]ModelPricing{
 		OutputTokenPrice: 15.0, // $15.00 per 1M output tokens
 	},
 	"claude-3-5-haiku": {
-		InputTokenPrice:  0.8,  // $0.80 per 1M input tokens (as of June 2025)
-		OutputTokenPrice: 4.0,  // $4.00 per 1M output tokens
+		InputTokenPrice:  0.8, // $0.80 per 1M input tokens (as of June 2025)
+		OutputTokenPrice: 4.0, // $4.00 per 1M output tokens
 	},
 	"claude-3-5-haiku-20241022": {
-		InputTokenPrice:  0.8,  // $0.80 per 1M input tokens
-		OutputTokenPrice: 4.0,  // $4.00 per 1M output tokens
+		InputTokenPrice:  0.8, // $0.80 per 1M input tokens
+		OutputTokenPrice: 4.0, // $4.00 per 1M output tokens
 	},
-	
+
 	// Claude 3 Series (Deprecated)
 	"claude-3-opus": {
 		InputTokenPrice:  15.0,
@@ -210,14 +210,14 @@ var modelPricing = map[string]ModelPricing{
 		InputTokenPrice:  0.25,
 		OutputTokenPrice: 1.25,
 	},
-	
+
 	// Latest Gemini 2.5 Family (2025)
 	"gemini-2.5-pro": {
 		InputTokenPrice:     1.25, // $1.25 per 1M input tokens
 		OutputTokenPrice:    5.0,  // $5.00 per 1M output tokens
 		ReasoningTokenPrice: 10.0, // $10.00 per 1M reasoning tokens
 	},
-	
+
 	// Gemini 2.5 Flash variants with different pricing tiers
 	"gemini-2.5-flash": {
 		InputTokenPrice:     0.075, // $0.075 per 1M input tokens (standard)
@@ -230,21 +230,21 @@ var modelPricing = map[string]ModelPricing{
 		ReasoningTokenPrice: 0.75,   // $0.75 per 1M reasoning tokens
 	},
 	"gemini-2.5-flash-002": {
-		InputTokenPrice:     0.075,  // $0.075 per 1M input tokens (stable version)
-		OutputTokenPrice:    0.3,    // $0.30 per 1M output tokens
-		ReasoningTokenPrice: 1.5,    // $1.50 per 1M reasoning tokens
+		InputTokenPrice:     0.075, // $0.075 per 1M input tokens (stable version)
+		OutputTokenPrice:    0.3,   // $0.30 per 1M output tokens
+		ReasoningTokenPrice: 1.5,   // $1.50 per 1M reasoning tokens
 	},
-	
+
 	// Gemini 2.0 Family
 	"gemini-2.0-flash": {
 		InputTokenPrice:  0.075, // Experimental low latency
 		OutputTokenPrice: 0.3,
 	},
 	"gemini-2.0-flash-lite": {
-		InputTokenPrice:  0.04,  // Cost-efficient
+		InputTokenPrice:  0.04, // Cost-efficient
 		OutputTokenPrice: 0.2,
 	},
-	
+
 	// Legacy Gemini models (deprecated - removed April 29, 2025)
 	"gemini-1.5-pro-002": {
 		InputTokenPrice:  1.25, // Legacy pricing (model deprecated)
@@ -263,10 +263,10 @@ var modelPricing = map[string]ModelPricing{
 		OutputTokenPrice: 0.3,
 	},
 	"gemini-pro": {
-		InputTokenPrice:  1.25,  // Deprecated - maps to gemini-2.5-pro pricing
+		InputTokenPrice:  1.25, // Deprecated - maps to gemini-2.5-pro pricing
 		OutputTokenPrice: 5.0,
 	},
-	
+
 	// Image generation models
 	"dall-e-2": {
 		InputTokenPrice:  0.0,
@@ -283,7 +283,7 @@ var modelPricing = map[string]ModelPricing{
 			HDPrice:       0.080, // $0.080 per HD 1024x1024
 		},
 	},
-	
+
 	// Text-to-speech models
 	"tts-1": {
 		InputTokenPrice:  15.0, // $15 per 1M characters
@@ -293,13 +293,13 @@ var modelPricing = map[string]ModelPricing{
 		InputTokenPrice:  30.0, // $30 per 1M characters
 		OutputTokenPrice: 0.0,
 	},
-	
+
 	// Speech-to-text models
 	"whisper-1": {
 		InputTokenPrice:  6.0, // $0.006 per minute, approximated as tokens
 		OutputTokenPrice: 0.0,
 	},
-	
+
 	// Embeddings models
 	"text-embedding-ada-002": {
 		InputTokenPrice:  0.1,
@@ -326,16 +326,16 @@ func CalculateChatCost(model string, usage openai.Usage) float64 {
 			OutputTokenPrice: 2.0,
 		}
 	}
-	
+
 	inputCost := float64(usage.PromptTokens) * pricing.InputTokenPrice / 1000000.0
 	outputCost := float64(usage.CompletionTokens) * pricing.OutputTokenPrice / 1000000.0
-	
+
 	// Add reasoning token cost if available (some models like Gemini 2.5 have separate reasoning token pricing)
 	var reasoningCost float64
 	if pricing.ReasoningTokenPrice > 0 && usage.CompletionTokensDetails.ReasoningTokens > 0 {
 		reasoningCost = float64(usage.CompletionTokensDetails.ReasoningTokens) * pricing.ReasoningTokenPrice / 1000000.0
 	}
-	
+
 	return inputCost + outputCost + reasoningCost
 }
 
@@ -349,7 +349,7 @@ func CalculateEmbeddingCost(model string, usage openai.EmbeddingUsage) float64 {
 			InputTokenPrice: 0.1, // $0.1 per 1M tokens
 		}
 	}
-	
+
 	return float64(usage.TotalTokens) * pricing.InputTokenPrice / 1000000.0
 }
 
@@ -361,14 +361,14 @@ func CalculateImageCost(model string, request *openai.ImageGenerationRequest, nu
 		// Default image pricing
 		return float64(numImages) * 0.020 // $0.020 per image
 	}
-	
+
 	baseCost := pricing.ImagePricing.StandardPrice
-	
+
 	// Check if HD quality is requested
 	if request.Quality != nil && strings.ToLower(*request.Quality) == "hd" && pricing.ImagePricing.HDPrice > 0 {
 		baseCost = pricing.ImagePricing.HDPrice
 	}
-	
+
 	// Adjust cost based on size (simplified pricing model)
 	if request.Size != nil {
 		switch *request.Size {
@@ -378,16 +378,16 @@ func CalculateImageCost(model string, request *openai.ImageGenerationRequest, nu
 			baseCost *= 0.5 // Smaller images cost less
 		}
 	}
-	
+
 	return float64(numImages) * baseCost
 }
 
 // normalizeModelName normalizes model names to match our pricing table
 func normalizeModelName(model string) string {
 	lower := strings.ToLower(model)
-	
+
 	// Latest OpenAI models (2025)
-	
+
 	// o4 reasoning models (Latest)
 	if strings.Contains(lower, "o4-mini") {
 		return "o4-mini"
@@ -395,7 +395,7 @@ func normalizeModelName(model string) string {
 	if strings.Contains(lower, "o4") {
 		return "o4"
 	}
-	
+
 	// o3 reasoning models
 	if strings.Contains(lower, "o3-mini") {
 		return "o3-mini"
@@ -403,7 +403,7 @@ func normalizeModelName(model string) string {
 	if strings.Contains(lower, "o3") {
 		return "o3"
 	}
-	
+
 	// o1 reasoning models (Deprecated - map to o3)
 	if strings.Contains(lower, "o1-preview") {
 		return "o3" // Map deprecated o1-preview to o3
@@ -411,7 +411,7 @@ func normalizeModelName(model string) string {
 	if strings.Contains(lower, "o1-mini") {
 		return "o3-mini" // Map deprecated o1-mini to o3-mini
 	}
-	
+
 	// GPT-4.5 Series (Latest)
 	if strings.Contains(lower, "gpt-4.5-turbo-vision") {
 		return "gpt-4.5-turbo-vision"
@@ -419,7 +419,7 @@ func normalizeModelName(model string) string {
 	if strings.Contains(lower, "gpt-4.5-turbo") {
 		return "gpt-4.5-turbo"
 	}
-	
+
 	// GPT-4.1 Series
 	if strings.Contains(lower, "gpt-4.1-preview") {
 		return "gpt-4.1-preview"
@@ -427,7 +427,7 @@ func normalizeModelName(model string) string {
 	if strings.Contains(lower, "gpt-4.1-turbo") {
 		return "gpt-4.1-turbo"
 	}
-	
+
 	// GPT-4o models (Legacy)
 	if strings.Contains(lower, "gpt-4o-realtime") {
 		return "gpt-4o-realtime"
@@ -438,7 +438,7 @@ func normalizeModelName(model string) string {
 	if strings.Contains(lower, "gpt-4o") {
 		return "gpt-4o"
 	}
-	
+
 	// GPT-4 models (Deprecated - map to GPT-4.1)
 	if strings.Contains(lower, "gpt-4-turbo-2024-04-09") {
 		return "gpt-4.1-turbo" // Map deprecated to latest
@@ -449,7 +449,7 @@ func normalizeModelName(model string) string {
 	if strings.Contains(lower, "gpt-4") {
 		return "gpt-4.1-turbo" // Map deprecated gpt-4 to latest
 	}
-	
+
 	// Azure OpenAI models (check before regular OpenAI models)
 	if strings.Contains(lower, "azure") {
 		if strings.Contains(lower, "gpt-4o-mini") {
@@ -468,7 +468,7 @@ func normalizeModelName(model string) string {
 			return "azure-gpt-35-turbo"
 		}
 	}
-	
+
 	// OpenAI GPT-3.5 models
 	if strings.Contains(lower, "gpt-3.5-turbo-0125") {
 		return "gpt-3.5-turbo-0125"
@@ -476,9 +476,9 @@ func normalizeModelName(model string) string {
 	if strings.Contains(lower, "gpt-3.5-turbo") {
 		return "gpt-3.5-turbo"
 	}
-	
+
 	// Anthropic Claude models (2025)
-	
+
 	// Claude 4 Series (Latest)
 	if strings.Contains(lower, "claude-4-opus") {
 		return "claude-4-opus"
@@ -489,7 +489,7 @@ func normalizeModelName(model string) string {
 	if strings.Contains(lower, "claude-4-haiku") {
 		return "claude-4-haiku"
 	}
-	
+
 	// Claude 3.7 Series
 	if strings.Contains(lower, "claude-3.7-opus") {
 		return "claude-3.7-opus"
@@ -500,7 +500,7 @@ func normalizeModelName(model string) string {
 	if strings.Contains(lower, "claude-3.7-haiku") {
 		return "claude-3.7-haiku"
 	}
-	
+
 	// Claude 3.5 Series (Legacy - map to 3.7)
 	if strings.Contains(lower, "claude-3-5-haiku-20241022") {
 		return "claude-3.7-haiku" // Map legacy to 3.7
@@ -514,7 +514,7 @@ func normalizeModelName(model string) string {
 	if strings.Contains(lower, "claude-3-5-sonnet") {
 		return "claude-3.7-sonnet" // Map legacy to 3.7
 	}
-	
+
 	// Claude 3 Series (Deprecated - map to 3.7)
 	if strings.Contains(lower, "claude-3-opus") {
 		return "claude-3.7-opus" // Map deprecated to 3.7
@@ -525,7 +525,7 @@ func normalizeModelName(model string) string {
 	if strings.Contains(lower, "claude-3-haiku") {
 		return "claude-3.7-haiku" // Map deprecated to 3.7
 	}
-	
+
 	// Google Gemini models (latest versions first)
 	// Gemini 2.5 Family (Latest)
 	if strings.Contains(lower, "gemini-2.5-flash-8b") {
@@ -540,7 +540,7 @@ func normalizeModelName(model string) string {
 	if strings.Contains(lower, "gemini-2.5-pro") {
 		return "gemini-2.5-pro"
 	}
-	
+
 	// Gemini 2.0 Family
 	if strings.Contains(lower, "gemini-2.0-flash-lite") {
 		return "gemini-2.0-flash-lite"
@@ -548,7 +548,7 @@ func normalizeModelName(model string) string {
 	if strings.Contains(lower, "gemini-2.0-flash") {
 		return "gemini-2.0-flash"
 	}
-	
+
 	// Legacy Gemini models (deprecated)
 	if strings.Contains(lower, "gemini-1.5-pro-002") {
 		return "gemini-1.5-pro-002"
@@ -563,14 +563,14 @@ func normalizeModelName(model string) string {
 		return "gemini-1.5-flash"
 	}
 	if strings.Contains(lower, "gemini-pro") {
-		return "gemini-2.5-pro"  // Deprecated: gemini-pro maps to latest
+		return "gemini-2.5-pro" // Deprecated: gemini-pro maps to latest
 	}
-	
+
 	// Default Gemini fallback to latest flagship
 	if strings.Contains(lower, "gemini") {
 		return "gemini-2.5-pro"
 	}
-	
+
 	// OpenAI Audio models
 	if strings.Contains(lower, "whisper-1") {
 		return "whisper-1"
@@ -581,7 +581,7 @@ func normalizeModelName(model string) string {
 	if strings.Contains(lower, "tts-1") {
 		return "tts-1"
 	}
-	
+
 	// OpenAI Embedding models
 	if strings.Contains(lower, "text-embedding-3-large") {
 		return "text-embedding-3-large"
@@ -592,7 +592,7 @@ func normalizeModelName(model string) string {
 	if strings.Contains(lower, "text-embedding-ada-002") {
 		return "text-embedding-ada-002"
 	}
-	
+
 	// OpenAI Image generation models
 	if strings.Contains(lower, "dall-e-3") {
 		return "dall-e-3"
@@ -600,7 +600,7 @@ func normalizeModelName(model string) string {
 	if strings.Contains(lower, "dall-e-2") {
 		return "dall-e-2"
 	}
-	
+
 	// Return the original model name if no match found
 	return lower
 }
@@ -617,21 +617,21 @@ func GetModelPricing(model string) (ModelPricing, error) {
 
 // CostEstimateRequest represents a request for cost estimation
 type CostEstimateRequest struct {
-	Model                   string `json:"model"`
-	EstimatedInputTokens    int32  `json:"estimated_input_tokens,omitempty"`
-	EstimatedOutputTokens   int32  `json:"estimated_output_tokens,omitempty"`
+	Model                    string `json:"model"`
+	EstimatedInputTokens     int32  `json:"estimated_input_tokens,omitempty"`
+	EstimatedOutputTokens    int32  `json:"estimated_output_tokens,omitempty"`
 	EstimatedReasoningTokens int32  `json:"estimated_reasoning_tokens,omitempty"`
-	ImageCount              int32  `json:"image_count,omitempty"`
-	ImageSize               string `json:"image_size,omitempty"`
-	ImageQuality            string `json:"image_quality,omitempty"`
+	ImageCount               int32  `json:"image_count,omitempty"`
+	ImageSize                string `json:"image_size,omitempty"`
+	ImageQuality             string `json:"image_quality,omitempty"`
 }
 
 // CostEstimateResponse represents the cost estimation response
 type CostEstimateResponse struct {
-	Model           string        `json:"model"`
-	Pricing         ModelPricing  `json:"pricing"`
-	EstimatedCost   float64       `json:"estimated_cost"`
-	Breakdown       CostBreakdown `json:"breakdown,omitempty"`
+	Model         string        `json:"model"`
+	Pricing       ModelPricing  `json:"pricing"`
+	EstimatedCost float64       `json:"estimated_cost"`
+	Breakdown     CostBreakdown `json:"breakdown,omitempty"`
 }
 
 // CostBreakdown provides detailed cost breakdown
@@ -679,7 +679,7 @@ func EstimateCost(req CostEstimateRequest) (CostEstimateResponse, error) {
 		if req.ImageQuality != "" {
 			imageReq.Quality = &req.ImageQuality
 		}
-		
+
 		imageCost := CalculateImageCost(req.Model, imageReq, int(req.ImageCount))
 		breakdown.ImageCost = imageCost
 		totalCost += imageCost
