@@ -102,7 +102,7 @@ func (a *AdminServer) handleAPIKeys(w http.ResponseWriter, r *http.Request) {
 			lastUsed = key.UsageStats.LastUsed
 		}
 		info := KeyInfo{
-			VirtualKey:  key.Key,
+			VirtualKey:  key.VirtualKey,
 			Budget:      key.Budget,
 			Used:        used,
 			Permissions: key.Permissions,
@@ -147,7 +147,7 @@ func (a *AdminServer) handleCreateKey(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"virtual_key": key.Key,
+		"virtual_key": key.VirtualKey,
 		"budget":      key.Budget,
 		"permissions": key.Permissions,
 		"created_at":  key.CreatedAt,
