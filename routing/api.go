@@ -108,11 +108,42 @@ func (h *APIHandler) HandleUpdateRoutingConfig(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var configUpdate routingConfigUpdate
-	if err := json.NewDecoder(r.Body).Decode(&configUpdate); err != nil {
+	// Use a more flexible approach to handle malformed JSON gracefully
+	var rawData map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&rawData); err != nil {
 		h.logger.Warnw("Invalid request body", "error", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
+	}
+
+	// Parse the raw data into our config update struct, handling type mismatches gracefully
+	configUpdate := routingConfigUpdate{}
+
+	if strategy, ok := rawData["strategy"].(string); ok {
+		configUpdate.Strategy = &strategy
+	}
+	if fallbackStrategy, ok := rawData["fallback_strategy"].(string); ok {
+		configUpdate.FallbackStrategy = &fallbackStrategy
+	}
+	if costWeight, ok := rawData["cost_weight"].(float64); ok {
+		configUpdate.CostWeight = &costWeight
+	}
+	if latencyWeight, ok := rawData["latency_weight"].(float64); ok {
+		configUpdate.LatencyWeight = &latencyWeight
+	}
+	if successRateWeight, ok := rawData["success_rate_weight"].(float64); ok {
+		configUpdate.SuccessRateWeight = &successRateWeight
+	}
+	if loadWeight, ok := rawData["load_weight"].(float64); ok {
+		configUpdate.LoadWeight = &loadWeight
+	}
+	if endpointWeights, ok := rawData["endpoint_weights"].(map[string]interface{}); ok {
+		configUpdate.EndpointWeights = make(map[string]float64)
+		for k, v := range endpointWeights {
+			if weight, ok := v.(float64); ok {
+				configUpdate.EndpointWeights[k] = weight
+			}
+		}
 	}
 
 	config := h.router.config
