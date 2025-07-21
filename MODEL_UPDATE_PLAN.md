@@ -23,12 +23,19 @@ gpt-3.5-turbo            → gpt-4o-mini         # Fast/cheap alternative
 gpt-3.5-turbo-16k        → gpt-4o-mini         # Context upgrade
 
 # NEW MODELS TO ADD
-gpt-4o                   # Current flagship (128k context, vision, tools)
-gpt-4o-mini              # Fast and cheap (128k context)
-gpt-4.1                  # Next generation (when available)
-gpt-4.5                  # Advanced version (when available)
-o3                       # Reasoning model (when available)
-o4                       # Advanced reasoning (when available)
+gpt-4.5-turbo            # Latest flagship (advanced reasoning, multimodal)
+gpt-4.5-turbo-vision     # Vision, advanced image understanding
+gpt-4.1-turbo            # Production, efficient
+gpt-4.1-preview          # Preview, experimental
+o4                       # Latest reasoning
+o4-mini                  # Efficient reasoning
+o3                       # Advanced reasoning
+o3-mini                  # Efficient advanced reasoning
+gpt-4o                   # Unified model (128k context, vision, tools)
+gpt-4o-mini              # Fast/cheap (128k context)
+gpt-4-turbo               # Turbo variant
+gpt-4                    # Original GPT-4
+gpt-3.5-turbo             # Fast/cheap alternative
 ```
 
 ### **Anthropic Claude Models**
@@ -42,9 +49,12 @@ claude-2                 → claude-3-5-sonnet-20241022    # Major upgrade
 claude-instant-1.2       → claude-3-5-haiku-20241022     # Fast alternative
 
 # CURRENT MODELS
-claude-3-5-sonnet-20241022  # Latest flagship
-claude-3-5-haiku-20241022   # Fast and economical
-claude-4                    # Next generation (when available)
+claude-opus-4-20250514      # Most powerful, advanced reasoning
+claude-sonnet-4-20250514    # Balanced, production
+claude-haiku-4-20250701     # Fast, efficient
+claude-3-7-sonnet-20250219  # Current, enhanced performance
+claude-3-5-sonnet-20241022  # Legacy, best performance of 3.5
+claude-3-5-haiku-20241022   # Legacy, fast/cheap 3.5
 ```
 
 ### **Google Gemini Models**
@@ -60,11 +70,14 @@ gemini-1.5-flash-002     → gemini-2.5-flash             # Latest flash
 gemini-2.0-flash-exp     → gemini-2.5-flash             # Stable upgrade
 
 # CURRENT MODELS (2025)
-gemini-2.5-pro          # Flagship: Most intelligent, 1M context (→2M), leads leaderboards
-gemini-2.5-flash        # Workhorse: Fast performance, $0.10/$0.60 per 1M tokens
-gemini-2.5-flash-lite   # Economy: Most cost-efficient, high-throughput optimized
-gemini-2.0-flash        # Experimental: Low latency, 2x faster than 1.5 Pro
-gemini-2.5-pro-deep-think # Experimental: Enhanced reasoning (trusted testers only)
+gemini-2.5-pro              # Flagship: Most intelligent, 2M context, leads leaderboards
+gemini-2.5-flash            # Workhorse: Fast performance, cost-effective
+gemini-2.5-flash-lite       # Economy: Most cost-efficient, high-throughput optimized
+gemini-2.5-pro-deep-think   # Experimental: Enhanced reasoning (trusted testers only)
+gemini-2.0-flash            # Experimental: Low latency
+gemini-2.0-flash-lite       # Cost-efficient 2.0 variant
+gemini-1.5-pro-002          # Legacy, 1.5 pro
+gemini-1.5-flash-002        # Legacy, 1.5 flash
 ```
 
 ## 📋 **Implementation Strategy**
