@@ -12,6 +12,7 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/anthropics/anthropic-sdk-go/vertex"
+	"golang.org/x/oauth2/google"
 
 	"github.com/yanolja/ogem/image"
 	"github.com/yanolja/ogem/openai"
@@ -29,7 +30,14 @@ type Endpoint struct {
 }
 
 func NewEndpoint(projectId string, region string) (*Endpoint, error) {
-	client := anthropic.NewClient(vertex.WithGoogleAuth(context.Background(), region, projectId))
+	// Check if Google Application Default Credentials are available
+	ctx := context.Background()
+	_, err := google.FindDefaultCredentials(ctx, "https://www.googleapis.com/auth/cloud-platform")
+	if err != nil {
+		return nil, fmt.Errorf("Google Cloud credentials not found for vclaude provider: %v. Please run 'gcloud auth application-default login' or set GOOGLE_APPLICATION_CREDENTIALS", err)
+	}
+
+	client := anthropic.NewClient(vertex.WithGoogleAuth(ctx, region, projectId))
 	return &Endpoint{
 		client: &client.Messages,
 		region: region,

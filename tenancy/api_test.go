@@ -84,11 +84,11 @@ func TestTenantAPI_CreateTenant(t *testing.T) {
 				Name: "Test Tenant 4",
 				Type: TenantTypeEnterprise,
 				Settings: &TenantSettings{
-					AllowedModels:    []string{"gpt-4o", "claude-3.5-sonnet-20241022"},
-					DefaultModel:     "gpt-4o",
-					EnableMetrics:    true,
-					LogLevel:         "DEBUG",
-					DataRegion:       "eu-west-1",
+					AllowedModels: []string{"gpt-4o", "claude-3-5-sonnet-20241022"},
+					DefaultModel:  "gpt-4o",
+					EnableMetrics: true,
+					LogLevel:      "DEBUG",
+					DataRegion:    "eu-west-1",
 				},
 				Limits: &TenantLimits{
 					RequestsPerHour: 5000,
@@ -718,11 +718,11 @@ func TestTenantAPI_GetAndUpdateTenantSettings(t *testing.T) {
 	// Test updating settings
 	t.Run("update tenant settings", func(t *testing.T) {
 		newSettings := TenantSettings{
-			AllowedModels:    []string{"gpt-4o", "claude-3.5-sonnet-20241022"},
-			DefaultModel:     "gpt-4o",
-			EnableMetrics:    true,
-			LogLevel:         "DEBUG",
-			DataRegion:       "eu-west-1",
+			AllowedModels: []string{"gpt-4o", "claude-3-5-sonnet-20241022"},
+			DefaultModel:  "gpt-4o",
+			EnableMetrics: true,
+			LogLevel:      "DEBUG",
+			DataRegion:    "eu-west-1",
 			Features: map[string]bool{
 				"advanced_analytics": true,
 				"custom_models":      true,
@@ -743,7 +743,7 @@ func TestTenantAPI_GetAndUpdateTenantSettings(t *testing.T) {
 		var updatedSettings TenantSettings
 		err = json.Unmarshal(recorder.Body.Bytes(), &updatedSettings)
 		assert.NoError(t, err)
-		assert.Equal(t, []string{"gpt-4o", "claude-3.5-sonnet-20241022"}, updatedSettings.AllowedModels)
+		assert.Equal(t, []string{"gpt-4o", "claude-3-5-sonnet-20241022"}, updatedSettings.AllowedModels)
 		assert.Equal(t, "gpt-4o", updatedSettings.DefaultModel)
 		assert.Equal(t, "DEBUG", updatedSettings.LogLevel)
 		assert.True(t, updatedSettings.Features["advanced_analytics"])
@@ -873,13 +873,13 @@ func TestTenantAPI_GetAndUpdateTenantSubscription(t *testing.T) {
 	// Test updating subscription
 	t.Run("update tenant subscription", func(t *testing.T) {
 		updatedSubscription := Subscription{
-			PlanID:      "enterprise-plus",
-			PlanName:    "Enterprise Plus Plan",
-			Status:      "active",
-			StartDate:   now,
-			RenewalDate: now.Add(30 * 24 * time.Hour),
-			Amount:      499.99,
-			Currency:    "USD",
+			PlanID:       "enterprise-plus",
+			PlanName:     "Enterprise Plus Plan",
+			Status:       "active",
+			StartDate:    now,
+			RenewalDate:  now.Add(30 * 24 * time.Hour),
+			Amount:       499.99,
+			Currency:     "USD",
 			BillingCycle: "monthly",
 		}
 
@@ -990,13 +990,19 @@ func TestTenantAPI_GetTenantStats(t *testing.T) {
 
 	router.ServeHTTP(recorder, req)
 
-	assert.Equal(t, http.StatusOK, recorder.Code)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d. Body: %s", recorder.Code, recorder.Body.String())
+	}
 
 	var stats map[string]interface{}
 	err := json.Unmarshal(recorder.Body.Bytes(), &stats)
 	assert.NoError(t, err)
 	assert.Equal(t, float64(3), stats["total_tenants"])
-	assert.True(t, stats["usage_tracking_enabled"].(bool))
+	if trackingEnabled, ok := stats["usage_tracking_enabled"]; ok {
+		assert.True(t, trackingEnabled.(bool))
+	} else {
+		t.Fatal("usage_tracking_enabled field not found in stats")
+	}
 }
 
 func TestTenantAPI_GetTenantAnalytics(t *testing.T) {

@@ -80,66 +80,6 @@ providers:
             rate_key: "gpt-3.5-turbo"
             rpm: 10_000
             tpm: 50_000_000
-          - name: "gpt-4o@batch"
-            rate_key: "gpt-4o@batch"
-            rpm: 1_000_000
-            tpm: 10_000_000_000
-          - name: "gpt-4o-2024-05-13@batch"
-            rate_key: "gpt-4o@batch"
-            rpm: 1_000_000
-            tpm: 10_000_000_000
-          - name: "gpt-4o-2024-08-06@batch"
-            rate_key: "gpt-4o@batch"
-            rpm: 1_000_000
-            tpm: 10_000_000_000
-          - name: "gpt-4o-mini@batch"
-            rate_key: "gpt-4o-mini@batch"
-            rpm: 1_000_000
-            tpm: 15_000_000_000
-          - name: "gpt-4o-mini-2024-07-18@batch"
-            rate_key: "gpt-4o-mini@batch"
-            rpm: 1_000_000
-            tpm: 15_000_000_000
-          - name: "gpt-4-turbo@batch"
-            rate_key: "gpt-4-turbo@batch"
-            rpm: 1_000_000
-            tpm: 300_000_000
-          - name: "gpt-4-turbo-2024-04-09@batch"
-            rate_key: "gpt-4-turbo@batch"
-            rpm: 1_000_000
-            tpm: 300_000_000
-          - name: "gpt-4-turbo-preview@batch"
-            rate_key: "gpt-4-turbo@batch"
-            rpm: 1_000_000
-            tpm: 300_000_000
-          - name: "gpt-4-0125-preview@batch"
-            rate_key: "gpt-4@batch"
-            rpm: 1_000_000
-            tpm: 150_000_000
-          - name: "gpt-4-1106-preview@batch"
-            rate_key: "gpt-4@batch"
-            rpm: 1_000_000
-            tpm: 150_000_000
-          - name: "gpt-4@batch"
-            rate_key: "gpt-4@batch"
-            rpm: 1_000_000
-            tpm: 150_000_000
-          - name: "gpt-4-0613@batch"
-            rate_key: "gpt-4@batch"
-            rpm: 1_000_000
-            tpm: 150_000_000
-          - name: "gpt-3.5-turbo@batch"
-            rate_key: "gpt-3.5-turbo@batch"
-            rpm: 1_000_000
-            tpm: 5_000_000_000
-          - name: "gpt-3.5-turbo-0126@batch"
-            rate_key: "gpt-3.5-turbo@batch"
-            rpm: 1_000_000
-            tpm: 5_000_000_000
-          - name: "gpt-3.5-turbo-1106@batch"
-            rate_key: "gpt-3.5-turbo@batch"
-            rpm: 1_000_000
-            tpm: 5_000_000_000
   vertex:
     regions:
       default:
@@ -245,76 +185,50 @@ providers:
           # Latest Claude Models (2025)
           
           # Claude 4 Series (Latest)
-          - name: "claude-4-opus"
+          - name: "claude-opus-4-20250514"
             other_names:
-              - "claude-4-opus-latest"
-            rate_key: "claude-4-opus"
+              - "claude-opus-4-0"
+            rate_key: "claude-opus-4"
             rpm: 800
             tpm: 200_000
-          - name: "claude-4-sonnet"
+          - name: "claude-sonnet-4-20250514"
             other_names:
-              - "claude-4-sonnet-latest"
-            rate_key: "claude-4-sonnet"
+              - "claude-sonnet-4-0"
+            rate_key: "claude-sonnet-4"
             rpm: 1_200
             tpm: 150_000
-          - name: "claude-4-haiku"
+          - name: "claude-haiku-4-20250701"
             other_names:
-              - "claude-4-haiku-latest"
-            rate_key: "claude-4-haiku"
+              - "claude-haiku-4-0"
+            rate_key: "claude-haiku-4"
             rpm: 2_000
             tpm: 300_000
           
           # Claude 3.7 Series
-          - name: "claude-3.7-opus"
+          - name: "claude-3-7-sonnet-20250219"
             other_names:
-              - "claude-3.7-opus-latest"
-            rate_key: "claude-3.7-opus"
-            rpm: 900
-            tpm: 180_000
-          - name: "claude-3.7-sonnet"
-            other_names:
-              - "claude-3.7-sonnet-latest"
-            rate_key: "claude-3.7-sonnet"
+              - "claude-3-7-sonnet-latest"
+            rate_key: "claude-3-7-sonnet"
             rpm: 1_100
             tpm: 120_000
-          - name: "claude-3.7-haiku"
-            other_names:
-              - "claude-3.7-haiku-latest"
-            rate_key: "claude-3.7-haiku"
-            rpm: 1_800
-            tpm: 250_000
           
-          # Legacy models (deprecated - migrate to 4.x family)
-          - name: "claude-3.5-sonnet-20241022"
+          # Claude 3.5/3 Series (Legacy, still available)
+          - name: "claude-3-5-sonnet-20241022"
             other_names:
-              - "claude-3.5-sonnet"
+              - "claude-3-5-sonnet"
               - "claude-3-5-sonnet@20241022"
               - "claude-3-5-sonnet-20241022"
-            rate_key: "claude-3.5-sonnet-legacy"
+            rate_key: "claude-3-5-sonnet-legacy"
             rpm: 1_000
             tpm: 80_000
-          - name: "claude-3.5-haiku-20241022"
+          - name: "claude-3-5-haiku-20241022"
             other_names:
-              - "claude-3.5-haiku"
+              - "claude-3-5-haiku"
               - "claude-3-5-haiku@20241022"
               - "claude-3-5-haiku-20241022"
-            rate_key: "claude-3.5-haiku-legacy"
+            rate_key: "claude-3-5-haiku-legacy"
             rpm: 1_000
             tpm: 100_000
-          - name: "claude-3-opus-20240229"
-            other_names:
-              - "claude-3-opus"
-              - "claude-3-opus@20240229"
-            rate_key: "claude-3-opus-legacy"
-            rpm: 1_000
-            tpm: 40_000
-          - name: "claude-3-sonnet-20240229"
-            other_names:
-              - "claude-3-sonnet"
-              - "claude-3-sonnet@20240229"
-            rate_key: "claude-3-sonnet-legacy"
-            rpm: 1_000
-            tpm: 80_000
           - name: "claude-3-haiku-20240307"
             other_names:
               - "claude-3-haiku"
@@ -326,24 +240,20 @@ providers:
     regions:
       mistral:
         models:
-          - name: "mistral-large-latest"
-            rate_key: "mistral-large"
-            rpm: 100
-            tpm: 1_000_000
-          - name: "mistral-small-latest"
-            rate_key: "mistral-small"
+          - name: "mistral-small-3.2"
+            rate_key: "mistral-small-3.2"
             rpm: 200
             tpm: 2_000_000
-          - name: "mistral-medium-latest"
-            rate_key: "mistral-medium"
+          - name: "mistral-medium-3.2"
+            rate_key: "mistral-medium-3.2"
             rpm: 150
             tpm: 1_500_000
-          - name: "mistral-embed"
-            rate_key: "mistral-embed"
-            rpm: 500
-            tpm: 5_000_000
-          - name: "codestral-latest"
-            rate_key: "codestral"
+          - name: "mistral-large-2.1"
+            rate_key: "mistral-large-2.1"
+            rpm: 100
+            tpm: 1_000_000
+          - name: "codestral-2501"
+            rate_key: "codestral-2501"
             rpm: 100
             tpm: 1_000_000
           - name: "mixtral-8x7b-instruct"
@@ -358,18 +268,30 @@ providers:
     regions:
       xai:
         models:
-          - name: "grok-beta"
-            rate_key: "grok-beta"
+          - name: "grok-4"
+            rate_key: "grok-4"
             rpm: 100
             tpm: 2_000_000
-          - name: "grok-vision-beta"
-            rate_key: "grok-vision"
+          - name: "grok-3"
+            rate_key: "grok-3"
+            rpm: 100
+            tpm: 2_000_000
+          - name: "grok-vision-4"
+            rate_key: "grok-vision-4"
             rpm: 50
             tpm: 1_000_000
   groq:
     regions:
       groq:
         models:
+          - name: "llama4-maverick"
+            rate_key: "llama4-maverick"
+            rpm: 30_000
+            tpm: 14_400_000
+          - name: "llama4-scout"
+            rate_key: "llama4-scout"
+            rpm: 30_000
+            tpm: 14_400_000
           - name: "llama3-8b-8192"
             rate_key: "llama3-8b"
             rpm: 30_000
@@ -398,7 +320,7 @@ providers:
             rate_key: "openrouter-gpt4o"
             rpm: 200
             tpm: 10_000_000
-          - name: "anthropic/claude-3.5-sonnet"
+          - name: "anthropic/claude-3.7-sonnet"
             rate_key: "openrouter-claude"
             rpm: 200
             tpm: 10_000_000
@@ -406,17 +328,16 @@ providers:
             rate_key: "openrouter-gemini"
             rpm: 200
             tpm: 10_000_000
-          - name: "meta-llama/llama-3.1-8b-instruct"
-            rate_key: "openrouter-llama3"
+          - name: "meta-llama/llama-4-maverick"
+            rate_key: "openrouter-llama4"
             rpm: 500
             tpm: 20_000_000
-          - name: "mistralai/mistral-7b-instruct"
+          - name: "mistralai/mistral-small-3.2"
             rate_key: "openrouter-mistral"
             rpm: 500
             tpm: 20_000_000
   vclaude:
     regions:
-      # All regions must support the claude-3.5-haiku model because it is used for ping tests.
       default:
         models:
           - name: "claude-3.5-haiku-20241022"

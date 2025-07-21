@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
-	
+
 	"github.com/yanolja/ogem/openai"
 )
 
@@ -25,19 +25,45 @@ type mockEndpoint struct {
 
 func (m *mockEndpoint) Provider() string { return m.provider }
 func (m *mockEndpoint) Region() string   { return m.region }
-func (m *mockEndpoint) Ping(ctx context.Context) (time.Duration, error) { return 100 * time.Millisecond, nil }
-func (m *mockEndpoint) GenerateChatCompletion(ctx context.Context, req *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) { return nil, nil }
-func (m *mockEndpoint) GenerateChatCompletionStream(ctx context.Context, req *openai.ChatCompletionRequest) (<-chan *openai.ChatCompletionStreamResponse, <-chan error) { return nil, nil }
-func (m *mockEndpoint) GenerateEmbedding(ctx context.Context, req *openai.EmbeddingRequest) (*openai.EmbeddingResponse, error) { return nil, nil }
-func (m *mockEndpoint) GenerateImage(ctx context.Context, req *openai.ImageGenerationRequest) (*openai.ImageGenerationResponse, error) { return nil, nil }
-func (m *mockEndpoint) TranscribeAudio(ctx context.Context, req *openai.AudioTranscriptionRequest) (*openai.AudioTranscriptionResponse, error) { return nil, nil }
-func (m *mockEndpoint) TranslateAudio(ctx context.Context, req *openai.AudioTranslationRequest) (*openai.AudioTranslationResponse, error) { return nil, nil }
-func (m *mockEndpoint) GenerateSpeech(ctx context.Context, req *openai.TextToSpeechRequest) (*openai.TextToSpeechResponse, error) { return nil, nil }
-func (m *mockEndpoint) ModerateContent(ctx context.Context, req *openai.ModerationRequest) (*openai.ModerationResponse, error) { return nil, nil }
-func (m *mockEndpoint) CreateFineTuningJob(ctx context.Context, req *openai.FineTuningJobRequest) (*openai.FineTuningJob, error) { return nil, nil }
-func (m *mockEndpoint) GetFineTuningJob(ctx context.Context, jobID string) (*openai.FineTuningJob, error) { return nil, nil }
-func (m *mockEndpoint) ListFineTuningJobs(ctx context.Context, after *string, limit *int32) (*openai.FineTuningJobList, error) { return nil, nil }
-func (m *mockEndpoint) CancelFineTuningJob(ctx context.Context, jobID string) (*openai.FineTuningJob, error) { return nil, nil }
+func (m *mockEndpoint) Ping(ctx context.Context) (time.Duration, error) {
+	return 100 * time.Millisecond, nil
+}
+func (m *mockEndpoint) GenerateChatCompletion(ctx context.Context, req *openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error) {
+	return nil, nil
+}
+func (m *mockEndpoint) GenerateChatCompletionStream(ctx context.Context, req *openai.ChatCompletionRequest) (<-chan *openai.ChatCompletionStreamResponse, <-chan error) {
+	return nil, nil
+}
+func (m *mockEndpoint) GenerateEmbedding(ctx context.Context, req *openai.EmbeddingRequest) (*openai.EmbeddingResponse, error) {
+	return nil, nil
+}
+func (m *mockEndpoint) GenerateImage(ctx context.Context, req *openai.ImageGenerationRequest) (*openai.ImageGenerationResponse, error) {
+	return nil, nil
+}
+func (m *mockEndpoint) TranscribeAudio(ctx context.Context, req *openai.AudioTranscriptionRequest) (*openai.AudioTranscriptionResponse, error) {
+	return nil, nil
+}
+func (m *mockEndpoint) TranslateAudio(ctx context.Context, req *openai.AudioTranslationRequest) (*openai.AudioTranslationResponse, error) {
+	return nil, nil
+}
+func (m *mockEndpoint) GenerateSpeech(ctx context.Context, req *openai.TextToSpeechRequest) (*openai.TextToSpeechResponse, error) {
+	return nil, nil
+}
+func (m *mockEndpoint) ModerateContent(ctx context.Context, req *openai.ModerationRequest) (*openai.ModerationResponse, error) {
+	return nil, nil
+}
+func (m *mockEndpoint) CreateFineTuningJob(ctx context.Context, req *openai.FineTuningJobRequest) (*openai.FineTuningJob, error) {
+	return nil, nil
+}
+func (m *mockEndpoint) GetFineTuningJob(ctx context.Context, jobID string) (*openai.FineTuningJob, error) {
+	return nil, nil
+}
+func (m *mockEndpoint) ListFineTuningJobs(ctx context.Context, after *string, limit *int32) (*openai.FineTuningJobList, error) {
+	return nil, nil
+}
+func (m *mockEndpoint) CancelFineTuningJob(ctx context.Context, jobID string) (*openai.FineTuningJob, error) {
+	return nil, nil
+}
 func (m *mockEndpoint) Shutdown() error { return nil }
 
 func TestNewAPIHandler(t *testing.T) {
@@ -209,13 +235,13 @@ func TestAPIHandler_HandleUpdateRoutingConfig(t *testing.T) {
 			name:   "valid config update",
 			method: http.MethodPatch,
 			body: map[string]interface{}{
-				"strategy":           "cost",
-				"fallback_strategy":  "latency",
-				"cost_weight":        0.5,
-				"latency_weight":     0.3,
+				"strategy":            "cost",
+				"fallback_strategy":   "latency",
+				"cost_weight":         0.5,
+				"latency_weight":      0.3,
 				"success_rate_weight": 0.2,
 				"endpoint_weights": map[string]float64{
-					"openai/us-east-1": 2.0,
+					"openai/us-east-1":    2.0,
 					"anthropic/us-west-2": 1.0,
 				},
 			},
@@ -244,9 +270,9 @@ func TestAPIHandler_HandleUpdateRoutingConfig(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:   "empty body",
-			method: http.MethodPatch,
-			body:   map[string]interface{}{},
+			name:           "empty body",
+			method:         http.MethodPatch,
+			body:           map[string]interface{}{},
 			expectedStatus: http.StatusOK,
 			checkResponse:  true,
 		},
@@ -286,9 +312,15 @@ func TestAPIHandler_HandleUpdateRoutingConfig(t *testing.T) {
 				// Verify weights are normalized if they were updated
 				if configBody, ok := tt.body.(map[string]interface{}); ok {
 					if _, hasCostWeight := configBody["cost_weight"]; hasCostWeight {
-						config := response["config"].(*RoutingConfig)
-						totalWeight := config.CostWeight + config.LatencyWeight + 
-							config.SuccessRateWeight + config.LoadWeight
+						configMap, ok := response["config"].(map[string]interface{})
+						assert.True(t, ok, "config should be a map")
+
+						costWeight, _ := configMap["CostWeight"].(float64)
+						latencyWeight, _ := configMap["LatencyWeight"].(float64)
+						successRateWeight, _ := configMap["SuccessRateWeight"].(float64)
+						loadWeight, _ := configMap["LoadWeight"].(float64)
+
+						totalWeight := costWeight + latencyWeight + successRateWeight + loadWeight
 						assert.InDelta(t, 1.0, totalWeight, 0.001)
 					}
 				}
@@ -549,6 +581,11 @@ func TestAPIHandler_RegisterRoutes(t *testing.T) {
 	router := NewRouter(nil, nil, logger)
 	handler := NewAPIHandler(router, logger)
 
+	endpoint := &EndpointStatus{
+		Endpoint: &dummyEndpoint{provider: "openai", region: "us-east-1"},
+	}
+	router.RecordRequestResult(endpoint, 100*time.Millisecond, 0.001, true, "")
+
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
 
@@ -767,10 +804,10 @@ func TestAPIHandler_Configuration_Validation(t *testing.T) {
 		{
 			name: "valid weights",
 			config: map[string]interface{}{
-				"cost_weight":        0.25,
-				"latency_weight":     0.25,
+				"cost_weight":         0.25,
+				"latency_weight":      0.25,
 				"success_rate_weight": 0.25,
-				"load_weight":        0.25,
+				"load_weight":         0.25,
 			},
 			valid: true,
 		},
@@ -788,9 +825,9 @@ func TestAPIHandler_Configuration_Validation(t *testing.T) {
 		{
 			name: "mixed valid configuration",
 			config: map[string]interface{}{
-				"strategy":     "performance_based",
-				"cost_weight":  0.4,
-				"load_weight":  0.1,
+				"strategy":    "performance_based",
+				"cost_weight": 0.4,
+				"load_weight": 0.1,
 			},
 			valid: true,
 		},

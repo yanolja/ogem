@@ -36,6 +36,7 @@ import (
 	"github.com/yanolja/ogem/provider/vertex"
 	"github.com/yanolja/ogem/provider/xai"
 	"github.com/yanolja/ogem/routing"
+	ogemSdk "github.com/yanolja/ogem/sdk/go"
 	"github.com/yanolja/ogem/state"
 	"github.com/yanolja/ogem/utils/array"
 	"github.com/yanolja/ogem/utils/copy"
@@ -250,11 +251,9 @@ func NewProxyServer(stateManager state.Manager, cleanup func(), config *config.C
 	// Initialize admin server
 	var adminServer *admin.AdminServer
 	if authManager != nil {
-		vkm, ok := authManager.(*auth.VirtualKeyManager)
-		if ok {
-			calculator := cost.NewCalculator()
-			adminServer = admin.NewAdminServer(vkm, stateManager, calculator)
-		}
+		// Since Manager embeds VirtualKeyManager, we can use authManager directly
+		//calculator := cost.NewCalculator()
+		adminServer = admin.NewAdminServer(authManager, stateManager)
 	}
 
 	return &ModelProxy{
@@ -498,7 +497,7 @@ func (s *ModelProxy) HandleImages(httpResponse http.ResponseWriter, httpRequest 
 
 	// Set default model if not specified
 	if imageRequest.Model == nil {
-		defaultModel := "dall-e-3"
+		defaultModel := ogemSdk.ModelDALLE3
 		imageRequest.Model = &defaultModel
 	}
 
@@ -1302,7 +1301,7 @@ func (s *ModelProxy) HandleGetKey(httpResponse http.ResponseWriter, httpRequest 
 			return
 		}
 		token := headerSplit[1]
-		
+
 		var err error
 		requestKey, err = s.authManager.GetKeyByValue(httpRequest.Context(), token)
 		if err != nil || requestKey.ID != keyID {
@@ -1442,9 +1441,17 @@ func (s *ModelProxy) HandleAudioTranscriptions(httpResponse http.ResponseWriter,
 	defer file.Close()
 	audioRequest.File = handler.Filename
 
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		s.logger.Errorw("Failed to read file content", "error", err)
+		http.Error(httpResponse, "Failed to read file content", http.StatusBadRequest)
+		return
+	}
+	audioRequest.FileContent = fileBytes
+
 	// Set default model if not specified
 	if audioRequest.Model == "" {
-		audioRequest.Model = "whisper-1"
+		audioRequest.Model = ogemSdk.ModelOpenAIWhisper1
 	}
 
 	models := strings.Split(audioRequest.Model, ",")
@@ -1515,9 +1522,17 @@ func (s *ModelProxy) HandleAudioTranslations(httpResponse http.ResponseWriter, h
 	defer file.Close()
 	audioRequest.File = handler.Filename
 
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		s.logger.Errorw("Failed to read file content", "error", err)
+		http.Error(httpResponse, "Failed to read file content", http.StatusBadRequest)
+		return
+	}
+	audioRequest.FileContent = fileBytes
+
 	// Set default model if not specified
 	if audioRequest.Model == "" {
-		audioRequest.Model = "whisper-1"
+		audioRequest.Model = ogemSdk.ModelOpenAIWhisper1
 	}
 
 	models := strings.Split(audioRequest.Model, ",")
@@ -1568,7 +1583,7 @@ func (s *ModelProxy) HandleAudioSpeech(httpResponse http.ResponseWriter, httpReq
 
 	// Set default model if not specified
 	if speechRequest.Model == "" {
-		speechRequest.Model = "tts-1"
+		speechRequest.Model = ogemSdk.ModelOpenAITTS1
 	}
 
 	models := strings.Split(speechRequest.Model, ",")
@@ -1617,7 +1632,7 @@ func (s *ModelProxy) HandleModerations(httpResponse http.ResponseWriter, httpReq
 
 	// Set default model if not specified
 	if moderationRequest.Model == nil {
-		defaultModel := "text-moderation-latest"
+		defaultModel := ogemSdk.ModelOpenAIModeration
 		moderationRequest.Model = &defaultModel
 	}
 
@@ -1762,7 +1777,7 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 		s.logger.Warnw("Failed to select endpoint", "error", err, "provider", endpointProvider, "region", endpointRegion, "model", modelOrAlias)
 		return nil, UnavailableError{fmt.Errorf("no available endpoints")}
 	}
-	
+
 	// Try the intelligently selected endpoint first, then fall back to others
 	endpoints := []*endpointStatus{selectedEndpoint}
 	for _, ep := range allEndpoints {
@@ -1801,7 +1816,7 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 			}
 
 			openAiRequest.Model = endpoint.modelStatus.Name
-			
+
 			// Record start time for latency tracking
 			startTime := time.Now()
 			openAiResponse, err := endpoint.endpoint.GenerateChatCompletion(ctx, openAiRequest)
@@ -1817,7 +1832,7 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 					requestCost := cost.CalculateChatCost(openAiRequest.Model, openai.Usage{PromptTokens: 100}) // Estimate for failed requests
 					s.router.RecordRequestResult(routingEndpoint, requestLatency, requestCost, false, err.Error())
 				}
-				
+
 				loweredError := strings.ToLower(err.Error())
 				if strings.Contains(loweredError, "429") ||
 					strings.Contains(loweredError, "quota") ||
@@ -1841,7 +1856,7 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 
 			// Calculate request cost
 			calculatedCost := cost.CalculateChatCost(openAiRequest.Model, openAiResponse.Usage)
-			
+
 			// Record success with router
 			if s.router != nil {
 				routingEndpoint := &routing.EndpointStatus{

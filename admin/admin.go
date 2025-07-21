@@ -1,37 +1,40 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"net/http"
 	"time"
 
 	"github.com/yanolja/ogem/auth"
-	"github.com/yanolja/ogem/cost"
 	"github.com/yanolja/ogem/state"
 )
 
 type AdminServer struct {
-	virtualKeyManager *auth.VirtualKeyManager
+	virtualKeyManager auth.Manager
+	stateManager      state.Manager
 }
 
 type DashboardData struct {
-	TotalRequests    int64
-	TotalCost       float64
-	ActiveKeys      int
-	SystemStatus    SystemStatus
+	TotalRequests int64
+	TotalCost     float64
+	ActiveKeys    int
+	SystemStatus  SystemStatus
 }
 
 type SystemStatus struct {
-	Uptime      time.Duration
-	Memory      string
-	Goroutines  int
-	Version     string
+	Uptime     time.Duration
+	Memory     string
+	Goroutines int
+	Version    string
 }
 
-func NewAdminServer(vkm *auth.VirtualKeyManager) *AdminServer {
+func NewAdminServer(vkm auth.Manager, sm state.Manager) *AdminServer {
 	return &AdminServer{
 		virtualKeyManager: vkm,
+		stateManager:      sm,
 	}
 }
 
@@ -75,26 +78,36 @@ func (a *AdminServer) handleAPIStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *AdminServer) handleAPIKeys(w http.ResponseWriter, r *http.Request) {
-	keys := (*a.virtualKeyManager).ListKeys()
-	
+	keys, err := a.virtualKeyManager.ListKeys(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to list keys: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	type KeyInfo struct {
-		VirtualKey   string    `json:"virtual_key"`
-		Budget       *float64  `json:"budget"`
-		Used         float64   `json:"used"`
-		Permissions  []string  `json:"permissions"`
-		CreatedAt    time.Time `json:"created_at"`
-		LastUsed     *time.Time `json:"last_used"`
+		VirtualKey  string     `json:"virtual_key"`
+		Budget      *float64   `json:"budget"`
+		Used        float64    `json:"used"`
+		Permissions []string   `json:"permissions"`
+		CreatedAt   time.Time  `json:"created_at"`
+		LastUsed    *time.Time `json:"last_used"`
 	}
 
 	var keyInfos []KeyInfo
 	for _, key := range keys {
+		used := 0.0
+		var lastUsed *time.Time
+		if key.UsageStats != nil {
+			used = key.UsageStats.TotalCost
+			lastUsed = key.UsageStats.LastUsed
+		}
 		info := KeyInfo{
 			VirtualKey:  key.VirtualKey,
 			Budget:      key.Budget,
-			Used:        key.Used,
+			Used:        used,
 			Permissions: key.Permissions,
 			CreatedAt:   key.CreatedAt,
-			LastUsed:    key.LastUsed,
+			LastUsed:    lastUsed,
 		}
 		keyInfos = append(keyInfos, info)
 	}
@@ -123,7 +136,10 @@ func (a *AdminServer) handleCreateKey(w http.ResponseWriter, r *http.Request) {
 		req.Permissions = []string{"chat", "embeddings", "images", "audio", "moderations"}
 	}
 
-	key, err := (*a.virtualKeyManager).CreateKey(req.Budget, req.Permissions)
+	keyReq := &auth.KeyRequest{
+		Budget: req.Budget,
+	}
+	key, err := a.virtualKeyManager.CreateKey(r.Context(), keyReq)
 	if err != nil {
 		http.Error(w, "Failed to create key: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -150,7 +166,7 @@ func (a *AdminServer) handleDeleteKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := (*a.virtualKeyManager).DeleteKey(virtualKey); err != nil {
+	if err := a.virtualKeyManager.DeleteKey(r.Context(), virtualKey); err != nil {
 		http.Error(w, "Failed to delete key: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -160,15 +176,20 @@ func (a *AdminServer) handleDeleteKey(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *AdminServer) getDashboardData() (*DashboardData, error) {
-	keys := (*a.virtualKeyManager).ListKeys()
-	
+	keys, err := a.virtualKeyManager.ListKeys(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to list keys: %w", err)
+	}
+
 	totalCost := 0.0
 	activeKeys := 0
-	
+
 	for _, key := range keys {
-		totalCost += key.Used
-		if key.LastUsed != nil && time.Since(*key.LastUsed) < 24*time.Hour {
-			activeKeys++
+		if key.UsageStats != nil {
+			totalCost += key.UsageStats.TotalCost
+			if key.UsageStats.LastUsed != nil && time.Since(*key.UsageStats.LastUsed) < 24*time.Hour {
+				activeKeys++
+			}
 		}
 	}
 

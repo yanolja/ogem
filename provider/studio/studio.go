@@ -26,7 +26,7 @@ type Endpoint struct {
 func NewEndpoint(apiKey string) (*Endpoint, error) {
 	ctx := context.Background()
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
-		APIKey: apiKey,
+		APIKey:  apiKey,
 		Backend: genai.BackendGeminiAPI,
 	})
 	if err != nil {
@@ -69,6 +69,7 @@ func (ep *Endpoint) toGeminiMessages(ctx context.Context, openAiMessages []opena
 
 	toolMap := make(map[string]string)
 	geminiMessages := make([]*genai.Content, 0, messageCount)
+
 	for _, message := range openAiMessages {
 		if message.Role == "system" {
 			continue
@@ -77,6 +78,20 @@ func (ep *Endpoint) toGeminiMessages(ctx context.Context, openAiMessages []opena
 		for _, toolCall := range message.ToolCalls {
 			toolMap[toolCall.Id] = toolCall.Function.Name
 		}
+
+		// Handle function messages as separate messages (Gemini requirement)
+		if message.Role == "function" {
+			parts, err := ep.toGeminiParts(ctx, message, toolMap)
+			if err != nil {
+				return nil, nil, err
+			}
+			geminiMessages = append(geminiMessages, &genai.Content{
+				Role:  "user", // Function responses should be treated as user messages in Gemini request
+				Parts: parts,
+			})
+			continue
+		}
+
 		parts, err := ep.toGeminiParts(ctx, message, toolMap)
 		if err != nil {
 			return nil, nil, err
@@ -86,6 +101,7 @@ func (ep *Endpoint) toGeminiMessages(ctx context.Context, openAiMessages []opena
 			Parts: parts,
 		})
 	}
+
 	lastIndex := len(geminiMessages) - 1
 	geminiMessages, last := geminiMessages[:lastIndex], geminiMessages[lastIndex]
 	return geminiMessages, last, nil
@@ -111,10 +127,19 @@ func (ep *Endpoint) toGeminiParts(ctx context.Context, message openai.Message, t
 		}, nil
 	}
 	if message.Role == "function" {
+		if message.Content == nil || message.Content.String == nil {
+			return nil, fmt.Errorf("function message must have content")
+		}
+
 		response, err := utils.JsonToMap(*message.Content.String)
 		if err != nil {
 			return nil, fmt.Errorf("function response must be a valid JSON object: %v", err)
 		}
+
+		if message.Name == nil {
+			return nil, fmt.Errorf("message with role function must have a name")
+		}
+
 		return []*genai.Part{
 			{
 				FunctionResponse: &genai.FunctionResponse{
@@ -233,7 +258,7 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 		// Convert the response to streaming format
 		if len(openaiResponse.Choices) > 0 {
 			choice := openaiResponse.Choices[0]
-			
+
 			// Send role chunk
 			roleChunk := &openai.ChatCompletionStreamResponse{
 				Id:      openaiResponse.Id,
@@ -249,7 +274,7 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 					},
 				},
 			}
-			
+
 			select {
 			case responseCh <- roleChunk:
 			case <-ctx.Done():
@@ -261,7 +286,7 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 				content := *choice.Message.Content.String
 				contentChunk := &openai.ChatCompletionStreamResponse{
 					Id:      openaiResponse.Id,
-					Object:  "chat.completion.chunk", 
+					Object:  "chat.completion.chunk",
 					Created: openaiResponse.Created,
 					Model:   openaiResponse.Model,
 					Choices: []openai.ChoiceDelta{
@@ -273,7 +298,7 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 						},
 					},
 				}
-				
+
 				select {
 				case responseCh <- contentChunk:
 				case <-ctx.Done():
@@ -296,7 +321,7 @@ func (ep *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiRequ
 				},
 				Usage: &openaiResponse.Usage,
 			}
-			
+
 			select {
 			case responseCh <- finalChunk:
 			case <-ctx.Done():

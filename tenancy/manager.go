@@ -21,7 +21,7 @@ type TenantManager struct {
 	monitor         *monitoring.MonitoringManager
 	logger          *zap.SugaredLogger
 	mutex           sync.RWMutex
-	
+
 	// Background services
 	usageResetTicker *time.Ticker
 	cleanupTicker    *time.Ticker
@@ -32,43 +32,43 @@ type TenantManager struct {
 type TenantConfig struct {
 	// Enable multi-tenancy
 	Enabled bool `yaml:"enabled"`
-	
+
 	// Default tenant configuration
 	DefaultTenantType TenantType `yaml:"default_tenant_type"`
-	
+
 	// Usage tracking configuration
-	TrackUsage          bool          `yaml:"track_usage"`
-	UsageResetInterval  time.Duration `yaml:"usage_reset_interval"`
-	UsageRetentionDays  int           `yaml:"usage_retention_days"`
-	
+	TrackUsage         bool          `yaml:"track_usage"`
+	UsageResetInterval time.Duration `yaml:"usage_reset_interval"`
+	UsageRetentionDays int           `yaml:"usage_retention_days"`
+
 	// Auto-provisioning
-	AllowAutoProvisioning bool   `yaml:"allow_auto_provisioning"`
-	AutoProvisioningType   TenantType `yaml:"auto_provisioning_type"`
-	
+	AllowAutoProvisioning bool       `yaml:"allow_auto_provisioning"`
+	AutoProvisioningType  TenantType `yaml:"auto_provisioning_type"`
+
 	// Hierarchical tenancy
 	EnableHierarchy bool `yaml:"enable_hierarchy"`
 	MaxDepth        int  `yaml:"max_depth"`
-	
+
 	// Tenant isolation
-	StrictIsolation     bool `yaml:"strict_isolation"`
-	SharedResources     bool `yaml:"shared_resources"`
-	
+	StrictIsolation bool `yaml:"strict_isolation"`
+	SharedResources bool `yaml:"shared_resources"`
+
 	// Storage configuration
-	StorageType         string `yaml:"storage_type"` // "memory", "redis", "database"
-	DatabaseURL         string `yaml:"database_url,omitempty"`
-	RedisURL            string `yaml:"redis_url,omitempty"`
-	
+	StorageType string `yaml:"storage_type"` // "memory", "redis", "database"
+	DatabaseURL string `yaml:"database_url,omitempty"`
+	RedisURL    string `yaml:"redis_url,omitempty"`
+
 	// Background service intervals
-	CleanupInterval     time.Duration `yaml:"cleanup_interval"`
-	
+	CleanupInterval time.Duration `yaml:"cleanup_interval"`
+
 	// Limits enforcement
-	EnforceLimits       bool `yaml:"enforce_limits"`
-	SoftLimitThreshold  float64 `yaml:"soft_limit_threshold"` // 0.8 = 80%
-	
+	EnforceLimits      bool    `yaml:"enforce_limits"`
+	SoftLimitThreshold float64 `yaml:"soft_limit_threshold"` // 0.8 = 80%
+
 	// Billing integration
-	BillingEnabled      bool   `yaml:"billing_enabled"`
-	BillingProvider     string `yaml:"billing_provider,omitempty"`
-	BillingWebhookURL   string `yaml:"billing_webhook_url,omitempty"`
+	BillingEnabled    bool   `yaml:"billing_enabled"`
+	BillingProvider   string `yaml:"billing_provider,omitempty"`
+	BillingWebhookURL string `yaml:"billing_webhook_url,omitempty"`
 }
 
 // NewTenantManager creates a new tenant manager
@@ -84,7 +84,7 @@ func NewTenantManager(config *TenantConfig, securityManager *security.SecurityMa
 			config.CleanupInterval = 24 * time.Hour
 		}
 	}
-	
+
 	manager := &TenantManager{
 		config:          config,
 		tenants:         make(map[string]*Tenant),
@@ -94,17 +94,17 @@ func NewTenantManager(config *TenantConfig, securityManager *security.SecurityMa
 		logger:          logger,
 		stopChan:        make(chan struct{}),
 	}
-	
+
 	// Initialize storage backend
 	if err := manager.initializeStorage(); err != nil {
 		return nil, fmt.Errorf("failed to initialize tenant storage: %v", err)
 	}
-	
+
 	// Start background services
 	if config.Enabled {
 		manager.startBackgroundServices()
 	}
-	
+
 	return manager, nil
 }
 
@@ -113,20 +113,20 @@ func DefaultTenantConfig() *TenantConfig {
 	return &TenantConfig{
 		Enabled:               true,
 		DefaultTenantType:     TenantTypePersonal,
-		TrackUsage:           true,
-		UsageResetInterval:   time.Hour,
-		UsageRetentionDays:   90,
+		TrackUsage:            true,
+		UsageResetInterval:    time.Hour,
+		UsageRetentionDays:    90,
 		AllowAutoProvisioning: true,
 		AutoProvisioningType:  TenantTypePersonal,
-		EnableHierarchy:      true,
-		MaxDepth:             3,
-		StrictIsolation:      true,
-		SharedResources:      false,
-		StorageType:          "memory",
-		CleanupInterval:      24 * time.Hour,
-		EnforceLimits:        true,
-		SoftLimitThreshold:   0.8,
-		BillingEnabled:       false,
+		EnableHierarchy:       true,
+		MaxDepth:              3,
+		StrictIsolation:       true,
+		SharedResources:       false,
+		StorageType:           "memory",
+		CleanupInterval:       24 * time.Hour,
+		EnforceLimits:         true,
+		SoftLimitThreshold:    0.8,
+		BillingEnabled:        false,
 	}
 }
 
@@ -135,25 +135,25 @@ func (tm *TenantManager) CreateTenant(ctx context.Context, tenant *Tenant) error
 	if !tm.config.Enabled {
 		return fmt.Errorf("multi-tenancy is disabled")
 	}
-	
+
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
-	
+
 	// Validate tenant
 	if err := tm.validateTenant(tenant); err != nil {
 		return fmt.Errorf("tenant validation failed: %v", err)
 	}
-	
+
 	// Check if tenant already exists
 	if _, exists := tm.tenants[tenant.ID]; exists {
 		return fmt.Errorf("tenant %s already exists", tenant.ID)
 	}
-	
+
 	// Set creation metadata
 	now := time.Now()
 	tenant.CreatedAt = now
 	tenant.UpdatedAt = now
-	
+
 	// Set defaults if not provided
 	if tenant.Settings == nil {
 		tenant.Settings = tm.getDefaultTenantSettings(tenant.Type)
@@ -164,36 +164,36 @@ func (tm *TenantManager) CreateTenant(ctx context.Context, tenant *Tenant) error
 	if tenant.Security == nil {
 		tenant.Security = tm.getDefaultTenantSecurity()
 	}
-	
+
 	// Store tenant
 	tm.tenants[tenant.ID] = tenant
-	
+
 	// Initialize usage tracking
 	if tm.config.TrackUsage {
 		tm.usageTracking[tenant.ID] = &UsageMetrics{
 			LastUpdated: now,
 		}
 	}
-	
+
 	// Persist to storage
 	if err := tm.persistTenant(tenant); err != nil {
 		delete(tm.tenants, tenant.ID)
 		delete(tm.usageTracking, tenant.ID)
 		return fmt.Errorf("failed to persist tenant: %v", err)
 	}
-	
+
 	// Log tenant creation
 	tm.logger.Infow("Tenant created",
 		"tenant_id", tenant.ID,
 		"tenant_name", tenant.Name,
 		"tenant_type", tenant.Type,
 		"status", tenant.Status)
-	
+
 	// Record metrics
 	if tm.monitor != nil {
 		tm.recordTenantMetric("tenant_created", tenant)
 	}
-	
+
 	return nil
 }
 
@@ -201,12 +201,12 @@ func (tm *TenantManager) CreateTenant(ctx context.Context, tenant *Tenant) error
 func (tm *TenantManager) GetTenant(ctx context.Context, tenantID string) (*Tenant, error) {
 	tm.mutex.RLock()
 	defer tm.mutex.RUnlock()
-	
+
 	tenant, exists := tm.tenants[tenantID]
 	if !exists {
 		return nil, fmt.Errorf("tenant %s not found", tenantID)
 	}
-	
+
 	// Return a copy to prevent modification
 	tenantCopy := *tenant
 	return &tenantCopy, nil
@@ -217,41 +217,41 @@ func (tm *TenantManager) UpdateTenant(ctx context.Context, tenant *Tenant) error
 	if !tm.config.Enabled {
 		return fmt.Errorf("multi-tenancy is disabled")
 	}
-	
+
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
-	
+
 	// Check if tenant exists
 	existing, exists := tm.tenants[tenant.ID]
 	if !exists {
 		return fmt.Errorf("tenant %s not found", tenant.ID)
 	}
-	
+
 	// Validate updated tenant
 	if err := tm.validateTenant(tenant); err != nil {
 		return fmt.Errorf("tenant validation failed: %v", err)
 	}
-	
+
 	// Preserve creation time
 	tenant.CreatedAt = existing.CreatedAt
 	tenant.UpdatedAt = time.Now()
-	
+
 	// Update tenant
 	tm.tenants[tenant.ID] = tenant
-	
+
 	// Persist to storage
 	if err := tm.persistTenant(tenant); err != nil {
 		return fmt.Errorf("failed to persist tenant: %v", err)
 	}
-	
+
 	tm.logger.Infow("Tenant updated",
 		"tenant_id", tenant.ID,
 		"tenant_name", tenant.Name)
-	
+
 	if tm.monitor != nil {
 		tm.recordTenantMetric("tenant_updated", tenant)
 	}
-	
+
 	return nil
 }
 
@@ -260,34 +260,34 @@ func (tm *TenantManager) DeleteTenant(ctx context.Context, tenantID string) erro
 	if !tm.config.Enabled {
 		return fmt.Errorf("multi-tenancy is disabled")
 	}
-	
+
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
-	
+
 	tenant, exists := tm.tenants[tenantID]
 	if !exists {
 		return fmt.Errorf("tenant %s not found", tenantID)
 	}
-	
+
 	// Soft delete
 	now := time.Now()
 	tenant.Status = TenantStatusDeleted
 	tenant.DeletedAt = &now
 	tenant.UpdatedAt = now
-	
+
 	// Persist to storage
 	if err := tm.persistTenant(tenant); err != nil {
 		return fmt.Errorf("failed to persist tenant deletion: %v", err)
 	}
-	
+
 	tm.logger.Infow("Tenant deleted",
 		"tenant_id", tenantID,
 		"tenant_name", tenant.Name)
-	
+
 	if tm.monitor != nil {
 		tm.recordTenantMetric("tenant_deleted", tenant)
 	}
-	
+
 	return nil
 }
 
@@ -295,35 +295,43 @@ func (tm *TenantManager) DeleteTenant(ctx context.Context, tenantID string) erro
 func (tm *TenantManager) ListTenants(ctx context.Context, filter *TenantFilter) ([]*Tenant, error) {
 	tm.mutex.RLock()
 	defer tm.mutex.RUnlock()
-	
+
 	var tenants []*Tenant
-	
+
 	for _, tenant := range tm.tenants {
 		if filter == nil || tm.matchesFilter(tenant, filter) {
 			tenantCopy := *tenant
 			tenants = append(tenants, &tenantCopy)
 		}
 	}
-	
+
 	return tenants, nil
 }
 
 // TenantFilter defines filtering criteria for listing tenants
 type TenantFilter struct {
-	Status      *TenantStatus `json:"status,omitempty"`
-	Type        *TenantType   `json:"type,omitempty"`
-	ParentID    *string       `json:"parent_id,omitempty"`
-	CreatedAfter *time.Time   `json:"created_after,omitempty"`
-	CreatedBefore *time.Time  `json:"created_before,omitempty"`
+	Status        *TenantStatus `json:"status,omitempty"`
+	Type          *TenantType   `json:"type,omitempty"`
+	ParentID      *string       `json:"parent_id,omitempty"`
+	CreatedAfter  *time.Time    `json:"created_after,omitempty"`
+	CreatedBefore *time.Time    `json:"created_before,omitempty"`
 }
 
 // CheckAccess validates if a request is authorized for a tenant
 func (tm *TenantManager) CheckAccess(ctx context.Context, tenantID, userID string, resource, action string) (*AccessResult, error) {
 	tenant, err := tm.GetTenant(ctx, tenantID)
 	if err != nil {
-		return &AccessResult{Allowed: false, Reason: "tenant not found"}, err
+		return &AccessResult{
+			Allowed:   false,
+			TenantID:  tenantID,
+			UserID:    userID,
+			Resource:  resource,
+			Action:    action,
+			Reason:    "tenant not found",
+			CheckedAt: time.Now(),
+		}, err
 	}
-	
+
 	result := &AccessResult{
 		Allowed:   true,
 		TenantID:  tenantID,
@@ -332,21 +340,21 @@ func (tm *TenantManager) CheckAccess(ctx context.Context, tenantID, userID strin
 		Action:    action,
 		CheckedAt: time.Now(),
 	}
-	
+
 	// Check tenant status
 	if !tenant.IsActive() {
 		result.Allowed = false
 		result.Reason = fmt.Sprintf("tenant status is %s", tenant.Status)
 		return result, nil
 	}
-	
+
 	// Check subscription expiry
 	if tenant.IsExpired() {
 		result.Allowed = false
 		result.Reason = "tenant subscription expired"
 		return result, nil
 	}
-	
+
 	// Check usage limits
 	if tm.config.EnforceLimits {
 		limitResult, err := tm.checkUsageLimits(tenant, resource)
@@ -360,9 +368,9 @@ func (tm *TenantManager) CheckAccess(ctx context.Context, tenantID, userID strin
 			return result, nil
 		}
 	}
-	
+
 	// Additional security checks can be added here
-	
+
 	return result, nil
 }
 
@@ -393,16 +401,16 @@ func (tm *TenantManager) RecordUsage(ctx context.Context, tenantID string, usage
 	if !tm.config.TrackUsage {
 		return nil
 	}
-	
+
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
-	
+
 	metrics, exists := tm.usageTracking[tenantID]
 	if !exists {
 		metrics = &UsageMetrics{LastUpdated: time.Now()}
 		tm.usageTracking[tenantID] = metrics
 	}
-	
+
 	// Update metrics based on usage type
 	switch usage.Type {
 	case "request":
@@ -418,14 +426,14 @@ func (tm *TenantManager) RecordUsage(ctx context.Context, tenantID string, usage
 		metrics.CostThisDay += usage.Amount
 		metrics.CostThisMonth += usage.Amount
 	}
-	
+
 	metrics.LastUpdated = time.Now()
-	
+
 	// Record metrics for monitoring
 	if tm.monitor != nil {
 		tm.recordUsageMetric(tenantID, usage)
 	}
-	
+
 	return nil
 }
 
@@ -443,12 +451,12 @@ type UsageRecord struct {
 func (tm *TenantManager) GetUsageMetrics(ctx context.Context, tenantID string) (*UsageMetrics, error) {
 	tm.mutex.RLock()
 	defer tm.mutex.RUnlock()
-	
+
 	metrics, exists := tm.usageTracking[tenantID]
 	if !exists {
 		return &UsageMetrics{LastUpdated: time.Now()}, nil
 	}
-	
+
 	// Return a copy
 	metricsCopy := *metrics
 	return &metricsCopy, nil
@@ -469,14 +477,14 @@ func (tm *TenantManager) validateTenant(tenant *Tenant) error {
 	if tenant.Status == "" {
 		tenant.Status = TenantStatusActive
 	}
-	
+
 	// Validate hierarchical relationships
 	if tm.config.EnableHierarchy && tenant.ParentID != "" {
 		if _, exists := tm.tenants[tenant.ParentID]; !exists {
 			return fmt.Errorf("parent tenant %s not found", tenant.ParentID)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -487,10 +495,10 @@ func (tm *TenantManager) getDefaultTenantSettings(tenantType TenantType) *Tenant
 		Features:           make(map[string]bool),
 		EnableMetrics:      true,
 		EnableAuditLogging: true,
-		LogLevel:          "info",
-		DataRegion:        "us-east-1",
+		LogLevel:           "info",
+		DataRegion:         "us-east-1",
 	}
-	
+
 	// Set features based on tenant type
 	switch tenantType {
 	case TenantTypeEnterprise:
@@ -508,7 +516,7 @@ func (tm *TenantManager) getDefaultTenantSettings(tenantType TenantType) *Tenant
 	default: // Personal
 		settings.Features["personal_workspace"] = true
 	}
-	
+
 	return settings
 }
 
@@ -563,7 +571,7 @@ func (tm *TenantManager) checkUsageLimits(tenant *Tenant, resource string) (*Lim
 	if !exists {
 		return nil, nil // No usage yet, allow
 	}
-	
+
 	// Check hourly request limit
 	if limits.RequestsPerHour > 0 {
 		percentage := float64(usage.RequestsThisHour) / float64(limits.RequestsPerHour)
@@ -585,10 +593,10 @@ func (tm *TenantManager) checkUsageLimits(tenant *Tenant, resource string) (*Lim
 				"percentage", percentage*100)
 		}
 	}
-	
+
 	// Check other limits (tokens, cost, etc.) similarly...
 	// This is a simplified implementation
-	
+
 	return nil, nil
 }
 
@@ -611,7 +619,7 @@ func (tm *TenantManager) startBackgroundServices() {
 		tm.usageResetTicker = time.NewTicker(tm.config.UsageResetInterval)
 		go tm.runUsageResetService()
 	}
-	
+
 	// Cleanup service
 	tm.cleanupTicker = time.NewTicker(tm.config.CleanupInterval)
 	go tm.runCleanupService()
@@ -642,7 +650,7 @@ func (tm *TenantManager) runCleanupService() {
 func (tm *TenantManager) resetUsageCounters() {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
-	
+
 	now := time.Now()
 	for _, usage := range tm.usageTracking {
 		// Reset hourly counters every hour
@@ -651,21 +659,21 @@ func (tm *TenantManager) resetUsageCounters() {
 			usage.TokensThisHour = 0
 			usage.CostThisHour = 0
 		}
-		
+
 		// Reset daily counters at midnight
 		if now.Hour() == 0 && usage.LastUpdated.Day() != now.Day() {
 			usage.RequestsThisDay = 0
 			usage.TokensThisDay = 0
 			usage.CostThisDay = 0
 		}
-		
+
 		// Reset monthly counters at month start
 		if now.Day() == 1 && usage.LastUpdated.Month() != now.Month() {
 			usage.RequestsThisMonth = 0
 			usage.TokensThisMonth = 0
 			usage.CostThisMonth = 0
 		}
-		
+
 		usage.LastUpdated = now
 	}
 }
@@ -673,17 +681,17 @@ func (tm *TenantManager) resetUsageCounters() {
 func (tm *TenantManager) cleanupExpiredData() {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
-	
+
 	now := time.Now()
 	retentionPeriod := time.Duration(tm.config.UsageRetentionDays) * 24 * time.Hour
-	
+
 	// Clean up old usage data
 	for tenantID, usage := range tm.usageTracking {
 		if now.Sub(usage.LastUpdated) > retentionPeriod {
 			delete(tm.usageTracking, tenantID)
 		}
 	}
-	
+
 	// Clean up deleted tenants after retention period
 	for tenantID, tenant := range tm.tenants {
 		if tenant.Status == TenantStatusDeleted && tenant.DeletedAt != nil {
@@ -707,7 +715,7 @@ func (tm *TenantManager) recordTenantMetric(action string, tenant *Tenant) {
 		},
 		Timestamp: time.Now(),
 	}
-	
+
 	if err := tm.monitor.RecordMetric(metric); err != nil {
 		tm.logger.Warnw("Failed to record tenant metric", "error", err)
 	}
@@ -726,7 +734,7 @@ func (tm *TenantManager) recordUsageMetric(tenantID string, usage *UsageRecord) 
 		},
 		Timestamp: usage.Timestamp,
 	}
-	
+
 	if err := tm.monitor.RecordMetric(metric); err != nil {
 		tm.logger.Warnw("Failed to record usage metric", "error", err)
 	}
@@ -735,14 +743,14 @@ func (tm *TenantManager) recordUsageMetric(tenantID string, usage *UsageRecord) 
 // Stop gracefully stops the tenant manager
 func (tm *TenantManager) Stop() {
 	close(tm.stopChan)
-	
+
 	if tm.usageResetTicker != nil {
 		tm.usageResetTicker.Stop()
 	}
 	if tm.cleanupTicker != nil {
 		tm.cleanupTicker.Stop()
 	}
-	
+
 	tm.logger.Info("Tenant manager stopped")
 }
 
@@ -750,23 +758,23 @@ func (tm *TenantManager) Stop() {
 func (tm *TenantManager) GetTenantStats() map[string]interface{} {
 	tm.mutex.RLock()
 	defer tm.mutex.RUnlock()
-	
+
 	stats := make(map[string]interface{})
-	
+
 	// Count tenants by status and type
 	statusCounts := make(map[TenantStatus]int)
 	typeCounts := make(map[TenantType]int)
-	
+
 	for _, tenant := range tm.tenants {
 		statusCounts[tenant.Status]++
 		typeCounts[tenant.Type]++
 	}
-	
+
 	stats["total_tenants"] = len(tm.tenants)
 	stats["tenants_by_status"] = statusCounts
 	stats["tenants_by_type"] = typeCounts
 	stats["usage_tracking_enabled"] = tm.config.TrackUsage
 	stats["tracked_usage_entries"] = len(tm.usageTracking)
-	
+
 	return stats
 }

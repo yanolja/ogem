@@ -174,28 +174,52 @@ providers:
       openai:
         models:
           - name: "gpt-4.5-turbo"
-            max_requests_per_minute: 400
+            max_requests_per_minute: 8_000
+          - name: "gpt-4.5-turbo-vision"
+            max_requests_per_minute: 6_000
           - name: "gpt-4.1-turbo"
-            max_requests_per_minute: 600
+            max_requests_per_minute: 10_000
+          - name: "gpt-4.1-preview"
+            max_requests_per_minute: 8_000
           - name: "o4"
             max_requests_per_minute: 100
+          - name: "o4-mini"
+            max_requests_per_minute: 300
           - name: "o3"
             max_requests_per_minute: 150
-
+          - name: "o3-mini"
+            max_requests_per_minute: 500
+          # Legacy Models (still available)
+          - name: "gpt-4o"
+            max_requests_per_minute: 10_000
+          - name: "gpt-4o-mini"
+            max_requests_per_minute: 30_000
+          - name: "gpt-4-turbo"
+            max_requests_per_minute: 10_000
+          - name: "gpt-4"
+            max_requests_per_minute: 10_000
+          - name: "gpt-3.5-turbo"
+            max_requests_per_minute: 10_000
   claude:
     regions:
       claude:
         models:
-          - name: "claude-4-sonnet"
+          - name: "claude-opus-4-20250514"
             max_requests_per_minute: 800
-          - name: "claude-4-haiku"
-            max_requests_per_minute: 1200
-          - name: "claude-3.7-sonnet"
-            max_requests_per_minute: 600
-
+          - name: "claude-sonnet-4-20250514"
+            max_requests_per_minute: 1_200
+          - name: "claude-haiku-4-20250701"
+            max_requests_per_minute: 2_000
+          - name: "claude-3-7-sonnet-20250219"
+            max_requests_per_minute: 1_100
+          # Legacy Models (still available)
+          - name: "claude-3-5-sonnet-20241022"
+            max_requests_per_minute: 1_000
+          - name: "claude-3-5-haiku-20241022"
+            max_requests_per_minute: 1_000
   vertex:
     regions:
-      us-central1:
+      default:
         models:
           - name: "gemini-2.5-pro"
             max_requests_per_minute: 100
@@ -203,6 +227,17 @@ providers:
             max_requests_per_minute: 300
           - name: "gemini-2.5-flash-lite"
             max_requests_per_minute: 500
+          - name: "gemini-2.5-pro-deep-think"
+            max_requests_per_minute: 100
+          - name: "gemini-2.0-flash"
+            max_requests_per_minute: 200
+          - name: "gemini-2.0-flash-lite"
+            max_requests_per_minute: 2_000
+          # Legacy Models (still available)
+          - name: "gemini-1.5-pro-002"
+            max_requests_per_minute: 60
+          - name: "gemini-1.5-flash-002"
+            max_requests_per_minute: 200
 ```
 
 ## Breaking Changes

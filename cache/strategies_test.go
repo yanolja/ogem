@@ -11,16 +11,17 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"github.com/yanolja/ogem/openai"
+	sdkOgem "github.com/yanolja/ogem/sdk/go"
 )
 
 func TestCacheManager_LookupExact(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	config := &CacheConfig{
-		Enabled:      true,
-		Strategy:     StrategyExact,
-		Backend:      BackendMemory,
-		DefaultTTL:   time.Hour,
-		MaxEntries:   100,
+		Enabled:       true,
+		Strategy:      StrategyExact,
+		Backend:       BackendMemory,
+		DefaultTTL:    time.Hour,
+		MaxEntries:    100,
 		EnableMetrics: false,
 	}
 
@@ -33,7 +34,7 @@ func TestCacheManager_LookupExact(t *testing.T) {
 
 	// Create test request
 	cacheReq := &CacheRequest{
-		Model: "gpt-4o",
+		Model: sdkOgem.ModelGPT4o,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -59,12 +60,12 @@ func TestCacheManager_LookupExact(t *testing.T) {
 		Id:      "chatcmpl-123",
 		Object:  "chat.completion",
 		Created: time.Now().Unix(),
-		Model:   "gpt-3.5-turbo",
+		Model:   sdkOgem.ModelGPT35Turbo,
 	}
 
 	err = manager.Store(ctx, &openai.ChatCompletionRequest{
-		Model: cacheReq.Model,
-		Messages: cacheReq.Messages,
+		Model:       cacheReq.Model,
+		Messages:    cacheReq.Messages,
 		Temperature: float32Ptr(0.7),
 	}, response, tenantID)
 	require.NoError(t, err)
@@ -85,7 +86,7 @@ func TestCacheManager_LookupExact(t *testing.T) {
 
 	// Test lookup with slightly different request - should not find
 	differentReq := &CacheRequest{
-		Model: "gpt-4o",
+		Model: sdkOgem.ModelGPT4o,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -107,11 +108,11 @@ func TestCacheManager_LookupExact(t *testing.T) {
 func TestCacheManager_LookupExact_ExpiredEntry(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	config := &CacheConfig{
-		Enabled:      true,
-		Strategy:     StrategyExact,
-		Backend:      BackendMemory,
-		DefaultTTL:   10 * time.Millisecond, // Very short TTL
-		MaxEntries:   100,
+		Enabled:       true,
+		Strategy:      StrategyExact,
+		Backend:       BackendMemory,
+		DefaultTTL:    10 * time.Millisecond, // Very short TTL
+		MaxEntries:    100,
 		EnableMetrics: false,
 	}
 
@@ -123,7 +124,7 @@ func TestCacheManager_LookupExact_ExpiredEntry(t *testing.T) {
 	tenantID := "test-tenant"
 
 	cacheReq := &CacheRequest{
-		Model: "gpt-4o",
+		Model: sdkOgem.ModelGPT4o,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -154,11 +155,11 @@ func TestCacheManager_LookupExact_ExpiredEntry(t *testing.T) {
 func TestCacheManager_LookupSemantic(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	config := &CacheConfig{
-		Enabled:      true,
-		Strategy:     StrategySemantic,
-		Backend:      BackendMemory,
-		DefaultTTL:   time.Hour,
-		MaxEntries:   100,
+		Enabled:         true,
+		Strategy:        StrategySemantic,
+		Backend:         BackendMemory,
+		DefaultTTL:      time.Hour,
+		MaxEntries:      100,
 		PerTenantLimits: true,
 		SemanticConfig: &SemanticConfig{
 			SimilarityThreshold: 0.8,
@@ -177,7 +178,7 @@ func TestCacheManager_LookupSemantic(t *testing.T) {
 
 	// Create test requests with similar content
 	cacheReq1 := &CacheRequest{
-		Model: "gpt-4o",
+		Model: sdkOgem.ModelGPT4o,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -189,7 +190,7 @@ func TestCacheManager_LookupSemantic(t *testing.T) {
 	}
 
 	cacheReq2 := &CacheRequest{
-		Model: "gpt-4o",
+		Model: sdkOgem.ModelGPT4o,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -225,7 +226,7 @@ func TestCacheManager_LookupSemantic(t *testing.T) {
 
 	// Test with different model - should not find
 	differentModelReq := &CacheRequest{
-		Model: "gpt-4",
+		Model: sdkOgem.ModelGPT4,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -249,11 +250,11 @@ func TestCacheManager_LookupSemantic(t *testing.T) {
 func TestCacheManager_LookupSemantic_EmbeddingError(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	config := &CacheConfig{
-		Enabled:      true,
-		Strategy:     StrategySemantic,
-		Backend:      BackendMemory,
-		DefaultTTL:   time.Hour,
-		MaxEntries:   100,
+		Enabled:        true,
+		Strategy:       StrategySemantic,
+		Backend:        BackendMemory,
+		DefaultTTL:     time.Hour,
+		MaxEntries:     100,
 		SemanticConfig: nil, // No semantic config to trigger error
 	}
 
@@ -265,7 +266,7 @@ func TestCacheManager_LookupSemantic_EmbeddingError(t *testing.T) {
 	tenantID := "test-tenant"
 
 	cacheReq := &CacheRequest{
-		Model: "gpt-4o",
+		Model: sdkOgem.ModelGPT4o,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -286,19 +287,19 @@ func TestCacheManager_LookupSemantic_EmbeddingError(t *testing.T) {
 func TestCacheManager_LookupToken(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	config := &CacheConfig{
-		Enabled:      true,
-		Strategy:     StrategyToken,
-		Backend:      BackendMemory,
-		DefaultTTL:   time.Hour,
-		MaxEntries:   100,
+		Enabled:         true,
+		Strategy:        StrategyToken,
+		Backend:         BackendMemory,
+		DefaultTTL:      time.Hour,
+		MaxEntries:      100,
 		PerTenantLimits: true,
 		TokenConfig: &TokenConfig{
 			TokenSimilarityThreshold: 0.8,
-			MaxTokenDistance:        3,
-			EnableFuzzyMatching:     true,
-			NormalizeTokens:         true,
-			IgnoreCase:             true,
-			RemovePunctuation:      false,
+			MaxTokenDistance:         3,
+			EnableFuzzyMatching:      true,
+			NormalizeTokens:          true,
+			IgnoreCase:               true,
+			RemovePunctuation:        false,
 		},
 	}
 
@@ -310,7 +311,7 @@ func TestCacheManager_LookupToken(t *testing.T) {
 
 	// Create test requests with similar tokens
 	cacheReq1 := &CacheRequest{
-		Model: "gpt-4o",
+		Model: sdkOgem.ModelGPT4o,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -322,7 +323,7 @@ func TestCacheManager_LookupToken(t *testing.T) {
 	}
 
 	cacheReq2 := &CacheRequest{
-		Model: "gpt-4o",
+		Model: sdkOgem.ModelGPT4o,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -361,7 +362,7 @@ func TestCacheManager_LookupToken(t *testing.T) {
 
 	// Test with different model - should not find
 	differentModelReq := &CacheRequest{
-		Model: "gpt-4",
+		Model:    sdkOgem.ModelGPT4,
 		Messages: cacheReq1.Messages,
 	}
 
@@ -378,11 +379,11 @@ func TestCacheManager_LookupToken(t *testing.T) {
 func TestCacheManager_LookupHybrid(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	config := &CacheConfig{
-		Enabled:      true,
-		Strategy:     StrategyHybrid,
-		Backend:      BackendMemory,
-		DefaultTTL:   time.Hour,
-		MaxEntries:   100,
+		Enabled:    true,
+		Strategy:   StrategyHybrid,
+		Backend:    BackendMemory,
+		DefaultTTL: time.Hour,
+		MaxEntries: 100,
 		SemanticConfig: &SemanticConfig{
 			SimilarityThreshold: 0.9,
 		},
@@ -458,11 +459,11 @@ func TestCacheManager_LookupHybrid(t *testing.T) {
 func TestCacheManager_LookupHybrid_NoSemanticConfig(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	config := &CacheConfig{
-		Enabled:      true,
-		Strategy:     StrategyHybrid,
-		Backend:      BackendMemory,
-		DefaultTTL:   time.Hour,
-		MaxEntries:   100,
+		Enabled:        true,
+		Strategy:       StrategyHybrid,
+		Backend:        BackendMemory,
+		DefaultTTL:     time.Hour,
+		MaxEntries:     100,
 		SemanticConfig: nil, // No semantic config
 		TokenConfig: &TokenConfig{
 			TokenSimilarityThreshold: 0.8,
@@ -615,7 +616,7 @@ func TestCacheManager_ExtractTokens(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	config := &CacheConfig{
 		TokenConfig: &TokenConfig{
-			NormalizeTokens:    true,
+			NormalizeTokens:   true,
 			IgnoreCase:        true,
 			RemovePunctuation: false,
 		},
@@ -781,11 +782,11 @@ func TestCacheManager_UpdateEntryAccess(t *testing.T) {
 func TestCacheManager_StoreEntry(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	config := &CacheConfig{
-		Enabled:      true,
-		Strategy:     StrategyExact,
-		Backend:      BackendMemory,
-		DefaultTTL:   time.Hour,
-		MaxEntries:   2, // Small limit for testing
+		Enabled:       true,
+		Strategy:      StrategyExact,
+		Backend:       BackendMemory,
+		DefaultTTL:    time.Hour,
+		MaxEntries:    2, // Small limit for testing
 		EnableMetrics: false,
 	}
 
@@ -825,7 +826,7 @@ func TestCacheManager_StoreEntry(t *testing.T) {
 
 	err = manager.storeEntry(entry3)
 	assert.NoError(t, err)
-	assert.Equal(t, 2, len(manager.memoryCache)) // Still at limit
+	assert.Equal(t, 2, len(manager.memoryCache))       // Still at limit
 	assert.NotContains(t, manager.memoryCache, "key1") // First entry evicted
 	assert.Contains(t, manager.memoryCache, "key2")
 	assert.Contains(t, manager.memoryCache, "key3")
@@ -928,7 +929,7 @@ func TestCacheManager_UpdateAdaptiveLearning(t *testing.T) {
 		Strategy: StrategyAdaptive,
 		AdaptiveConfig: &AdaptiveConfig{
 			EnablePatternDetection: true,
-			TuningInterval:        30 * time.Minute,
+			TuningInterval:         30 * time.Minute,
 		},
 	}
 
@@ -942,7 +943,7 @@ func TestCacheManager_UpdateAdaptiveLearning(t *testing.T) {
 	}
 
 	cacheReq := &CacheRequest{
-		Model: "gpt-4o",
+		Model: sdkOgem.ModelGPT4o,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -984,7 +985,7 @@ func TestCacheManager_EstimateQueryLength(t *testing.T) {
 
 	// Test with string content
 	cacheReq := &CacheRequest{
-		Model: "gpt-4o",
+		Model: sdkOgem.ModelGPT4o,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -1014,5 +1015,3 @@ func TestCacheManager_EstimateQueryLength(t *testing.T) {
 	length = manager.estimateQueryLength(cacheReq)
 	assert.Equal(t, 0, length)
 }
-
-// Helper functions are defined in cache_test.go

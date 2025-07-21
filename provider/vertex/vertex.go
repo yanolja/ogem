@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/oauth2/google"
 	"google.golang.org/genai"
 
 	"github.com/yanolja/ogem/image"
@@ -25,6 +26,13 @@ type Endpoint struct {
 
 func NewEndpoint(projectId string, region string) (*Endpoint, error) {
 	ctx := context.Background()
+	
+	// Check if Google Application Default Credentials are available
+	_, err := google.FindDefaultCredentials(ctx, "https://www.googleapis.com/auth/cloud-platform")
+	if err != nil {
+		return nil, fmt.Errorf("Google Cloud credentials not found for vertex provider: %v. Please run 'gcloud auth application-default login' or set GOOGLE_APPLICATION_CREDENTIALS", err)
+	}
+	
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		Project: projectId,
 		Location: region,

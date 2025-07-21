@@ -12,9 +12,9 @@ import (
 
 	"github.com/yanolja/ogem/openai"
 	"github.com/yanolja/ogem/provider"
-	openai_provider "github.com/yanolja/ogem/provider/openai"
-	"github.com/yanolja/ogem/provider/claude"
 	"github.com/yanolja/ogem/provider/azure"
+	"github.com/yanolja/ogem/provider/claude"
+	openai_provider "github.com/yanolja/ogem/provider/openai"
 )
 
 // TestProviderIntegration tests basic provider functionality

@@ -1,17 +1,18 @@
 package openai
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/yanolja/ogem/openai"
+	sdkOgem "github.com/yanolja/ogem/sdk/go"
 )
 
 func TestNewEndpoint(t *testing.T) {
@@ -21,353 +22,1057 @@ func TestNewEndpoint(t *testing.T) {
 		region       string
 		baseUrl      string
 		apiKey       string
-		wantErr      bool
+		expectError  bool
 	}{
 		{
 			name:         "valid endpoint",
-			providerName: "openai",
-			region:       "us",
-			baseUrl:      "https://api.openai.com/v1",
+			providerName: "test-provider",
+			region:       "us-east-1",
+			baseUrl:      "https://api.openai.com",
 			apiKey:       "test-key",
-			wantErr:      false,
+			expectError:  false,
 		},
 		{
-			name:         "invalid url",
-			providerName: "openai",
-			region:       "us",
-			baseUrl:      "://invalid-url",
+			name:         "invalid URL scheme",
+			providerName: "test-provider",
+			region:       "us-east-1",
+			baseUrl:      "invalid-url",
 			apiKey:       "test-key",
-			wantErr:      true,
+			expectError:  true,
+		},
+		{
+			name:         "missing host",
+			providerName: "test-provider",
+			region:       "us-east-1",
+			baseUrl:      "https://",
+			apiKey:       "test-key",
+			expectError:  true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			endpoint, err := NewEndpoint(tt.providerName, tt.region, tt.baseUrl, tt.apiKey)
-			if tt.wantErr {
-				assert.Error(t, err)
-				assert.Nil(t, endpoint)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, endpoint)
-				assert.Equal(t, tt.providerName, endpoint.Provider())
-				assert.Equal(t, tt.region, endpoint.Region())
-				endpoint.Shutdown()
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+			if endpoint == nil {
+				t.Errorf("expected endpoint but got nil")
 			}
 		})
 	}
 }
 
-func TestGenerateChatCompletion(t *testing.T) {
-	// Create a test server
+func TestGenerateChatCompletion_RequestValidation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "Bearer test-key", r.Header.Get("Authorization"))
-		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+		if r.Method != "POST" {
+			t.Errorf("expected POST method, got %s", r.Method)
+		}
 
-		var req openai.ChatCompletionRequest
-		err := json.NewDecoder(r.Body).Decode(&req)
-		assert.NoError(t, err)
+		if !strings.HasSuffix(r.URL.Path, "/chat/completions") {
+			t.Errorf("expected /chat/completions endpoint, got %s", r.URL.Path)
+		}
 
-		resp := openai.ChatCompletionResponse{
-			Id:      "test-id",
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("expected Content-Type: application/json, got %s", r.Header.Get("Content-Type"))
+		}
+		if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
+			t.Errorf("expected Authorization header with Bearer token, got %s", r.Header.Get("Authorization"))
+		}
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+			return
+		}
+
+		var request openai.ChatCompletionRequest
+		if err := json.Unmarshal(body, &request); err != nil {
+			t.Errorf("failed to unmarshal request body: %v", err)
+			return
+		}
+
+		if request.Model == "" {
+			t.Errorf("model field is required")
+		}
+		if len(request.Messages) == 0 {
+			t.Errorf("messages field is required and cannot be empty")
+		}
+
+		for i, msg := range request.Messages {
+			if msg.Role == "" {
+				t.Errorf("message %d: role field is required", i)
+			}
+			if msg.Content == nil {
+				t.Errorf("message %d: content field is required", i)
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{}"))
+	}))
+	defer server.Close()
+
+	endpoint, err := NewEndpoint("test", "us-east-1", server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("failed to create endpoint: %v", err)
+	}
+
+	request := &openai.ChatCompletionRequest{
+		Model: sdkOgem.ModelGPT4,
+		Messages: []openai.Message{
+			{
+				Role:    "user",
+				Content: &openai.MessageContent{String: stringPtr("Hello")},
+			},
+		},
+	}
+
+	_, err = endpoint.GenerateChatCompletion(context.Background(), request)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestGenerateChatCompletion_ResponseValidation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := openai.ChatCompletionResponse{
+			Id:      "chatcmpl-test-123",
 			Object:  "chat.completion",
-			Created: time.Now().Unix(),
+			Created: 1234567890,
+			Model:   sdkOgem.ModelGPT4,
 			Choices: []openai.Choice{
 				{
+					Index: 0,
 					Message: openai.Message{
-						Role: "assistant",
-						Content: &openai.MessageContent{
-							String: stringPtr("Test response"),
-						},
+						Role:    "assistant",
+						Content: &openai.MessageContent{String: stringPtr("This is a test response")},
 					},
 					FinishReason: "stop",
 				},
 			},
+			Usage: openai.Usage{
+				PromptTokens:     15,
+				CompletionTokens: 8,
+				TotalTokens:      23,
+			},
 		}
-		json.NewEncoder(w).Encode(resp)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
-	endpoint, err := NewEndpoint("openai", "us", server.URL, "test-key")
-	assert.NoError(t, err)
-	defer endpoint.Shutdown()
+	endpoint, err := NewEndpoint("test", "us-east-1", server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("failed to create endpoint: %v", err)
+	}
 
-	req := &openai.ChatCompletionRequest{
-		Model: "gpt-3.5-turbo",
+	request := &openai.ChatCompletionRequest{}
+	response, err := endpoint.GenerateChatCompletion(context.Background(), request)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if response.Id != "chatcmpl-test-123" {
+		t.Errorf("expected ID 'chatcmpl-test-123', got %s", response.Id)
+	}
+	if response.Object != "chat.completion" {
+		t.Errorf("expected Object 'chat.completion', got %s", response.Object)
+	}
+	if response.Created != 1234567890 {
+		t.Errorf("expected Created 1234567890, got %d", response.Created)
+	}
+	if response.Model != sdkOgem.ModelGPT4 {
+		t.Errorf("expected Model 'gpt-4', got %s", response.Model)
+	}
+
+	if len(response.Choices) != 1 {
+		t.Errorf("expected 1 choice, got %d", len(response.Choices))
+	}
+	choice := response.Choices[0]
+	if choice.Index != 0 {
+		t.Errorf("expected choice index 0, got %d", choice.Index)
+	}
+	if choice.Message.Role != "assistant" {
+		t.Errorf("expected assistant role, got %s", choice.Message.Role)
+	}
+	if choice.Message.Content == nil || choice.Message.Content.String == nil {
+		t.Errorf("expected message content, got nil")
+	} else if *choice.Message.Content.String != "This is a test response" {
+		t.Errorf("expected content 'This is a test response', got %s", *choice.Message.Content.String)
+	}
+	if choice.FinishReason != "stop" {
+		t.Errorf("expected finish reason 'stop', got %s", choice.FinishReason)
+	}
+
+	if response.Usage.PromptTokens != 15 {
+		t.Errorf("expected prompt tokens 15, got %d", response.Usage.PromptTokens)
+	}
+	if response.Usage.CompletionTokens != 8 {
+		t.Errorf("expected completion tokens 8, got %d", response.Usage.CompletionTokens)
+	}
+	if response.Usage.TotalTokens != 23 {
+		t.Errorf("expected total tokens 23, got %d", response.Usage.TotalTokens)
+	}
+}
+
+func TestGenerateChatCompletion_AdvancedParameters(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+			return
+		}
+
+		var request openai.ChatCompletionRequest
+		if err := json.Unmarshal(body, &request); err != nil {
+			t.Errorf("failed to unmarshal request body: %v", err)
+			return
+		}
+
+		if request.Temperature != nil && (*request.Temperature < 0 || *request.Temperature > 2) {
+			t.Errorf("temperature must be between 0 and 2, got %f", *request.Temperature)
+		}
+
+		if request.MaxTokens != nil && *request.MaxTokens < 1 {
+			t.Errorf("max_tokens must be at least 1, got %d", *request.MaxTokens)
+		}
+
+		if request.TopP != nil && (*request.TopP < 0 || *request.TopP > 1) {
+			t.Errorf("top_p must be between 0 and 1, got %f", *request.TopP)
+		}
+
+		if request.FrequencyPenalty != nil && (*request.FrequencyPenalty < -2 || *request.FrequencyPenalty > 2) {
+			t.Errorf("frequency_penalty must be between -2 and 2, got %f", *request.FrequencyPenalty)
+		}
+
+		if request.PresencePenalty != nil && (*request.PresencePenalty < -2 || *request.PresencePenalty > 2) {
+			t.Errorf("presence_penalty must be between -2 and 2, got %f", *request.PresencePenalty)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{}"))
+	}))
+	defer server.Close()
+
+	endpoint, err := NewEndpoint("test", "us-east-1", server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("failed to create endpoint: %v", err)
+	}
+
+	temp := float32(0.7)
+	maxTokens := int32(100)
+	topP := float32(0.9)
+	freqPenalty := float32(0.5)
+	presencePenalty := float32(0.5)
+
+	request := &openai.ChatCompletionRequest{
+		Model:            sdkOgem.ModelGPT4,
+		Temperature:      &temp,
+		MaxTokens:        &maxTokens,
+		TopP:             &topP,
+		FrequencyPenalty: &freqPenalty,
+		PresencePenalty:  &presencePenalty,
 		Messages: []openai.Message{
 			{
-				Role: "user",
-				Content: &openai.MessageContent{
-					String: stringPtr("Hello"),
-				},
+				Role:    "user",
+				Content: &openai.MessageContent{String: stringPtr("Hello")},
 			},
 		},
 	}
 
-	resp, err := endpoint.GenerateChatCompletion(context.Background(), req)
-	assert.NoError(t, err)
-	assert.NotNil(t, resp)
-	assert.Equal(t, "Test response", *resp.Choices[0].Message.Content.String)
+	_, err = endpoint.GenerateChatCompletion(context.Background(), request)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 }
 
-func TestGenerateBatchChatCompletion(t *testing.T) {
-	// Create a test server
+func TestGenerateChatCompletionStream_RequestValidation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Verify auth header for all requests
-		if r.Header.Get("Authorization") != "Bearer test-key" {
-			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"error": map[string]interface{}{
-					"message": "Incorrect API key provided",
-					"type":    "invalid_request_error",
-					"code":    "invalid_api_key",
+		if r.Method != "POST" {
+			t.Errorf("expected POST method, got %s", r.Method)
+		}
+
+		if !strings.HasSuffix(r.URL.Path, "/chat/completions") {
+			t.Errorf("expected /chat/completions endpoint, got %s", r.URL.Path)
+		}
+
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("expected Content-Type: application/json, got %s", r.Header.Get("Content-Type"))
+		}
+
+		if r.Header.Get("Accept") != "text/event-stream" {
+			t.Errorf("expected Accept: text/event-stream, got %s", r.Header.Get("Accept"))
+		}
+
+		if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
+			t.Errorf("expected Authorization header with Bearer token, got %s", r.Header.Get("Authorization"))
+		}
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+			return
+		}
+
+		var request openai.ChatCompletionRequest
+		if err := json.Unmarshal(body, &request); err != nil {
+			t.Errorf("failed to unmarshal request body: %v", err)
+			return
+		}
+
+		if request.Stream == nil || !*request.Stream {
+			t.Errorf("stream field must be true for streaming requests")
+		}
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		w.WriteHeader(http.StatusOK)
+
+		responses := []string{
+			`{"id":"chatcmpl-test","object":"chat.completion.chunk","created":1234567890,"model":"gpt-4","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}`,
+			`{"id":"chatcmpl-test","object":"chat.completion.chunk","created":1234567890,"model":"gpt-4","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}`,
+			`{"id":"chatcmpl-test","object":"chat.completion.chunk","created":1234567890,"model":"gpt-4","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`,
+		}
+
+		for _, response := range responses {
+			fmt.Fprintf(w, "data: %s\n\n", response)
+			w.(http.Flusher).Flush()
+		}
+		fmt.Fprintf(w, "data: [DONE]\n\n")
+	}))
+	defer server.Close()
+
+	endpoint, err := NewEndpoint("test", "us-east-1", server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("failed to create endpoint: %v", err)
+	}
+
+	request := &openai.ChatCompletionRequest{
+		Model: sdkOgem.ModelGPT4,
+		Messages: []openai.Message{
+			{
+				Role:    "user",
+				Content: &openai.MessageContent{String: stringPtr("Hello")},
+			},
+		},
+	}
+
+	responseCh, errorCh := endpoint.GenerateChatCompletionStream(context.Background(), request)
+
+	count := 0
+	for response := range responseCh {
+		if response == nil {
+			t.Errorf("received nil response")
+		}
+		count++
+	}
+
+	if err := <-errorCh; err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	if count == 0 {
+		t.Errorf("expected at least one response")
+	}
+}
+
+func TestGenerateChatCompletionStream_ResponseValidation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		w.WriteHeader(http.StatusOK)
+
+		responses := []string{
+			`{"id":"chatcmpl-test","object":"chat.completion.chunk","created":1234567890,"model":"gpt-4","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}`,
+			`{"id":"chatcmpl-test","object":"chat.completion.chunk","created":1234567890,"model":"gpt-4","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}`,
+			`{"id":"chatcmpl-test","object":"chat.completion.chunk","created":1234567890,"model":"gpt-4","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`,
+		}
+
+		for _, response := range responses {
+			fmt.Fprintf(w, "data: %s\n\n", response)
+			w.(http.Flusher).Flush()
+		}
+		fmt.Fprintf(w, "data: [DONE]\n\n")
+	}))
+	defer server.Close()
+
+	endpoint, err := NewEndpoint("test", "us-east-1", server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("failed to create endpoint: %v", err)
+	}
+
+	request := &openai.ChatCompletionRequest{}
+	responseCh, errorCh := endpoint.GenerateChatCompletionStream(context.Background(), request)
+
+	var responses []*openai.ChatCompletionStreamResponse
+	for resp := range responseCh {
+		if resp == nil {
+			t.Errorf("received nil response")
+			continue
+		}
+		responses = append(responses, resp)
+	}
+
+	if err := <-errorCh; err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	if len(responses) != 3 {
+		t.Errorf("expected 3 streamed responses, got %d", len(responses))
+	}
+	if len(responses) > 0 && (responses[0].Choices[0].Delta.Role == nil || *responses[0].Choices[0].Delta.Role != "assistant") {
+		t.Errorf("expected role 'assistant' in first chunk")
+	}
+	if len(responses) > 1 && (responses[1].Choices[0].Delta.Content == nil || *responses[1].Choices[0].Delta.Content != "Hello") {
+		t.Errorf("expected content 'Hello' in second chunk")
+	}
+	if len(responses) > 2 && (responses[2].Choices[0].FinishReason == nil || *responses[2].Choices[0].FinishReason != "stop") {
+		t.Errorf("expected finish_reason 'stop' in last chunk")
+	}
+}
+
+func TestGenerateEmbedding_RequestValidation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			t.Errorf("expected POST method, got %s", r.Method)
+		}
+
+		if !strings.HasSuffix(r.URL.Path, "/embeddings") {
+			t.Errorf("expected /embeddings endpoint, got %s", r.URL.Path)
+		}
+
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("expected Content-Type: application/json, got %s", r.Header.Get("Content-Type"))
+		}
+		if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
+			t.Errorf("expected Authorization header with Bearer token, got %s", r.Header.Get("Authorization"))
+		}
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+			return
+		}
+
+		var request openai.EmbeddingRequest
+		if err := json.Unmarshal(body, &request); err != nil {
+			t.Errorf("failed to unmarshal request body: %v", err)
+			return
+		}
+
+		if request.Model == "" {
+			t.Errorf("model field is required")
+		}
+		if len(request.Input) == 0 {
+			t.Errorf("input field is required and cannot be empty")
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{}"))
+	}))
+	defer server.Close()
+
+	endpoint, err := NewEndpoint("test", "us-east-1", server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("failed to create endpoint: %v", err)
+	}
+
+	request := &openai.EmbeddingRequest{
+		Model: "text-embedding-ada-002",
+		Input: []string{"Hello world"},
+	}
+
+	_, err = endpoint.GenerateEmbedding(context.Background(), request)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestGenerateEmbedding_ResponseValidation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := openai.EmbeddingResponse{
+			Object: "list",
+			Data: []openai.EmbeddingObject{
+				{
+					Object:    "embedding",
+					Embedding: []float32{0.1, 0.2, 0.3},
+					Index:     0,
 				},
-			})
+			},
+			Model: "text-embedding-ada-002",
+			Usage: openai.EmbeddingUsage{
+				PromptTokens: 5,
+				TotalTokens:  5,
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	endpoint, err := NewEndpoint("test", "us-east-1", server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("failed to create endpoint: %v", err)
+	}
+
+	request := &openai.EmbeddingRequest{}
+	resp, err := endpoint.GenerateEmbedding(context.Background(), request)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Object != "list" {
+		t.Errorf("expected object 'list', got %s", resp.Object)
+	}
+	if len(resp.Data) != 1 {
+		t.Errorf("expected 1 embedding, got %d", len(resp.Data))
+	}
+	if resp.Data[0].Index != 0 {
+		t.Errorf("expected index 0, got %d", resp.Data[0].Index)
+	}
+	if resp.Model != "text-embedding-ada-002" {
+		t.Errorf("expected model 'text-embedding-ada-002', got %s", resp.Model)
+	}
+	if resp.Usage.PromptTokens != 5 || resp.Usage.TotalTokens != 5 {
+		t.Errorf("unexpected usage: %+v", resp.Usage)
+	}
+}
+
+func TestGenerateImage_RequestValidation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			t.Errorf("expected POST method, got %s", r.Method)
+		}
+
+		if !strings.HasSuffix(r.URL.Path, "/images/generations") {
+			t.Errorf("expected /images/generations endpoint, got %s", r.URL.Path)
+		}
+
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("expected Content-Type: application/json, got %s", r.Header.Get("Content-Type"))
+		}
+		if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
+			t.Errorf("expected Authorization header with Bearer token, got %s", r.Header.Get("Authorization"))
+		}
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
 			return
 		}
 
-		// For file upload
-		if strings.HasPrefix(r.URL.Path, "/v1/files") && r.Method == "POST" {
-			// Check Content-Type
-			contentType := r.Header.Get("Content-Type")
-			if !strings.HasPrefix(contentType, "multipart/form-data") {
-				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(map[string]interface{}{
-					"error": "request Content-Type isn't multipart/form-data",
-				})
-				return
-			}
-
-			// Parse the multipart form
-			err := r.ParseMultipartForm(10 << 20) // 10 MB
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(map[string]interface{}{
-					"error": err.Error(),
-				})
-				return
-			}
-
-			// Verify the file purpose
-			purpose := r.FormValue("purpose")
-			if purpose != "batch" {
-				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(map[string]interface{}{
-					"error": "invalid purpose",
-				})
-				return
-			}
-
-			// Get the file from the form
-			file, _, err := r.FormFile("file")
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(map[string]interface{}{
-					"error": err.Error(),
-				})
-				return
-			}
-			defer file.Close()
-
-			// Read the file content
-			content, err := io.ReadAll(file)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(map[string]interface{}{
-					"error": err.Error(),
-				})
-				return
-			}
-
-			// Split content into lines and decode each line as JSON
-			lines := strings.Split(string(content), "\n")
-			for _, line := range lines {
-				if line == "" {
-					continue
-				}
-				var job BatchJob
-				err = json.NewDecoder(strings.NewReader(line)).Decode(&job)
-				if err != nil {
-					w.WriteHeader(http.StatusBadRequest)
-					json.NewEncoder(w).Encode(map[string]interface{}{
-						"error": err.Error(),
-					})
-					return
-				}
-				
-				// Verify job fields
-				if job.Id == "" || job.Method != "POST" || job.Url != "/v1/chat/completions" || job.Body == nil {
-					w.WriteHeader(http.StatusBadRequest)
-					json.NewEncoder(w).Encode(map[string]interface{}{
-						"error": "invalid job fields",
-					})
-					return
-				}
-			}
-
-			// Mock file upload response
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{"id": "test-file-id"})
+		var request openai.ImageGenerationRequest
+		if err := json.Unmarshal(body, &request); err != nil {
+			t.Errorf("failed to unmarshal request body: %v", err)
 			return
 		}
 
-		if strings.HasPrefix(r.URL.Path, "/v1/batches") && r.Method == "POST" {
-			// Verify batch creation request
-			var requestBody map[string]interface{}
-			err := json.NewDecoder(r.Body).Decode(&requestBody)
-			assert.NoError(t, err)
-			assert.Equal(t, "test-file-id", requestBody["input_file_id"])
-			assert.Equal(t, "/v1/chat/completions", requestBody["endpoint"])
-			assert.Equal(t, "24h", requestBody["completion_window"])
+		if request.Prompt == "" {
+			t.Errorf("prompt field is required")
+		}
 
-			// Mock batch job creation response
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{"id": "test-batch-id"})
+		if request.N != nil && (*request.N < 1 || *request.N > 10) {
+			t.Errorf("n must be between 1 and 10, got %d", *request.N)
+		}
+
+		if request.Size != nil {
+			validSizes := map[string]bool{"256x256": true, "512x512": true, "1024x1024": true, "1792x1024": true, "1024x1792": true}
+			if !validSizes[*request.Size] {
+				t.Errorf("invalid size: %s", *request.Size)
+			}
+		}
+
+		if request.Quality != nil {
+			validQualities := map[string]bool{"standard": true, "hd": true}
+			if !validQualities[*request.Quality] {
+				t.Errorf("invalid quality: %s", *request.Quality)
+			}
+		}
+
+		if request.ResponseFormat != nil {
+			validFormats := map[string]bool{"url": true, "b64_json": true}
+			if !validFormats[*request.ResponseFormat] {
+				t.Errorf("invalid response_format: %s", *request.ResponseFormat)
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{}"))
+	}))
+	defer server.Close()
+
+	endpoint, err := NewEndpoint("test", "us-east-1", server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("failed to create endpoint: %v", err)
+	}
+
+	n := int32(1)
+	size := "1024x1024"
+	quality := "standard"
+	responseFormat := "url"
+
+	request := &openai.ImageGenerationRequest{
+		Prompt:         "A beautiful sunset",
+		Model:          stringPtr("dall-e-3"),
+		N:              &n,
+		Size:           &size,
+		Quality:        &quality,
+		ResponseFormat: &responseFormat,
+	}
+
+	_, err = endpoint.GenerateImage(context.Background(), request)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestGenerateImage_ResponseValidation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := openai.ImageGenerationResponse{
+			Created: 1234567890,
+			Data: []openai.ImageData{
+				{
+					URL:     stringPtr("https://example.com/image.png"),
+					B64JSON: nil,
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	endpoint, err := NewEndpoint("test", "us-east-1", server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("failed to create endpoint: %v", err)
+	}
+
+	request := &openai.ImageGenerationRequest{}
+	resp, err := endpoint.GenerateImage(context.Background(), request)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Created != 1234567890 {
+		t.Errorf("expected created 1234567890, got %d", resp.Created)
+	}
+	if len(resp.Data) != 1 {
+		t.Errorf("expected 1 image, got %d", len(resp.Data))
+	}
+	if resp.Data[0].URL == nil || *resp.Data[0].URL != "https://example.com/image.png" {
+		t.Errorf("unexpected image URL: %v", resp.Data[0].URL)
+	}
+}
+
+func TestTranscribeAudio_RequestValidation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			t.Errorf("expected POST method, got %s", r.Method)
+		}
+
+		if !strings.HasSuffix(r.URL.Path, "/audio/transcriptions") {
+			t.Errorf("expected /audio/transcriptions endpoint, got %s", r.URL.Path)
+		}
+
+		if !strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+			t.Errorf("expected Content-Type: multipart/form-data, got %s", r.Header.Get("Content-Type"))
+		}
+		if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
+			t.Errorf("expected Authorization header with Bearer token, got %s", r.Header.Get("Authorization"))
+		}
+
+		err := r.ParseMultipartForm(32 << 20)
+		if err != nil {
+			t.Errorf("failed to parse multipart form: %v", err)
 			return
 		}
 
-		if strings.HasPrefix(r.URL.Path, "/v1/batches/test-batch-id") && r.Method == "GET" {
-			// Mock batch status check response
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"status":        "completed",
-				"output_file_id": "test-output-file-id",
-			})
+		if r.FormValue("model") == "" {
+			t.Errorf("model field is required")
+		}
+
+		file, _, err := r.FormFile("file")
+		if err != nil {
+			t.Errorf("file field is required: %v", err)
+			return
+		}
+		defer file.Close()
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{}"))
+	}))
+	defer server.Close()
+
+	endpoint, err := NewEndpoint("test", "us-east-1", server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("failed to create endpoint: %v", err)
+	}
+
+	request := &openai.AudioTranscriptionRequest{
+		Model:       "whisper-1",
+		File:        "audio.mp3",
+		FileContent: []byte("fake audio content"),
+	}
+
+	_, err = endpoint.TranscribeAudio(context.Background(), request)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestTranscribeAudio_ResponseValidation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := openai.AudioTranscriptionResponse{
+			Text: "Hello world",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	endpoint, err := NewEndpoint("test", "us-east-1", server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("failed to create endpoint: %v", err)
+	}
+
+	request := &openai.AudioTranscriptionRequest{}
+	resp, err := endpoint.TranscribeAudio(context.Background(), request)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Text != "Hello world" {
+		t.Errorf("expected text 'Hello world', got %s", resp.Text)
+	}
+}
+
+func TestTranslateAudio_RequestValidation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			t.Errorf("expected POST method, got %s", r.Method)
+		}
+
+		if !strings.HasSuffix(r.URL.Path, "/audio/translations") {
+			t.Errorf("expected /audio/translations endpoint, got %s", r.URL.Path)
+		}
+
+		if !strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+			t.Errorf("expected Content-Type: multipart/form-data, got %s", r.Header.Get("Content-Type"))
+		}
+		if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
+			t.Errorf("expected Authorization header with Bearer token, got %s", r.Header.Get("Authorization"))
+		}
+
+		err := r.ParseMultipartForm(32 << 20)
+		if err != nil {
+			t.Errorf("failed to parse multipart form: %v", err)
 			return
 		}
 
-		if strings.HasPrefix(r.URL.Path, "/v1/files/test-output-file-id/content") && r.Method == "GET" {
-			// Mock file download response
-			result := openai.ChatCompletionResponse{
-				Id:      "test-batch-response-id",
-				Object:  "chat.completion",
-				Created: time.Now().Unix(),
-				Model:   "gpt-3.5-turbo",
-				Choices: []openai.Choice{
-					{
-						Message: openai.Message{
-							Role: "assistant",
-							Content: &openai.MessageContent{
-								String: stringPtr("Batch response"),
-							},
-						},
-						FinishReason: "stop",
+		if r.FormValue("model") == "" {
+			t.Errorf("model field is required")
+		}
+
+		file, _, err := r.FormFile("file")
+		if err != nil {
+			t.Errorf("file field is required: %v", err)
+			return
+		}
+		defer file.Close()
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{}"))
+	}))
+	defer server.Close()
+
+	endpoint, err := NewEndpoint("test", "us-east-1", server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("failed to create endpoint: %v", err)
+	}
+
+	request := &openai.AudioTranslationRequest{
+		Model:       "whisper-1",
+		File:        "audio.mp3",
+		FileContent: []byte("fake audio content"),
+	}
+
+	_, err = endpoint.TranslateAudio(context.Background(), request)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestTranslateAudio_ResponseValidation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := openai.AudioTranslationResponse{
+			Text: "Hello world",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	endpoint, err := NewEndpoint("test", "us-east-1", server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("failed to create endpoint: %v", err)
+	}
+
+	request := &openai.AudioTranslationRequest{}
+	resp, err := endpoint.TranslateAudio(context.Background(), request)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Text != "Hello world" {
+		t.Errorf("expected text 'Hello world', got %s", resp.Text)
+	}
+}
+
+func TestGenerateSpeech_RequestValidation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			t.Errorf("expected POST method, got %s", r.Method)
+		}
+
+		if !strings.HasSuffix(r.URL.Path, "/audio/speech") {
+			t.Errorf("expected /audio/speech endpoint, got %s", r.URL.Path)
+		}
+
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("expected Content-Type: application/json, got %s", r.Header.Get("Content-Type"))
+		}
+		if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
+			t.Errorf("expected Authorization header with Bearer token, got %s", r.Header.Get("Authorization"))
+		}
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+			return
+		}
+
+		var request openai.TextToSpeechRequest
+		if err := json.Unmarshal(body, &request); err != nil {
+			t.Errorf("failed to unmarshal request body: %v", err)
+			return
+		}
+
+		if request.Model == "" {
+			t.Errorf("model field is required")
+		}
+		if request.Input == "" {
+			t.Errorf("input field is required")
+		}
+
+		if request.Voice != "" {
+			validVoices := map[string]bool{"alloy": true, "echo": true, "fable": true, "onyx": true, "nova": true, "shimmer": true}
+			if !validVoices[request.Voice] {
+				t.Errorf("invalid voice: %s", request.Voice)
+			}
+		}
+
+		if request.ResponseFormat != nil {
+			validFormats := map[string]bool{"mp3": true, "opus": true, "aac": true, "flac": true}
+			if !validFormats[*request.ResponseFormat] {
+				t.Errorf("invalid response_format: %s", *request.ResponseFormat)
+			}
+		}
+
+		if request.Speed != nil && (*request.Speed < 0.25 || *request.Speed > 4.0) {
+			t.Errorf("speed must be between 0.25 and 4.0, got %f", *request.Speed)
+		}
+
+		w.Header().Set("Content-Type", "audio/mpeg")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{}"))
+	}))
+	defer server.Close()
+
+	endpoint, err := NewEndpoint("test", "us-east-1", server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("failed to create endpoint: %v", err)
+	}
+
+	voice := "alloy"
+	responseFormat := "mp3"
+	speed := float32(1.0)
+
+	request := &openai.TextToSpeechRequest{
+		Model:          "tts-1",
+		Input:          "Hello world",
+		Voice:          voice,
+		ResponseFormat: &responseFormat,
+		Speed:          &speed,
+	}
+
+	_, err = endpoint.GenerateSpeech(context.Background(), request)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestGenerateSpeech_ResponseValidation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		audioData := []byte("fake audio data")
+		w.Header().Set("Content-Type", "audio/mpeg")
+		w.WriteHeader(http.StatusOK)
+		w.Write(audioData)
+	}))
+	defer server.Close()
+
+	endpoint, err := NewEndpoint("test", "us-east-1", server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("failed to create endpoint: %v", err)
+	}
+
+	request := &openai.TextToSpeechRequest{}
+
+	resp, err := endpoint.GenerateSpeech(context.Background(), request)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !bytes.Equal(resp.Data, []byte("fake audio data")) {
+		t.Errorf("expected audio data 'fake audio data', got %v", resp.Data)
+	}
+}
+
+func TestModerateContent_RequestValidation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			t.Errorf("expected POST method, got %s", r.Method)
+		}
+
+		if !strings.HasSuffix(r.URL.Path, "/moderations") {
+			t.Errorf("expected /moderations endpoint, got %s", r.URL.Path)
+		}
+
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("expected Content-Type: application/json, got %s", r.Header.Get("Content-Type"))
+		}
+		if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
+			t.Errorf("expected Authorization header with Bearer token, got %s", r.Header.Get("Authorization"))
+		}
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+			return
+		}
+
+		var request openai.ModerationRequest
+		if err := json.Unmarshal(body, &request); err != nil {
+			t.Errorf("failed to unmarshal request body: %v", err)
+			return
+		}
+
+		if len(request.Input) == 0 {
+			t.Errorf("input field is required and cannot be empty")
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{}"))
+	}))
+	defer server.Close()
+
+	endpoint, err := NewEndpoint("test", "us-east-1", server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("failed to create endpoint: %v", err)
+	}
+
+	request := &openai.ModerationRequest{
+		Input: []string{"Hello world"},
+	}
+
+	_, err = endpoint.ModerateContent(context.Background(), request)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestModerateContent_ResponseValidation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := openai.ModerationResponse{
+			ID:    "modr-test",
+			Model: "text-moderation-007",
+			Results: []openai.ModerationResult{
+				{
+					Flagged: false,
+					Categories: openai.ModerationCategories{
+						Sexual:                false,
+						Hate:                  false,
+						Harassment:            false,
+						SelfHarm:              false,
+						SexualMinors:          false,
+						HateThreatening:       false,
+						ViolenceGraphic:       false,
+						SelfHarmIntent:        false,
+						SelfHarmInstructions:  false,
+						HarassmentThreatening: false,
+						Violence:              false,
+					},
+					CategoryScores: openai.ModerationCategoryScores{
+						Sexual:                0.0,
+						Hate:                  0.0,
+						Harassment:            0.0,
+						SelfHarm:              0.0,
+						SexualMinors:          0.0,
+						HateThreatening:       0.0,
+						ViolenceGraphic:       0.0,
+						SelfHarmIntent:        0.0,
+						SelfHarmInstructions:  0.0,
+						HarassmentThreatening: 0.0,
+						Violence:              0.0,
 					},
 				},
-			}
-
-			responseBytes, err := json.Marshal(result)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-
-			w.WriteHeader(http.StatusOK)
-			w.Write(responseBytes)
-			return
+			},
 		}
-
-		// Default case
-		t.Errorf("Unexpected path: %s", r.URL.Path)
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	endpoint, err := NewEndpoint("openai", "us", server.URL, "test-key")
-	assert.NoError(t, err)
-
-	// Create a context that will be cancelled after the test
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	req := &openai.ChatCompletionRequest{
-		Model: "gpt-3.5-turbo@batch",
-		Messages: []openai.Message{
-			{
-				Role: "user",
-				Content: &openai.MessageContent{
-					String: stringPtr("Hello"),
-				},
-			},
-		},
-	}
-
-	resp, err := endpoint.GenerateBatchChatCompletion(ctx, req)
-	if !assert.NoError(t, err) {
-		return
-	}
-	if !assert.NotNil(t, resp) {
-		return
-	}
-	if !assert.NotNil(t, resp.Choices) {
-		return
-	}
-	if !assert.Greater(t, len(resp.Choices), 0) {
-		return
-	}
-	if !assert.NotNil(t, resp.Choices[0].Message.Content) {
-		return
-	}
-	if !assert.NotNil(t, resp.Choices[0].Message.Content.String) {
-		return
-	}
-	assert.Equal(t, "Batch response", *resp.Choices[0].Message.Content.String)
-
-	// Clean up
-	endpoint.Shutdown()
-}
-
-func TestPing(t *testing.T) {
-	// Create a test server that responds after a short delay
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(10 * time.Millisecond) // Add a small delay to ensure measurable duration
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
-	endpoint, err := NewEndpoint("openai", "us", server.URL, "test-key")
-	assert.NoError(t, err)
-	defer endpoint.Shutdown()
-
-	duration, err := endpoint.Ping(context.Background())
-	assert.NoError(t, err)
-	assert.True(t, duration > 0)
-}
-
-func TestGenerateJobId(t *testing.T) {
-	req1 := &openai.ChatCompletionRequest{
-		Model: "gpt-3.5-turbo",
-		Messages: []openai.Message{
-			{
-				Role: "user",
-				Content: &openai.MessageContent{
-					String: stringPtr("Hello"),
-				},
-			},
-		},
+	endpoint, err := NewEndpoint("test", "us-east-1", server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("failed to create endpoint: %v", err)
 	}
 
-	req2 := &openai.ChatCompletionRequest{
-		Model: "gpt-3.5-turbo",
-		Messages: []openai.Message{
-			{
-				Role: "user",
-				Content: &openai.MessageContent{
-					String: stringPtr("Hello"),
-				},
-			},
-		},
+	request := &openai.ModerationRequest{}
+	resp, err := endpoint.ModerateContent(context.Background(), request)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-
-	// Same content should generate same ID
-	id1 := generateJobId(req1)
-	id2 := generateJobId(req2)
-	assert.Equal(t, id1, id2)
-
-	// Different content should generate different ID
-	req2.Messages[0].Content.String = stringPtr("Different")
-	id3 := generateJobId(req2)
-	assert.NotEqual(t, id1, id3)
+	if resp.ID != "modr-test" {
+		t.Errorf("expected ID 'modr-test', got %s", resp.ID)
+	}
+	if resp.Model != "text-moderation-007" {
+		t.Errorf("expected model 'text-moderation-007', got %s", resp.Model)
+	}
+	if len(resp.Results) != 1 {
+		t.Errorf("expected 1 result, got %d", len(resp.Results))
+	}
+	if resp.Results[0].Flagged {
+		t.Errorf("expected flagged false, got true")
+	}
 }
 
 func stringPtr(s string) *string {
