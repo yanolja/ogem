@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	sdkOgem "github.com/yanolja/ogem/sdk/go"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -54,7 +55,7 @@ func TestAdvancedRateLimiter_CheckRateLimit_Success(t *testing.T) {
 	ctx := context.Background()
 
 	// First request should succeed
-	result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", "gpt-4", 100, 0.01)
+	result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", sdkOgem.ModelGPT4, 100, 0.01)
 	require.NoError(t, err)
 	assert.True(t, result.Allowed)
 	assert.Equal(t, int64(9), result.Remaining) // 10 - 1 = 9
@@ -80,13 +81,13 @@ func TestAdvancedRateLimiter_CheckRateLimit_ExceedRequestLimit(t *testing.T) {
 
 	// First two requests should succeed
 	for i := 0; i < 2; i++ {
-		result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", "gpt-4", 10, 0.001)
+		result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", sdkOgem.ModelGPT4, 10, 0.001)
 		require.NoError(t, err)
 		assert.True(t, result.Allowed)
 	}
 
 	// Third request should be blocked
-	result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", "gpt-4", 10, 0.001)
+	result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", sdkOgem.ModelGPT4, 10, 0.001)
 	require.NoError(t, err)
 	assert.False(t, result.Allowed)
 	assert.Contains(t, result.ErrorMessage, "Request rate limit exceeded")
@@ -110,12 +111,12 @@ func TestAdvancedRateLimiter_CheckRateLimit_ExceedTokenLimit(t *testing.T) {
 	ctx := context.Background()
 
 	// Request with 50 tokens should succeed
-	result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", "gpt-4", 50, 0.001)
+	result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", sdkOgem.ModelGPT4, 50, 0.001)
 	require.NoError(t, err)
 	assert.True(t, result.Allowed)
 
 	// Request with 60 more tokens should exceed limit
-	result, err = limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", "gpt-4", 60, 0.001)
+	result, err = limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", sdkOgem.ModelGPT4, 60, 0.001)
 	require.NoError(t, err)
 	assert.False(t, result.Allowed)
 	assert.Contains(t, result.ErrorMessage, "Token rate limit exceeded")
@@ -125,7 +126,7 @@ func TestAdvancedRateLimiter_CheckRateLimit_ModelSpecificLimits(t *testing.T) {
 	config := &RateLimitConfig{
 		Enabled: true,
 		ModelLimits: map[string][]RateLimit{
-			"gpt-4": {
+			sdkOgem.ModelGPT4: {
 				{
 					Type:   RateLimitTypeRequests,
 					Limit:  5,
@@ -133,7 +134,7 @@ func TestAdvancedRateLimiter_CheckRateLimit_ModelSpecificLimits(t *testing.T) {
 					Action: RateLimitActionBlock,
 				},
 			},
-			"gpt-3.5-turbo": {
+			sdkOgem.ModelGPT35Turbo: {
 				{
 					Type:   RateLimitTypeRequests,
 					Limit:  20,
@@ -150,18 +151,18 @@ func TestAdvancedRateLimiter_CheckRateLimit_ModelSpecificLimits(t *testing.T) {
 
 	// Test GPT-4 limit (5 requests)
 	for i := 0; i < 5; i++ {
-		result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", "gpt-4", 10, 0.001)
+		result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", sdkOgem.ModelGPT4, 10, 0.001)
 		require.NoError(t, err)
 		assert.True(t, result.Allowed)
 	}
 
 	// 6th GPT-4 request should fail
-	result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", "gpt-4", 10, 0.001)
+	result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", sdkOgem.ModelGPT4, 10, 0.001)
 	require.NoError(t, err)
 	assert.False(t, result.Allowed)
 
 	// But GPT-3.5-turbo should still work
-	result, err = limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", "gpt-3.5-turbo", 10, 0.001)
+	result, err = limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", sdkOgem.ModelGPT35Turbo, 10, 0.001)
 	require.NoError(t, err)
 	assert.True(t, result.Allowed)
 }
@@ -185,7 +186,7 @@ func TestAdvancedRateLimiter_CheckRateLimit_Disabled(t *testing.T) {
 
 	// Should allow unlimited requests when disabled
 	for i := 0; i < 10; i++ {
-		result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", "gpt-4", 100, 0.01)
+		result, err := limiter.CheckRateLimit(ctx, "test-user", "/v1/chat/completions", sdkOgem.ModelGPT4, 100, 0.01)
 		require.NoError(t, err)
 		assert.True(t, result.Allowed)
 	}
@@ -219,7 +220,7 @@ func TestAdvancedRateLimiter_ConcurrentAccess(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 
-			result, err := limiter.CheckRateLimit(ctx, "concurrent-user", "/v1/chat/completions", "gpt-4", 10, 0.001)
+			result, err := limiter.CheckRateLimit(ctx, "concurrent-user", "/v1/chat/completions", sdkOgem.ModelGPT4, 10, 0.001)
 			require.NoError(t, err)
 
 			mu.Lock()
@@ -261,13 +262,13 @@ func TestAdvancedRateLimiter_SlidingWindow(t *testing.T) {
 
 	// Use up the limit
 	for i := 0; i < 10; i++ {
-		result, err := limiter.CheckRateLimit(ctx, "sliding-user", "/v1/chat/completions", "gpt-4", 10, 0.001)
+		result, err := limiter.CheckRateLimit(ctx, "sliding-user", "/v1/chat/completions", sdkOgem.ModelGPT4, 10, 0.001)
 		require.NoError(t, err)
 		assert.True(t, result.Allowed)
 	}
 
 	// Should be blocked now
-	result, err := limiter.CheckRateLimit(ctx, "sliding-user", "/v1/chat/completions", "gpt-4", 10, 0.001)
+	result, err := limiter.CheckRateLimit(ctx, "sliding-user", "/v1/chat/completions", sdkOgem.ModelGPT4, 10, 0.001)
 	require.NoError(t, err)
 	assert.False(t, result.Allowed)
 
@@ -275,7 +276,7 @@ func TestAdvancedRateLimiter_SlidingWindow(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// Should still be blocked (sliding window)
-	result, err = limiter.CheckRateLimit(ctx, "sliding-user", "/v1/chat/completions", "gpt-4", 10, 0.001)
+	result, err = limiter.CheckRateLimit(ctx, "sliding-user", "/v1/chat/completions", sdkOgem.ModelGPT4, 10, 0.001)
 	require.NoError(t, err)
 	assert.False(t, result.Allowed)
 
@@ -283,7 +284,7 @@ func TestAdvancedRateLimiter_SlidingWindow(t *testing.T) {
 	time.Sleep(1100 * time.Millisecond)
 
 	// Should be allowed again
-	result, err = limiter.CheckRateLimit(ctx, "sliding-user", "/v1/chat/completions", "gpt-4", 10, 0.001)
+	result, err = limiter.CheckRateLimit(ctx, "sliding-user", "/v1/chat/completions", sdkOgem.ModelGPT4, 10, 0.001)
 	require.NoError(t, err)
 	assert.True(t, result.Allowed)
 }
@@ -307,7 +308,7 @@ func TestAdvancedRateLimiter_GetRateLimitStats(t *testing.T) {
 
 	// Make some requests
 	for i := 0; i < 5; i++ {
-		_, err := limiter.CheckRateLimit(ctx, "stats-user", "/v1/chat/completions", "gpt-4", 10, 0.001)
+		_, err := limiter.CheckRateLimit(ctx, "stats-user", "/v1/chat/completions", sdkOgem.ModelGPT4, 10, 0.001)
 		require.NoError(t, err)
 	}
 
@@ -336,24 +337,24 @@ func TestAdvancedRateLimiter_ConcurrentLimits(t *testing.T) {
 	ctx := context.Background()
 
 	// First two concurrent requests should succeed
-	result1, err := limiter.CheckRateLimit(ctx, "concurrent-test", "/v1/chat/completions", "gpt-4", 10, 0.001)
+	result1, err := limiter.CheckRateLimit(ctx, "concurrent-test", "/v1/chat/completions", sdkOgem.ModelGPT4, 10, 0.001)
 	require.NoError(t, err)
 	assert.True(t, result1.Allowed)
 
-	result2, err := limiter.CheckRateLimit(ctx, "concurrent-test", "/v1/chat/completions", "gpt-4", 10, 0.001)
+	result2, err := limiter.CheckRateLimit(ctx, "concurrent-test", "/v1/chat/completions", sdkOgem.ModelGPT4, 10, 0.001)
 	require.NoError(t, err)
 	assert.True(t, result2.Allowed)
 
 	// Third concurrent request should fail
-	result3, err := limiter.CheckRateLimit(ctx, "concurrent-test", "/v1/chat/completions", "gpt-4", 10, 0.001)
+	result3, err := limiter.CheckRateLimit(ctx, "concurrent-test", "/v1/chat/completions", sdkOgem.ModelGPT4, 10, 0.001)
 	require.NoError(t, err)
 	assert.False(t, result3.Allowed)
 
 	// Release one resource
-	limiter.ReleaseResource("concurrent-test", "/v1/chat/completions", "gpt-4")
+	limiter.ReleaseResource("concurrent-test", "/v1/chat/completions", sdkOgem.ModelGPT4)
 
 	// Now a new request should succeed
-	result4, err := limiter.CheckRateLimit(ctx, "concurrent-test", "/v1/chat/completions", "gpt-4", 10, 0.001)
+	result4, err := limiter.CheckRateLimit(ctx, "concurrent-test", "/v1/chat/completions", sdkOgem.ModelGPT4, 10, 0.001)
 	require.NoError(t, err)
 	assert.True(t, result4.Allowed)
 }

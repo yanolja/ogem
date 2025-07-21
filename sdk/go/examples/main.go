@@ -156,7 +156,7 @@ func functionCallingExample() {
 
 	// Create request with function
 	request := ogem.NewChatCompletionRequest(
-		"gpt-4",
+		ogem.ModelGPT4,
 		[]ogem.Message{
 			ogem.NewUserMessage("What's the weather like in New York?"),
 		},
@@ -252,12 +252,12 @@ func multiTenantExample() {
 
 	// Make requests from different tenants
 	requestA := ogem.NewChatCompletionRequest(
-		"gpt-3.5-turbo",
+		ogem.ModelGPT35Turbo,
 		[]ogem.Message{ogem.NewUserMessage("Hello from tenant A")},
 	)
 
 	requestB := ogem.NewChatCompletionRequest(
-		"gpt-3.5-turbo",
+		ogem.ModelGPT35Turbo,
 		[]ogem.Message{ogem.NewUserMessage("Hello from tenant B")},
 	)
 
@@ -372,7 +372,7 @@ func advancedExample() {
 	defer cancel()
 
 	request := ogem.NewChatCompletionRequest(
-		"gpt-4",
+		ogem.ModelGPT4,
 		[]ogem.Message{
 			ogem.NewSystemMessage("You are a helpful assistant."),
 			ogem.NewUserMessage("Explain quantum computing in simple terms."),

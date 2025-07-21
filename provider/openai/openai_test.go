@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/yanolja/ogem/openai"
+	sdkOgem "github.com/yanolja/ogem/sdk/go"
 )
 
 func TestNewEndpoint(t *testing.T) {
@@ -126,7 +127,7 @@ func TestGenerateChatCompletion_RequestValidation(t *testing.T) {
 	}
 
 	request := &openai.ChatCompletionRequest{
-		Model: "gpt-4",
+		Model: sdkOgem.ModelGPT4,
 		Messages: []openai.Message{
 			{
 				Role:    "user",
@@ -147,7 +148,7 @@ func TestGenerateChatCompletion_ResponseValidation(t *testing.T) {
 			Id:      "chatcmpl-test-123",
 			Object:  "chat.completion",
 			Created: 1234567890,
-			Model:   "gpt-4",
+			Model:   sdkOgem.ModelGPT4,
 			Choices: []openai.Choice{
 				{
 					Index: 0,
@@ -191,7 +192,7 @@ func TestGenerateChatCompletion_ResponseValidation(t *testing.T) {
 	if response.Created != 1234567890 {
 		t.Errorf("expected Created 1234567890, got %d", response.Created)
 	}
-	if response.Model != "gpt-4" {
+	if response.Model != sdkOgem.ModelGPT4 {
 		t.Errorf("expected Model 'gpt-4', got %s", response.Model)
 	}
 
@@ -277,7 +278,7 @@ func TestGenerateChatCompletion_AdvancedParameters(t *testing.T) {
 	presencePenalty := float32(0.5)
 
 	request := &openai.ChatCompletionRequest{
-		Model:            "gpt-4",
+		Model:            sdkOgem.ModelGPT4,
 		Temperature:      &temp,
 		MaxTokens:        &maxTokens,
 		TopP:             &topP,
@@ -360,7 +361,7 @@ func TestGenerateChatCompletionStream_RequestValidation(t *testing.T) {
 	}
 
 	request := &openai.ChatCompletionRequest{
-		Model: "gpt-4",
+		Model: sdkOgem.ModelGPT4,
 		Messages: []openai.Message{
 			{
 				Role:    "user",

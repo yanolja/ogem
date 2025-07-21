@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"github.com/yanolja/ogem/openai"
+	sdkOgem "github.com/yanolja/ogem/sdk/go"
 )
 
 func TestCacheManager_AdaptiveStrategy(t *testing.T) {
@@ -208,7 +209,7 @@ func TestCacheManager_AdaptivePatternDetection(t *testing.T) {
 	// Create test requests with different models and patterns
 	requests := []*openai.ChatCompletionRequest{
 		{
-			Model: "gpt-3.5-turbo",
+			Model: sdkOgem.ModelGPT35Turbo,
 			Messages: []openai.Message{
 				{
 					Role: "user",
@@ -219,7 +220,7 @@ func TestCacheManager_AdaptivePatternDetection(t *testing.T) {
 			},
 		},
 		{
-			Model: "gpt-3.5-turbo",
+			Model: sdkOgem.ModelGPT35Turbo,
 			Messages: []openai.Message{
 				{
 					Role: "user",
@@ -230,7 +231,7 @@ func TestCacheManager_AdaptivePatternDetection(t *testing.T) {
 			},
 		},
 		{
-			Model: "gpt-4",
+			Model: sdkOgem.ModelGPT4,
 			Messages: []openai.Message{
 				{
 					Role: "user",
@@ -304,7 +305,7 @@ func TestCacheManager_AdaptivePatternDetection_MemoryLimit(t *testing.T) {
 	// Create many requests to test memory limit
 	for i := 0; i < 1100; i++ { // More than the 1000 limit
 		req := &openai.ChatCompletionRequest{
-			Model: "gpt-4o",
+			Model: sdkOgem.ModelGPT4o,
 			Messages: []openai.Message{
 				{
 					Role: "user",
@@ -363,7 +364,7 @@ func TestCacheManager_AdaptiveState_ThreadSafety(t *testing.T) {
 			defer func() { done <- true }()
 
 			req := &openai.ChatCompletionRequest{
-				Model: "gpt-4o",
+				Model: sdkOgem.ModelGPT4o,
 				Messages: []openai.Message{
 					{
 						Role: "user",
@@ -524,7 +525,7 @@ func TestCacheManager_NoAdaptiveState(t *testing.T) {
 
 	// Test operations that would use adaptive state
 	result := &CacheLookupResult{Found: true, Strategy: StrategyExact}
-	cacheReq := &CacheRequest{Model: "gpt-3.5-turbo"}
+	cacheReq := &CacheRequest{Model: sdkOgem.ModelGPT35Turbo}
 
 	// Should not panic
 	manager.updateAdaptiveLearning(result, cacheReq, "tenant")

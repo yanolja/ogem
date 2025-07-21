@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"github.com/yanolja/ogem/openai"
+	sdkOgem "github.com/yanolja/ogem/sdk/go"
 )
 
 func TestSecurityManager_NewSecurityManager(t *testing.T) {
@@ -85,7 +86,7 @@ func TestSecurityManager_ValidateAndSecureRequest_Success(t *testing.T) {
 
 	// Create a test request with PII
 	request := &openai.ChatCompletionRequest{
-		Model: "gpt-4",
+		Model: sdkOgem.ModelGPT4,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -101,7 +102,7 @@ func TestSecurityManager_ValidateAndSecureRequest_Success(t *testing.T) {
 	ctx := context.Background()
 	userID := "test-user"
 	endpoint := "/v1/chat/completions"
-	model := "gpt-4"
+	model := sdkOgem.ModelGPT4
 
 	// Validate and secure the request
 	securedRequest, result, err := manager.ValidateAndSecureRequest(ctx, request, userID, endpoint, model)
@@ -136,7 +137,7 @@ func TestSecurityManager_ValidateAndSecureRequest_RateLimitExceeded(t *testing.T
 	require.NoError(t, err)
 
 	request := &openai.ChatCompletionRequest{
-		Model: "gpt-4",
+		Model: sdkOgem.ModelGPT4,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -151,7 +152,7 @@ func TestSecurityManager_ValidateAndSecureRequest_RateLimitExceeded(t *testing.T
 	ctx := context.Background()
 	userID := "test-user-rate-limit"
 	endpoint := "/v1/chat/completions"
-	model := "gpt-4"
+	model := sdkOgem.ModelGPT4
 
 	// First two requests should succeed
 	for i := 0; i < 2; i++ {
@@ -184,7 +185,7 @@ func TestSecurityManager_ValidateAndSecureRequest_Disabled(t *testing.T) {
 	require.NoError(t, err)
 
 	request := &openai.ChatCompletionRequest{
-		Model: "gpt-4",
+		Model: sdkOgem.ModelGPT4,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -196,7 +197,7 @@ func TestSecurityManager_ValidateAndSecureRequest_Disabled(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	securedRequest, result, err := manager.ValidateAndSecureRequest(ctx, request, "test-user", "/v1/chat/completions", "gpt-4")
+	securedRequest, result, err := manager.ValidateAndSecureRequest(ctx, request, "test-user", "/v1/chat/completions", sdkOgem.ModelGPT4)
 	require.NoError(t, err)
 	assert.True(t, result.Allowed)
 
@@ -247,7 +248,7 @@ func TestSecurityManager_AuditEvents(t *testing.T) {
 	ctx := context.Background()
 
 	// Test audit methods - these are internal methods but we can test they don't panic
-	manager.auditRequest(ctx, "/v1/chat/completions", "test-user", "gpt-4")
+	manager.auditRequest(ctx, "/v1/chat/completions", "test-user", sdkOgem.ModelGPT4)
 
 	manager.auditPIIDetection(ctx, []PIIDetection{
 		{Type: "email", Value: "test@example.com", Position: 0, Length: 16},
@@ -286,7 +287,7 @@ func TestSecurityManager_RequestValidation(t *testing.T) {
 
 	// Test with valid request
 	request := &openai.ChatCompletionRequest{
-		Model: "gpt-4",
+		Model: sdkOgem.ModelGPT4,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -298,7 +299,7 @@ func TestSecurityManager_RequestValidation(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, result, err := manager.ValidateAndSecureRequest(ctx, request, "test-user", "/v1/chat/completions", "gpt-4")
+	_, result, err := manager.ValidateAndSecureRequest(ctx, request, "test-user", "/v1/chat/completions", sdkOgem.ModelGPT4)
 	require.NoError(t, err)
 	assert.True(t, result.Allowed)
 
@@ -309,7 +310,7 @@ func TestSecurityManager_RequestValidation(t *testing.T) {
 	}
 
 	request.Messages[0].Content.String = &longMessage
-	_, result, err = manager.ValidateAndSecureRequest(ctx, request, "test-user", "/v1/chat/completions", "gpt-4")
+	_, result, err = manager.ValidateAndSecureRequest(ctx, request, "test-user", "/v1/chat/completions", sdkOgem.ModelGPT4)
 	require.NoError(t, err)
 	// The result depends on whether validation is actually implemented
 }
@@ -331,7 +332,7 @@ func TestSecurityManager_ContentFiltering(t *testing.T) {
 
 	// Test with safe content
 	request := &openai.ChatCompletionRequest{
-		Model: "gpt-4",
+		Model: sdkOgem.ModelGPT4,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -343,7 +344,7 @@ func TestSecurityManager_ContentFiltering(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, result, err := manager.ValidateAndSecureRequest(ctx, request, "test-user", "/v1/chat/completions", "gpt-4")
+	_, result, err := manager.ValidateAndSecureRequest(ctx, request, "test-user", "/v1/chat/completions", sdkOgem.ModelGPT4)
 	require.NoError(t, err)
 	assert.True(t, result.Allowed)
 }
@@ -371,7 +372,7 @@ func TestSecurityManager_ReleaseResources(t *testing.T) {
 	// Test resource release
 	userID := "test-user"
 	endpoint := "/v1/chat/completions"
-	model := "gpt-4"
+	model := sdkOgem.ModelGPT4
 
 	// Acquire resources first
 	request := &openai.ChatCompletionRequest{

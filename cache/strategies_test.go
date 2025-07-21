@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"github.com/yanolja/ogem/openai"
+	sdkOgem "github.com/yanolja/ogem/sdk/go"
 )
 
 func TestCacheManager_LookupExact(t *testing.T) {
@@ -33,7 +34,7 @@ func TestCacheManager_LookupExact(t *testing.T) {
 
 	// Create test request
 	cacheReq := &CacheRequest{
-		Model: "gpt-4o",
+		Model: sdkOgem.ModelGPT4o,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -59,7 +60,7 @@ func TestCacheManager_LookupExact(t *testing.T) {
 		Id:      "chatcmpl-123",
 		Object:  "chat.completion",
 		Created: time.Now().Unix(),
-		Model:   "gpt-3.5-turbo",
+		Model:   sdkOgem.ModelGPT35Turbo,
 	}
 
 	err = manager.Store(ctx, &openai.ChatCompletionRequest{
@@ -85,7 +86,7 @@ func TestCacheManager_LookupExact(t *testing.T) {
 
 	// Test lookup with slightly different request - should not find
 	differentReq := &CacheRequest{
-		Model: "gpt-4o",
+		Model: sdkOgem.ModelGPT4o,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -123,7 +124,7 @@ func TestCacheManager_LookupExact_ExpiredEntry(t *testing.T) {
 	tenantID := "test-tenant"
 
 	cacheReq := &CacheRequest{
-		Model: "gpt-4o",
+		Model: sdkOgem.ModelGPT4o,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -177,7 +178,7 @@ func TestCacheManager_LookupSemantic(t *testing.T) {
 
 	// Create test requests with similar content
 	cacheReq1 := &CacheRequest{
-		Model: "gpt-4o",
+		Model: sdkOgem.ModelGPT4o,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -189,7 +190,7 @@ func TestCacheManager_LookupSemantic(t *testing.T) {
 	}
 
 	cacheReq2 := &CacheRequest{
-		Model: "gpt-4o",
+		Model: sdkOgem.ModelGPT4o,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -225,7 +226,7 @@ func TestCacheManager_LookupSemantic(t *testing.T) {
 
 	// Test with different model - should not find
 	differentModelReq := &CacheRequest{
-		Model: "gpt-4",
+		Model: sdkOgem.ModelGPT4,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -265,7 +266,7 @@ func TestCacheManager_LookupSemantic_EmbeddingError(t *testing.T) {
 	tenantID := "test-tenant"
 
 	cacheReq := &CacheRequest{
-		Model: "gpt-4o",
+		Model: sdkOgem.ModelGPT4o,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -310,7 +311,7 @@ func TestCacheManager_LookupToken(t *testing.T) {
 
 	// Create test requests with similar tokens
 	cacheReq1 := &CacheRequest{
-		Model: "gpt-4o",
+		Model: sdkOgem.ModelGPT4o,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -322,7 +323,7 @@ func TestCacheManager_LookupToken(t *testing.T) {
 	}
 
 	cacheReq2 := &CacheRequest{
-		Model: "gpt-4o",
+		Model: sdkOgem.ModelGPT4o,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -361,7 +362,7 @@ func TestCacheManager_LookupToken(t *testing.T) {
 
 	// Test with different model - should not find
 	differentModelReq := &CacheRequest{
-		Model:    "gpt-4",
+		Model:    sdkOgem.ModelGPT4,
 		Messages: cacheReq1.Messages,
 	}
 
@@ -942,7 +943,7 @@ func TestCacheManager_UpdateAdaptiveLearning(t *testing.T) {
 	}
 
 	cacheReq := &CacheRequest{
-		Model: "gpt-4o",
+		Model: sdkOgem.ModelGPT4o,
 		Messages: []openai.Message{
 			{
 				Role: "user",
@@ -984,7 +985,7 @@ func TestCacheManager_EstimateQueryLength(t *testing.T) {
 
 	// Test with string content
 	cacheReq := &CacheRequest{
-		Model: "gpt-4o",
+		Model: sdkOgem.ModelGPT4o,
 		Messages: []openai.Message{
 			{
 				Role: "user",
