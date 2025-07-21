@@ -1,0 +1,25 @@
+mode: atomic
+github.com/yanolja/ogem/ogem.go:72.108,74.9 2 0
+github.com/yanolja/ogem/ogem.go:74.9,76.3 1 0
+github.com/yanolja/ogem/ogem.go:78.2,79.9 2 0
+github.com/yanolja/ogem/ogem.go:79.9,81.3 1 0
+github.com/yanolja/ogem/ogem.go:86.2,91.45 3 0
+github.com/yanolja/ogem/ogem.go:91.45,93.3 1 0
+github.com/yanolja/ogem/ogem.go:95.2,97.12 3 0
+github.com/yanolja/ogem/ogem.go:120.8,121.76 1 0
+github.com/yanolja/ogem/ogem.go:121.76,122.73 1 0
+github.com/yanolja/ogem/ogem.go:122.73,124.4 1 0
+github.com/yanolja/ogem/ogem.go:125.3,125.29 1 0
+github.com/yanolja/ogem/ogem.go:128.2,128.103 1 0
+github.com/yanolja/ogem/ogem.go:128.103,129.56 1 0
+github.com/yanolja/ogem/ogem.go:129.56,131.4 1 0
+github.com/yanolja/ogem/ogem.go:132.3,132.55 1 0
+github.com/yanolja/ogem/ogem.go:135.2,135.50 1 0
+github.com/yanolja/ogem/ogem.go:135.50,137.60 2 0
+github.com/yanolja/ogem/ogem.go:137.60,138.27 1 0
+github.com/yanolja/ogem/ogem.go:138.27,139.13 1 0
+github.com/yanolja/ogem/ogem.go:141.4,141.27 1 0
+github.com/yanolja/ogem/ogem.go:141.27,143.5 1 0
+github.com/yanolja/ogem/ogem.go:144.4,146.12 3 0
+github.com/yanolja/ogem/ogem.go:146.12,148.5 1 0
+github.com/yanolja/ogem/ogem.go:151.2,151.14 1 0

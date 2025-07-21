@@ -1,4 +1,4 @@
-package ogem_test
+package e2e_test
 
 import (
 	"context"
@@ -41,13 +41,13 @@ func TestCompleteWorkflow(t *testing.T) {
 
 	// 2. Initialize tenant management
 	tenantConfig := &tenancy.TenantConfig{
-		Enabled:              true,
-		TrackUsage:           true,
-		DefaultTenantType:    tenancy.TenantTypeTeam,
-		EnforceLimits:        true,
-		SoftLimitThreshold:   0.8,
-		UsageResetInterval:   24 * time.Hour,
-		CleanupInterval:      1 * time.Hour,
+		Enabled:            true,
+		TrackUsage:         true,
+		DefaultTenantType:  tenancy.TenantTypeTeam,
+		EnforceLimits:      true,
+		SoftLimitThreshold: 0.8,
+		UsageResetInterval: 24 * time.Hour,
+		CleanupInterval:    1 * time.Hour,
 	}
 	// Need security manager for tenant manager
 	securityConfig := security.DefaultSecurityConfig()
@@ -89,9 +89,9 @@ func TestCompleteWorkflow(t *testing.T) {
 		Name:   "Test Tenant E2E",
 		Status: tenancy.TenantStatusActive,
 		Subscription: &tenancy.Subscription{
-			PlanName:  "premium",
-			Status:    "active",
-			StartDate: time.Now(),
+			PlanName:    "premium",
+			Status:      "active",
+			StartDate:   time.Now(),
 			RenewalDate: time.Now().Add(30 * 24 * time.Hour),
 		},
 		Limits: &tenancy.TenantLimits{
@@ -597,7 +597,7 @@ func TestSystemResilience(t *testing.T) {
 	t.Run("tenant_service_failure", func(t *testing.T) {
 		// Test behavior when tenant service is unavailable
 		config := &tenancy.TenantConfig{
-			Enabled: false, // Disable tenancy
+			Enabled:    false, // Disable tenancy
 			TrackUsage: false, // Disable tracking
 		}
 		tenantManager, err := tenancy.NewTenantManager(config, nil, nil, logger)
