@@ -15,7 +15,6 @@ import (
 type AdminServer struct {
 	virtualKeyManager auth.Manager
 	stateManager      state.Manager
-	//costCalculator    cost.Calculator
 }
 
 type DashboardData struct {
@@ -36,7 +35,6 @@ func NewAdminServer(vkm auth.Manager, sm state.Manager) *AdminServer {
 	return &AdminServer{
 		virtualKeyManager: vkm,
 		stateManager:      sm,
-		//costCalculator:    cc,
 	}
 }
 
