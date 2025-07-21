@@ -101,7 +101,7 @@ func conversationExample() {
 		messages = append(messages, ogem.NewUserMessage(query))
 
 		// Create request
-		request := ogem.NewChatCompletionRequest("gpt-4", messages).
+		request := ogem.NewChatCompletionRequest(ogem.ModelGPT4, messages).
 			WithMaxTokens(500).
 			WithTemperature(0.3)
 
