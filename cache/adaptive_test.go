@@ -15,20 +15,20 @@ import (
 func TestCacheManager_AdaptiveStrategy(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	config := &CacheConfig{
-		Enabled:      true,
-		Strategy:     StrategyAdaptive,
-		Backend:      BackendMemory,
-		DefaultTTL:   time.Hour,
-		MaxEntries:   100,
+		Enabled:    true,
+		Strategy:   StrategyAdaptive,
+		Backend:    BackendMemory,
+		DefaultTTL: time.Hour,
+		MaxEntries: 100,
 		AdaptiveConfig: &AdaptiveConfig{
 			LearningWindow:         time.Hour,
-			MinSamples:            10,
-			Sensitivity:           0.1,
-			HighHitThreshold:      0.8,
-			LowHitThreshold:       0.3,
+			MinSamples:             10,
+			Sensitivity:            0.1,
+			HighHitThreshold:       0.8,
+			LowHitThreshold:        0.3,
 			EnablePatternDetection: true,
 			EnableAutoTuning:       true,
-			TuningInterval:        30 * time.Minute,
+			TuningInterval:         30 * time.Minute,
 		},
 	}
 
@@ -58,13 +58,13 @@ func TestCacheManager_AdaptiveStrategy(t *testing.T) {
 func TestCacheManager_PerformAdaptiveTuning(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	config := &CacheConfig{
-		Enabled:      true,
-		Strategy:     StrategyAdaptive,
-		Backend:      BackendMemory,
-		DefaultTTL:   time.Hour,
-		MaxEntries:   100,
+		Enabled:    true,
+		Strategy:   StrategyAdaptive,
+		Backend:    BackendMemory,
+		DefaultTTL: time.Hour,
+		MaxEntries: 100,
 		AdaptiveConfig: &AdaptiveConfig{
-			LearningWindow:    time.Minute, // Short window for testing
+			LearningWindow:   time.Minute, // Short window for testing
 			MinSamples:       5,
 			Sensitivity:      0.1,
 			HighHitThreshold: 0.8,
@@ -91,7 +91,7 @@ func TestCacheManager_PerformAdaptiveTuning(t *testing.T) {
 	// Test tuning with low hit rate
 	manager.adaptiveState.SampleCount = 10
 	manager.adaptiveState.LastEvaluation = time.Now().Add(-2 * time.Minute)
-	
+
 	// Simulate low hit rate
 	manager.stats.Hits = 2
 	manager.stats.Misses = 8
@@ -113,7 +113,7 @@ func TestCacheManager_PerformAdaptiveTuning(t *testing.T) {
 	manager.adaptiveState.CurrentStrategy = StrategyExact
 	manager.adaptiveState.SampleCount = 10
 	manager.adaptiveState.LastEvaluation = time.Now().Add(-2 * time.Minute)
-	
+
 	// Simulate high hit rate
 	manager.stats.Hits = 9
 	manager.stats.Misses = 1
@@ -140,13 +140,13 @@ func TestCacheManager_PerformAdaptiveTuning(t *testing.T) {
 func TestCacheManager_AdaptiveTuning_StrategyProgression(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	config := &CacheConfig{
-		Enabled:      true,
-		Strategy:     StrategyAdaptive,
-		Backend:      BackendMemory,
-		DefaultTTL:   time.Hour,
-		MaxEntries:   100,
+		Enabled:    true,
+		Strategy:   StrategyAdaptive,
+		Backend:    BackendMemory,
+		DefaultTTL: time.Hour,
+		MaxEntries: 100,
 		AdaptiveConfig: &AdaptiveConfig{
-			LearningWindow:    time.Minute,
+			LearningWindow:   time.Minute,
 			MinSamples:       5,
 			Sensitivity:      0.1,
 			HighHitThreshold: 0.8,
@@ -167,7 +167,7 @@ func TestCacheManager_AdaptiveTuning_StrategyProgression(t *testing.T) {
 		manager.adaptiveState.CurrentStrategy = currentStrategy
 		manager.adaptiveState.SampleCount = 10
 		manager.adaptiveState.LastEvaluation = time.Now().Add(-2 * time.Minute)
-		
+
 		// Simulate low hit rate
 		manager.stats.Hits = 2
 		manager.stats.Misses = 8
@@ -187,14 +187,14 @@ func TestCacheManager_AdaptiveTuning_StrategyProgression(t *testing.T) {
 func TestCacheManager_AdaptivePatternDetection(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	config := &CacheConfig{
-		Enabled:      true,
-		Strategy:     StrategyAdaptive,
-		Backend:      BackendMemory,
-		DefaultTTL:   time.Hour,
-		MaxEntries:   100,
+		Enabled:    true,
+		Strategy:   StrategyAdaptive,
+		Backend:    BackendMemory,
+		DefaultTTL: time.Hour,
+		MaxEntries: 100,
 		AdaptiveConfig: &AdaptiveConfig{
 			EnablePatternDetection: true,
-			TuningInterval:        30 * time.Minute,
+			TuningInterval:         30 * time.Minute,
 		},
 	}
 
@@ -262,8 +262,9 @@ func TestCacheManager_AdaptivePatternDetection(t *testing.T) {
 	// Verify pattern detection
 	patterns := manager.adaptiveState.PatternDetection
 
-	// Check model patterns
-	assert.Equal(t, int64(3), patterns.CommonModels["gpt-4o"])
+	// Check model patterns (should have entries for both models used in test)
+	assert.Equal(t, int64(2), patterns.CommonModels["gpt-3.5-turbo"])
+	assert.Equal(t, int64(1), patterns.CommonModels["gpt-4"])
 
 	// Check user patterns
 	assert.Equal(t, int64(3), patterns.UserPatterns[tenantID])
@@ -282,14 +283,14 @@ func TestCacheManager_AdaptivePatternDetection(t *testing.T) {
 func TestCacheManager_AdaptivePatternDetection_MemoryLimit(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	config := &CacheConfig{
-		Enabled:      true,
-		Strategy:     StrategyAdaptive,
-		Backend:      BackendMemory,
-		DefaultTTL:   time.Hour,
-		MaxEntries:   100,
+		Enabled:    true,
+		Strategy:   StrategyAdaptive,
+		Backend:    BackendMemory,
+		DefaultTTL: time.Hour,
+		MaxEntries: 100,
 		AdaptiveConfig: &AdaptiveConfig{
 			EnablePatternDetection: true,
-			TuningInterval:        30 * time.Minute,
+			TuningInterval:         30 * time.Minute,
 		},
 	}
 
@@ -334,15 +335,15 @@ func TestCacheManager_AdaptivePatternDetection_MemoryLimit(t *testing.T) {
 func TestCacheManager_AdaptiveState_ThreadSafety(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	config := &CacheConfig{
-		Enabled:      true,
-		Strategy:     StrategyAdaptive,
-		Backend:      BackendMemory,
-		DefaultTTL:   time.Hour,
-		MaxEntries:   100,
+		Enabled:    true,
+		Strategy:   StrategyAdaptive,
+		Backend:    BackendMemory,
+		DefaultTTL: time.Hour,
+		MaxEntries: 100,
 		AdaptiveConfig: &AdaptiveConfig{
 			EnablePatternDetection: true,
 			EnableAutoTuning:       true,
-			TuningInterval:        30 * time.Minute,
+			TuningInterval:         30 * time.Minute,
 		},
 	}
 
@@ -485,13 +486,13 @@ func TestAdaptiveConfig_Validation(t *testing.T) {
 	// Test custom adaptive config
 	customConfig := &AdaptiveConfig{
 		LearningWindow:         12 * time.Hour,
-		MinSamples:            50,
-		Sensitivity:           0.2,
-		HighHitThreshold:      0.9,
-		LowHitThreshold:       0.2,
+		MinSamples:             50,
+		Sensitivity:            0.2,
+		HighHitThreshold:       0.9,
+		LowHitThreshold:        0.2,
 		EnablePatternDetection: false,
 		EnableAutoTuning:       false,
-		TuningInterval:        2 * time.Hour,
+		TuningInterval:         2 * time.Hour,
 	}
 
 	assert.Equal(t, 12*time.Hour, customConfig.LearningWindow)
@@ -507,11 +508,11 @@ func TestAdaptiveConfig_Validation(t *testing.T) {
 func TestCacheManager_NoAdaptiveState(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	config := &CacheConfig{
-		Enabled:      true,
-		Strategy:     StrategyExact, // Not adaptive
-		Backend:      BackendMemory,
-		DefaultTTL:   time.Hour,
-		MaxEntries:   100,
+		Enabled:    true,
+		Strategy:   StrategyExact, // Not adaptive
+		Backend:    BackendMemory,
+		DefaultTTL: time.Hour,
+		MaxEntries: 100,
 	}
 
 	manager, err := NewCacheManager(config, nil, logger)

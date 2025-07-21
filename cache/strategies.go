@@ -88,7 +88,7 @@ func (cm *CacheManager) lookupSemantic(ctx context.Context, req *CacheRequest, t
 		cm.mutex.RUnlock()
 		return &CacheLookupResult{
 			Found:    false,
-			Strategy: StrategyToken,
+			Strategy: StrategySemantic,
 			Source:   "memory",
 		}, nil
 	}
@@ -100,7 +100,7 @@ func (cm *CacheManager) lookupSemantic(ctx context.Context, req *CacheRequest, t
 	return &CacheLookupResult{
 		Found:      true,
 		Entry:      bestMatch,
-		Strategy:   StrategyToken,
+		Strategy:   StrategySemantic,
 		Similarity: bestSimilarity,
 		Source:     "memory",
 	}, nil
@@ -131,7 +131,8 @@ func (cm *CacheManager) lookupToken(req *CacheRequest, tenantID string) (*CacheL
 			continue
 		}
 
-		// Extract tokens from cached entry
+		// Extract tokens from request and cached entry
+		reqTokens := cm.extractTokens(req)
 		entryTokens := cm.extractTokens(entry.Request)
 
 		// Calculate token similarity
