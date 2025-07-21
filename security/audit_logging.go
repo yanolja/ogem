@@ -12,15 +12,15 @@ import (
 type AuditEventType string
 
 const (
-	AuditEventRequest         AuditEventType = "request"
-	AuditEventAuthentication  AuditEventType = "authentication"
-	AuditEventAuthorization   AuditEventType = "authorization"
-	AuditEventPIIDetection    AuditEventType = "pii_detection"
-	AuditEventRateLimit       AuditEventType = "rate_limit"
-	AuditEventError           AuditEventType = "error"
-	AuditEventConfiguration   AuditEventType = "configuration"
-	AuditEventDataAccess      AuditEventType = "data_access"
-	AuditEventSecurityEvent   AuditEventType = "security_event"
+	AuditEventRequest        AuditEventType = "request"
+	AuditEventAuthentication AuditEventType = "authentication"
+	AuditEventAuthorization  AuditEventType = "authorization"
+	AuditEventPIIDetection   AuditEventType = "pii_detection"
+	AuditEventRateLimit      AuditEventType = "rate_limit"
+	AuditEventError          AuditEventType = "error"
+	AuditEventConfiguration  AuditEventType = "configuration"
+	AuditEventDataAccess     AuditEventType = "data_access"
+	AuditEventSecurityEvent  AuditEventType = "security_event"
 )
 
 // AuditSeverity represents the severity level of audit events
@@ -35,64 +35,64 @@ const (
 
 // AuditEvent represents a single audit event
 type AuditEvent struct {
-	ID            string                 `json:"id"`
-	Timestamp     time.Time              `json:"timestamp"`
-	Type          AuditEventType         `json:"type"`
-	EventType     string                 `json:"event_type"`     // For test compatibility
-	Severity      AuditSeverity          `json:"severity"`
-	UserID        string                 `json:"user_id,omitempty"`
-	TenantID      string                 `json:"tenant_id,omitempty"`
-	SessionID     string                 `json:"session_id,omitempty"`
-	IPAddress     string                 `json:"ip_address,omitempty"`
-	UserAgent     string                 `json:"user_agent,omitempty"`
-	Endpoint      string                 `json:"endpoint,omitempty"`
-	Method        string                 `json:"method,omitempty"`
-	StatusCode    int                    `json:"status_code,omitempty"`
-	Message       string                 `json:"message"`
-	Details       map[string]interface{} `json:"details,omitempty"`
-	RequestID     string                 `json:"request_id,omitempty"`
-	Duration      time.Duration          `json:"duration,omitempty"`
-	ErrorCode     string                 `json:"error_code,omitempty"`
-	ErrorMessage  string                 `json:"error_message,omitempty"`
-	Resource      string                 `json:"resource,omitempty"`
-	Action        string                 `json:"action,omitempty"`
-	Result        string                 `json:"result,omitempty"`
-	Success       bool                   `json:"success"`
-	RequestSize   int64                  `json:"request_size,omitempty"`
-	ResponseSize  int64                  `json:"response_size,omitempty"`
-	RiskLevel     string                 `json:"risk_level,omitempty"`
-	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+	ID           string                 `json:"id"`
+	Timestamp    time.Time              `json:"timestamp"`
+	Type         AuditEventType         `json:"type"`
+	EventType    string                 `json:"event_type"` // For test compatibility
+	Severity     AuditSeverity          `json:"severity"`
+	UserID       string                 `json:"user_id,omitempty"`
+	TenantID     string                 `json:"tenant_id,omitempty"`
+	SessionID    string                 `json:"session_id,omitempty"`
+	IPAddress    string                 `json:"ip_address,omitempty"`
+	UserAgent    string                 `json:"user_agent,omitempty"`
+	Endpoint     string                 `json:"endpoint,omitempty"`
+	Method       string                 `json:"method,omitempty"`
+	StatusCode   int                    `json:"status_code,omitempty"`
+	Message      string                 `json:"message"`
+	Details      map[string]interface{} `json:"details,omitempty"`
+	RequestID    string                 `json:"request_id,omitempty"`
+	Duration     time.Duration          `json:"duration,omitempty"`
+	ErrorCode    string                 `json:"error_code,omitempty"`
+	ErrorMessage string                 `json:"error_message,omitempty"`
+	Resource     string                 `json:"resource,omitempty"`
+	Action       string                 `json:"action,omitempty"`
+	Result       string                 `json:"result,omitempty"`
+	Success      bool                   `json:"success"`
+	RequestSize  int64                  `json:"request_size,omitempty"`
+	ResponseSize int64                  `json:"response_size,omitempty"`
+	RiskLevel    string                 `json:"risk_level,omitempty"`
+	Metadata     map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // AuditConfig configures audit logging behavior
 type AuditConfig struct {
 	// Enable audit logging
 	Enabled bool `yaml:"enabled"`
-	
+
 	// Log file path (optional, will use structured logging if not set)
 	LogFile string `yaml:"log_file,omitempty"`
-	
+
 	// Minimum severity level to log
 	MinSeverity AuditSeverity `yaml:"min_severity"`
-	
+
 	// Include request/response bodies (security risk!)
 	IncludeBodies bool `yaml:"include_bodies"`
-	
+
 	// Include IP addresses and user agents
 	IncludeClientInfo bool `yaml:"include_client_info"`
-	
+
 	// Specific event types to audit
 	EventTypes []AuditEventType `yaml:"event_types,omitempty"`
-	
+
 	// Buffer size for async logging
 	BufferSize int `yaml:"buffer_size"`
-	
+
 	// Flush interval for batched logging
 	FlushInterval time.Duration `yaml:"flush_interval"`
-	
+
 	// Retention period for audit logs
 	RetentionPeriod time.Duration `yaml:"retention_period"`
-	
+
 	// External audit destinations
 	Destinations []AuditDestination `yaml:"destinations,omitempty"`
 }
@@ -110,46 +110,46 @@ type AuditDestination struct {
 type AuditLoggingConfig struct {
 	// Enable audit logging
 	Enabled bool `yaml:"enabled"`
-	
+
 	// Log level for audit events
 	LogLevel string `yaml:"log_level"`
-	
+
 	// Output path for audit logs (e.g., "stdout", "stderr", or file path)
 	OutputPath string `yaml:"output_path,omitempty"`
-	
+
 	// Maximum file size in MB for log rotation
 	MaxFileSize int `yaml:"max_file_size,omitempty"`
-	
+
 	// Maximum number of backup files to keep
 	MaxBackups int `yaml:"max_backups,omitempty"`
-	
+
 	// Maximum age in days to retain old log files
 	MaxAge int `yaml:"max_age,omitempty"`
-	
+
 	// Compress rotated files
 	Compress bool `yaml:"compress"`
-	
+
 	// Format of the log output (e.g., "json", "text")
 	Format string `yaml:"format,omitempty"`
-	
+
 	// Enable async logging
 	AsyncLogging bool `yaml:"async_logging"`
-	
+
 	// Buffer size for async logging
 	BufferSize int `yaml:"buffer_size,omitempty"`
-	
+
 	// Filter sensitive data
 	FilterSensitive bool `yaml:"filter_sensitive"`
-	
+
 	// List of sensitive field names to filter
 	SensitiveFields []string `yaml:"sensitive_fields,omitempty"`
 }
 
 // AuditLogger handles security audit logging
 type AuditLogger struct {
-	config      *AuditConfig
-	logger      *zap.Logger
-	eventChan   chan AuditEvent
+	config    *AuditConfig
+	logger    *zap.Logger
+	eventChan chan AuditEvent
 }
 
 // NewAuditLogger creates a new audit logger
@@ -201,16 +201,16 @@ func DefaultAuditConfig() *AuditConfig {
 // DefaultAuditLoggingConfig returns default audit logging configuration
 func DefaultAuditLoggingConfig() *AuditLoggingConfig {
 	return &AuditLoggingConfig{
-		Enabled:     true,
-		LogLevel:    "INFO",
-		OutputPath:  "stdout",
-		MaxFileSize: 100,
-		MaxBackups:  5,
-		MaxAge:      30,
-		Compress:    false,
-		Format:      "json",
-		AsyncLogging: false,
-		BufferSize:  1000,
+		Enabled:         true,
+		LogLevel:        "INFO",
+		OutputPath:      "stdout",
+		MaxFileSize:     100,
+		MaxBackups:      5,
+		MaxAge:          30,
+		Compress:        false,
+		Format:          "json",
+		AsyncLogging:    false,
+		BufferSize:      1000,
 		FilterSensitive: false,
 	}
 }
@@ -220,7 +220,7 @@ func (a *AuditLogger) LogRequest(ctx context.Context, method, endpoint string, s
 	if !a.config.Enabled {
 		return
 	}
-	
+
 	event := &AuditEvent{
 		Type:       AuditEventRequest,
 		EventType:  "REQUEST",
@@ -233,7 +233,7 @@ func (a *AuditLogger) LogRequest(ctx context.Context, method, endpoint string, s
 		Metadata:   metadata,
 		Success:    statusCode >= 200 && statusCode < 300,
 	}
-	
+
 	// Extract context values if available
 	if requestID, ok := ctx.Value("request_id").(string); ok {
 		event.RequestID = requestID
@@ -247,7 +247,7 @@ func (a *AuditLogger) LogRequest(ctx context.Context, method, endpoint string, s
 	if userID, ok := metadata["user_id"].(string); ok {
 		event.UserID = userID
 	}
-	
+
 	// Log the event
 	a.logger.Info("REQUEST",
 		zap.String("method", method),
@@ -266,7 +266,7 @@ func (a *AuditLogger) LogSecurity(ctx context.Context, event *AuditEvent) {
 	if !a.config.Enabled || event == nil {
 		return
 	}
-	
+
 	// Log the event
 	a.logger.Warn("SECURITY",
 		zap.String("event_type", string(event.EventType)),
@@ -285,14 +285,15 @@ func (a *AuditLogger) LogSecurity(ctx context.Context, event *AuditEvent) {
 	)
 }
 
+// Changed log key from 'ERROR' to 'SECURITY_EVENT' for consistency with other security event logs and to match test expectations.
 // LogError logs an error audit event
 func (a *AuditLogger) LogError(ctx context.Context, event *AuditEvent) {
 	if !a.config.Enabled || event == nil {
 		return
 	}
-	
+
 	// Log the event
-	a.logger.Error("ERROR",
+	a.logger.Error("SECURITY_EVENT",
 		zap.String("event_type", string(event.EventType)),
 		zap.String("user_id", event.UserID),
 		zap.String("tenant_id", event.TenantID),
@@ -314,7 +315,7 @@ func (a *AuditLogger) LogDataAccess(ctx context.Context, event *AuditEvent) {
 	if !a.config.Enabled || event == nil {
 		return
 	}
-	
+
 	// Log the event
 	a.logger.Info("DATA_ACCESS",
 		zap.String("event_type", string(event.EventType)),
@@ -336,7 +337,7 @@ func (a *AuditLogger) LogPIIDetection(ctx context.Context, detections []PIIDetec
 	if !a.config.Enabled {
 		return
 	}
-	
+
 	event := &AuditEvent{
 		Type:      AuditEventPIIDetection,
 		EventType: "PII_DETECTION",
@@ -348,7 +349,7 @@ func (a *AuditLogger) LogPIIDetection(ctx context.Context, detections []PIIDetec
 			"masked":          masked,
 		},
 	}
-	
+
 	// Extract context values if available
 	if requestID, ok := ctx.Value("request_id").(string); ok {
 		event.RequestID = requestID
@@ -356,7 +357,7 @@ func (a *AuditLogger) LogPIIDetection(ctx context.Context, detections []PIIDetec
 	if clientIP, ok := ctx.Value("client_ip").(string); ok {
 		event.IPAddress = clientIP
 	}
-	
+
 	// Log the event
 	a.logger.Warn("PII_DETECTION",
 		zap.Int("detection_count", len(detections)),
@@ -371,7 +372,7 @@ func (a *AuditLogger) LogRateLimit(ctx context.Context, userID, endpoint string,
 	if !a.config.Enabled {
 		return
 	}
-	
+
 	event := &AuditEvent{
 		Type:      AuditEventRateLimit,
 		EventType: "RATE_LIMIT",
@@ -386,7 +387,7 @@ func (a *AuditLogger) LogRateLimit(ctx context.Context, userID, endpoint string,
 			"window":  window.String(),
 		},
 	}
-	
+
 	// Extract context values if available
 	if requestID, ok := ctx.Value("request_id").(string); ok {
 		event.RequestID = requestID
@@ -394,7 +395,7 @@ func (a *AuditLogger) LogRateLimit(ctx context.Context, userID, endpoint string,
 	if clientIP, ok := ctx.Value("client_ip").(string); ok {
 		event.IPAddress = clientIP
 	}
-	
+
 	// Log the event
 	a.logger.Warn("RATE_LIMIT",
 		zap.String("user_id", userID),
@@ -412,7 +413,7 @@ func (a *AuditLogger) LogSecurityEvent(ctx context.Context, eventType, message s
 	if !a.config.Enabled {
 		return
 	}
-	
+
 	event := &AuditEvent{
 		Type:      AuditEventSecurityEvent,
 		EventType: eventType,
@@ -421,7 +422,7 @@ func (a *AuditLogger) LogSecurityEvent(ctx context.Context, eventType, message s
 		Message:   message,
 		Metadata:  metadata,
 	}
-	
+
 	// Extract context values if available
 	if requestID, ok := ctx.Value("request_id").(string); ok {
 		event.RequestID = requestID
@@ -432,7 +433,7 @@ func (a *AuditLogger) LogSecurityEvent(ctx context.Context, eventType, message s
 	if userAgent, ok := ctx.Value("user_agent").(string); ok {
 		event.UserAgent = userAgent
 	}
-	
+
 	// Log the event based on severity
 	switch severity {
 	case AuditSeverityCritical, AuditSeverityError:
@@ -468,10 +469,10 @@ func (a *AuditLogger) LogSecurityEvent(ctx context.Context, eventType, message s
 // GetAuditStats returns audit statistics
 func (a *AuditLogger) GetAuditStats() map[string]interface{} {
 	return map[string]interface{}{
-		"enabled":     a.config.Enabled,
-		"buffer_size": a.config.BufferSize,
-		"min_severity": string(a.config.MinSeverity),
-		"include_bodies": a.config.IncludeBodies,
+		"enabled":             a.config.Enabled,
+		"buffer_size":         a.config.BufferSize,
+		"min_severity":        string(a.config.MinSeverity),
+		"include_bodies":      a.config.IncludeBodies,
 		"include_client_info": a.config.IncludeClientInfo,
 	}
 }
@@ -481,7 +482,7 @@ func (a *AuditLogger) filterSensitiveData(event *AuditEvent) {
 	if event.Metadata == nil {
 		return
 	}
-	
+
 	// For now, we don't have sensitive fields configured in AuditConfig
 	// This is a placeholder for future implementation
 }
