@@ -1,6 +1,6 @@
 module github.com/yanolja/ogem
 
-go 1.23.0
+go 1.24.0
 
 toolchain go1.24.1
 
@@ -8,6 +8,8 @@ require (
 	github.com/anthropics/anthropic-sdk-go v1.4.0
 	github.com/aws/aws-sdk-go-v2 v1.36.5
 	github.com/aws/aws-sdk-go-v2/config v1.27.27
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.27
+	github.com/aws/aws-sdk-go-v2/service/bedrock v1.37.0
 	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.30.2
 	github.com/benbjohnson/clock v1.3.5
 	github.com/goccy/go-json v0.10.5
@@ -39,12 +41,10 @@ require (
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.7.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.11 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.27 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.11 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.36 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.36 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/bedrock v1.37.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.11.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.17 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.22.4 // indirect
@@ -79,11 +79,11 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.35.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
-	golang.org/x/crypto v0.39.0 // indirect
-	golang.org/x/net v0.41.0 // indirect
-	golang.org/x/sync v0.15.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
-	golang.org/x/text v0.26.0 // indirect
+	golang.org/x/crypto v0.45.0 // indirect
+	golang.org/x/net v0.47.0 // indirect
+	golang.org/x/sync v0.18.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/text v0.31.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
 	google.golang.org/api v0.232.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250505200425-f936aa4a68b2 // indirect
