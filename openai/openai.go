@@ -817,3 +817,29 @@ type FineTuningJobCheckpointList struct {
 	FirstID *string                   `json:"first_id,omitempty"`
 	LastID  *string                   `json:"last_id,omitempty"`
 }
+
+// File represents an uploaded file
+type File struct {
+	ID        string `json:"id"`
+	Object    string `json:"object"`
+	Bytes     int64  `json:"bytes"`
+	CreatedAt int64  `json:"created_at"`
+	Filename  string `json:"filename"`
+	Purpose   string `json:"purpose"`
+	Status    string `json:"status,omitempty"`
+	StatusDetails string `json:"status_details,omitempty"`
+}
+
+// FileList represents a list of files
+type FileList struct {
+	Object  string `json:"object"`
+	Data    []File `json:"data"`
+	HasMore bool   `json:"has_more"`
+}
+
+// FileDeleteResponse represents the response when deleting a file
+type FileDeleteResponse struct {
+	ID      string `json:"id"`
+	Object  string `json:"object"`
+	Deleted bool   `json:"deleted"`
+}
