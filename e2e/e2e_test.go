@@ -43,9 +43,9 @@ func TestCompleteWorkflow(t *testing.T) {
 		EnableTenantIsolation: true,
 		EnableUsageTracking:   true,
 		DefaultLimits: &tenancy.TenantLimits{
-			MaxRequestsPerMinute: 100,
-			MaxTokensPerDay:      10000,
-			MaxCostPerDay:        10.0,
+			RequestsPerHour: 100,
+			TokensPerDay:    10000,
+			CostPerDay:      10.0,
 		},
 	}
 	tenantManager, err := tenancy.NewTenantManager(tenantConfig, monitor, logger)
