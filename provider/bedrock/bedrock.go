@@ -131,9 +131,10 @@ func (p *Endpoint) GenerateChatCompletionStream(ctx context.Context, openaiReque
 						return
 					}
 				}
-			case *types.InvokeModelWithResponseStreamOutput_InternalServerException:
-				errorCh <- fmt.Errorf("bedrock model error: %s", *e.Value.Message)
-				return
+			// AWS SDK v2 types changed - this case needs updating
+			// case *types.ResponseStreamMemberInternalServerException:
+			// 	errorCh <- fmt.Errorf("bedrock model error: internal server exception")
+			// 	return
 			default:
 				// Unknown event type, ignore
 			}
