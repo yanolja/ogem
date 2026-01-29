@@ -207,9 +207,9 @@ func TestFiles_Purpose(t *testing.T) {
 // TestFiles_InvalidInput tests error handling
 func TestFiles_InvalidInput(t *testing.T) {
 	tests := []struct {
-		name    string
-		testFn  func(t *testing.T)
-		errMsg  string
+		name   string
+		testFn func(t *testing.T)
+		errMsg string
 	}{
 		{
 			name: "upload nonexistent file",
@@ -357,7 +357,7 @@ func deleteFile(ctx context.Context, fileID string) (*openai.FileDeleteResponse,
 }
 
 func retrieveFileContent(ctx context.Context, fileID string) ([]byte, error) {
-	if os.Getenv("OPENAI_API_KEY") == "") {
+	if os.Getenv("OPENAI_API_KEY") == "" {
 		return nil, assert.AnError
 	}
 	return nil, assert.AnError

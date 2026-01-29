@@ -70,6 +70,9 @@ type Config struct {
 
 	// Advanced routing configuration
 	Routing *routing.RoutingConfig `yaml:"routing,omitempty"`
+
+	// Directory path for file storage (uploads, fine-tuning files)
+	FileStorageDir string `yaml:"file_storage_dir"`
 }
 
 // LoadConfig loads the configuration from the specified path
@@ -82,6 +85,7 @@ func LoadConfig(path string, logger *zap.SugaredLogger) (*Config, error) {
 		PingInterval:   "1h",
 		Port:           8080,
 		Providers:      ogem.ProvidersStatus{},
+		FileStorageDir: "./data/files",
 	}
 
 	// Checks if config is specified via environment variable.
@@ -123,6 +127,7 @@ func LoadConfig(path string, logger *zap.SugaredLogger) (*Config, error) {
 	config.Port = env.OptionalIntVariable("PORT", config.Port)
 	config.EnableVirtualKeys = env.OptionalBoolVariable("ENABLE_VIRTUAL_KEYS", config.EnableVirtualKeys)
 	config.MasterApiKey = env.OptionalStringVariable("MASTER_API_KEY", config.MasterApiKey)
+	config.FileStorageDir = env.OptionalStringVariable("FILE_STORAGE_DIR", config.FileStorageDir)
 
 	return &config, nil
 }

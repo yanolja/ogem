@@ -61,7 +61,37 @@ func main() {
 	mux.HandleFunc("/v1/audio/speech", proxy.HandleAuthentication(proxy.HandleAudioSpeech))
 	mux.HandleFunc("/v1/moderations", proxy.HandleAuthentication(proxy.HandleModerations))
 	mux.HandleFunc("/v1/cost/estimate", proxy.HandleCostEstimate) // No authentication required for cost estimation
-	
+
+	// Files API endpoints for fine-tuning support
+	mux.HandleFunc("/v1/files", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			proxy.HandleAuthentication(proxy.HandleFilesUpload)(w, r)
+		case http.MethodGet:
+			proxy.HandleAuthentication(proxy.HandleFilesList)(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/v1/files/", func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/content") {
+			if r.Method == http.MethodGet {
+				proxy.HandleAuthentication(proxy.HandleFilesContent)(w, r)
+			} else {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			proxy.HandleAuthentication(proxy.HandleFilesRetrieve)(w, r)
+		case http.MethodDelete:
+			proxy.HandleAuthentication(proxy.HandleFilesDelete)(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	// Virtual key management endpoints (only available if virtual keys are enabled)
 	if config.EnableVirtualKeys {
 		mux.HandleFunc("/v1/keys", func(w http.ResponseWriter, r *http.Request) {

@@ -22,6 +22,7 @@ import (
 	"github.com/yanolja/ogem/auth"
 	"github.com/yanolja/ogem/config"
 	"github.com/yanolja/ogem/cost"
+	"github.com/yanolja/ogem/files"
 	"github.com/yanolja/ogem/image"
 	"github.com/yanolja/ogem/monitoring"
 	"github.com/yanolja/ogem/openai"
@@ -103,6 +104,9 @@ type ModelProxy struct {
 
 	// Monitoring manager for metrics and observability
 	monitor *monitoring.MonitoringManager
+
+	// File manager for uploads and fine-tuning support
+	fileManager *files.Manager
 }
 
 func newEndpoint(provider string, region string, config *config.Config) (provider.AiEndpoint, error) {
@@ -257,6 +261,12 @@ func NewProxyServer(stateManager state.Manager, cleanup func(), config *config.C
 		}
 	}
 
+	// Initialize file manager for fine-tuning support
+	fileManager, err := files.NewManager(config.FileStorageDir, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize file manager: %v", err)
+	}
+
 	return &ModelProxy{
 		endpoints:       endpoints,
 		endpointStatus:  endpointStatus,
@@ -271,6 +281,7 @@ func NewProxyServer(stateManager state.Manager, cleanup func(), config *config.C
 		adminServer:     adminServer,
 		router:          router,
 		monitor:         monitor,
+		fileManager:     fileManager,
 	}, nil
 }
 
@@ -1302,7 +1313,7 @@ func (s *ModelProxy) HandleGetKey(httpResponse http.ResponseWriter, httpRequest 
 			return
 		}
 		token := headerSplit[1]
-		
+
 		var err error
 		requestKey, err = s.authManager.GetKeyByValue(httpRequest.Context(), token)
 		if err != nil || requestKey.ID != keyID {
@@ -1650,6 +1661,154 @@ func (s *ModelProxy) HandleModerations(httpResponse http.ResponseWriter, httpReq
 	}
 }
 
+// File management methods delegate to fileManager
+
+func (s *ModelProxy) uploadFile(ctx context.Context, filename string, content io.Reader, purpose string) (*openai.File, error) {
+	return s.fileManager.Upload(ctx, filename, content, purpose)
+}
+
+func (s *ModelProxy) listFiles(ctx context.Context) (*openai.FileList, error) {
+	return s.fileManager.List(ctx)
+}
+
+func (s *ModelProxy) retrieveFile(ctx context.Context, fileID string) (*openai.File, error) {
+	return s.fileManager.Retrieve(ctx, fileID)
+}
+
+func (s *ModelProxy) deleteFile(ctx context.Context, fileID string) (*openai.FileDeleteResponse, error) {
+	return s.fileManager.Delete(ctx, fileID)
+}
+
+func (s *ModelProxy) getFileContent(ctx context.Context, fileID string) ([]byte, error) {
+	return s.fileManager.GetContent(ctx, fileID)
+}
+
+// HandleFilesUpload handles file upload requests
+func (s *ModelProxy) HandleFilesUpload(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	defer httpRequest.Body.Close()
+
+	// Parse multipart form
+	if err := httpRequest.ParseMultipartForm(32 << 20); err != nil { // 32MB max
+		s.logger.Warnw("Failed to parse multipart form", "error", err)
+		http.Error(httpResponse, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	// Get file from form
+	file, header, err := httpRequest.FormFile("file")
+	if err != nil {
+		s.logger.Warnw("Failed to get file from form", "error", err)
+		http.Error(httpResponse, "File is required", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Get purpose from form
+	purpose := httpRequest.FormValue("purpose")
+	if purpose == "" {
+		purpose = "fine-tune" // Default purpose
+	}
+
+	// Upload file
+	fileMetadata, err := s.uploadFile(httpRequest.Context(), header.Filename, file, purpose)
+	if err != nil {
+		s.logger.Warnw("Failed to upload file", "error", err)
+		handleError(httpResponse, err)
+		return
+	}
+
+	httpResponse.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(httpResponse).Encode(fileMetadata); err != nil {
+		s.logger.Errorw("Failed to encode response", "error", err)
+		http.Error(httpResponse, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+// HandleFilesList handles file listing requests
+func (s *ModelProxy) HandleFilesList(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	fileList, err := s.listFiles(httpRequest.Context())
+	if err != nil {
+		s.logger.Warnw("Failed to list files", "error", err)
+		handleError(httpResponse, err)
+		return
+	}
+
+	httpResponse.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(httpResponse).Encode(fileList); err != nil {
+		s.logger.Errorw("Failed to encode response", "error", err)
+		http.Error(httpResponse, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+// HandleFilesRetrieve handles file metadata retrieval
+func (s *ModelProxy) HandleFilesRetrieve(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	// Extract file ID from URL path
+	pathParts := strings.Split(httpRequest.URL.Path, "/")
+	if len(pathParts) < 4 {
+		http.Error(httpResponse, "File ID required", http.StatusBadRequest)
+		return
+	}
+	fileID := pathParts[3]
+
+	file, err := s.retrieveFile(httpRequest.Context(), fileID)
+	if err != nil {
+		s.logger.Warnw("Failed to retrieve file", "file_id", fileID, "error", err)
+		handleError(httpResponse, err)
+		return
+	}
+
+	httpResponse.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(httpResponse).Encode(file); err != nil {
+		s.logger.Errorw("Failed to encode response", "error", err)
+		http.Error(httpResponse, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+// HandleFilesDelete handles file deletion
+func (s *ModelProxy) HandleFilesDelete(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	// Extract file ID from URL path
+	pathParts := strings.Split(httpRequest.URL.Path, "/")
+	if len(pathParts) < 4 {
+		http.Error(httpResponse, "File ID required", http.StatusBadRequest)
+		return
+	}
+	fileID := pathParts[3]
+
+	deleteResp, err := s.deleteFile(httpRequest.Context(), fileID)
+	if err != nil {
+		s.logger.Warnw("Failed to delete file", "file_id", fileID, "error", err)
+		handleError(httpResponse, err)
+		return
+	}
+
+	httpResponse.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(httpResponse).Encode(deleteResp); err != nil {
+		s.logger.Errorw("Failed to encode response", "error", err)
+		http.Error(httpResponse, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+// HandleFilesContent handles file content retrieval
+func (s *ModelProxy) HandleFilesContent(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	// Extract file ID from URL path
+	pathParts := strings.Split(httpRequest.URL.Path, "/")
+	if len(pathParts) < 5 {
+		http.Error(httpResponse, "File ID required", http.StatusBadRequest)
+		return
+	}
+	fileID := pathParts[3]
+
+	content, err := s.getFileContent(httpRequest.Context(), fileID)
+	if err != nil {
+		s.logger.Warnw("Failed to get file content", "file_id", fileID, "error", err)
+		handleError(httpResponse, err)
+		return
+	}
+
+	httpResponse.Header().Set("Content-Type", "application/octet-stream")
+	httpResponse.Write(content)
+}
+
 func (s *ModelProxy) isMasterKeyRequest(httpRequest *http.Request) bool {
 	if s.config.MasterApiKey == "" {
 		return false
@@ -1762,7 +1921,7 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 		s.logger.Warnw("Failed to select endpoint", "error", err, "provider", endpointProvider, "region", endpointRegion, "model", modelOrAlias)
 		return nil, UnavailableError{fmt.Errorf("no available endpoints")}
 	}
-	
+
 	// Try the intelligently selected endpoint first, then fall back to others
 	endpoints := []*endpointStatus{selectedEndpoint}
 	for _, ep := range allEndpoints {
@@ -1801,7 +1960,7 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 			}
 
 			openAiRequest.Model = endpoint.modelStatus.Name
-			
+
 			// Record start time for latency tracking
 			startTime := time.Now()
 			openAiResponse, err := endpoint.endpoint.GenerateChatCompletion(ctx, openAiRequest)
@@ -1817,7 +1976,7 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 					requestCost := cost.CalculateChatCost(openAiRequest.Model, openai.Usage{PromptTokens: 100}) // Estimate for failed requests
 					s.router.RecordRequestResult(routingEndpoint, requestLatency, requestCost, false, err.Error())
 				}
-				
+
 				loweredError := strings.ToLower(err.Error())
 				if strings.Contains(loweredError, "429") ||
 					strings.Contains(loweredError, "quota") ||
@@ -1841,7 +2000,7 @@ func (s *ModelProxy) generateChatCompletion(ctx context.Context, openAiRequest *
 
 			// Calculate request cost
 			calculatedCost := cost.CalculateChatCost(openAiRequest.Model, openAiResponse.Usage)
-			
+
 			// Record success with router
 			if s.router != nil {
 				routingEndpoint := &routing.EndpointStatus{
