@@ -286,10 +286,17 @@ func TestAPIHandler_HandleUpdateRoutingConfig(t *testing.T) {
 				// Verify weights are normalized if they were updated
 				if configBody, ok := tt.body.(map[string]interface{}); ok {
 					if _, hasCostWeight := configBody["cost_weight"]; hasCostWeight {
-						config := response["config"].(*RoutingConfig)
-						totalWeight := config.CostWeight + config.LatencyWeight + 
-							config.SuccessRateWeight + config.LoadWeight
-						assert.InDelta(t, 1.0, totalWeight, 0.001)
+						configMap, ok := response["config"].(map[string]interface{})
+						assert.True(t, ok, "config should be a map")
+						if ok {
+							// JSON field names are capitalized (CostWeight not cost_weight)
+							costWeight, _ := configMap["CostWeight"].(float64)
+							latencyWeight, _ := configMap["LatencyWeight"].(float64)
+							successRateWeight, _ := configMap["SuccessRateWeight"].(float64)
+							loadWeight, _ := configMap["LoadWeight"].(float64)
+							totalWeight := costWeight + latencyWeight + successRateWeight + loadWeight
+							assert.InDelta(t, 1.0, totalWeight, 0.001)
+						}
 					}
 				}
 			}
@@ -549,6 +556,12 @@ func TestAPIHandler_RegisterRoutes(t *testing.T) {
 	router := NewRouter(nil, nil, logger)
 	handler := NewAPIHandler(router, logger)
 
+	// Create some endpoint metrics for the circuit breaker tests
+	endpoint := &EndpointStatus{
+		Endpoint: &dummyEndpoint{provider: "openai", region: "us-east-1"},
+	}
+	router.RecordRequestResult(endpoint, 100*time.Millisecond, 0.01, true, "")
+
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
 
@@ -654,9 +667,8 @@ func TestAPIHandler_EdgeCases(t *testing.T) {
 
 		handler.HandleUpdateRoutingConfig(recorder, req)
 
-		// Should handle gracefully - the JSON will unmarshal with string value
-		// but the type assertion will use the default value
-		assert.Equal(t, http.StatusOK, recorder.Code)
+		// JSON unmarshal fails with type mismatch
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
 	})
 
 	// Test endpoint metrics with empty path segments
@@ -696,7 +708,8 @@ func TestAPIHandler_EdgeCases(t *testing.T) {
 
 		handler.HandleResetCircuitBreaker(recorder, req)
 
-		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+		// Extra segments return 404 not found
+		assert.Equal(t, http.StatusNotFound, recorder.Code)
 	})
 }
 

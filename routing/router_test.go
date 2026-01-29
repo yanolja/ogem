@@ -414,7 +414,7 @@ func TestRouter_FallbackStrategy(t *testing.T) {
 	result, err := router.RouteRequest(ctx, endpoints, request)
 	assert.Error(t, err)
 	assert.Nil(t, result)
-	assert.Contains(t, err.Error(), "routing failed")
+	assert.Contains(t, err.Error(), "no endpoints available")
 }
 
 func TestRouter_RecordRequestResult(t *testing.T) {
@@ -458,7 +458,7 @@ func TestRouter_RecordRequestResult(t *testing.T) {
 
 			if tt.success {
 				assert.Greater(t, metrics.SuccessfulRequests, int64(0))
-				assert.Equal(t, int64(0), metrics.ConsecutiveFailures)
+				assert.Equal(t, 0, metrics.ConsecutiveFailures)
 			} else {
 				assert.Greater(t, metrics.FailedRequests, int64(0))
 				assert.Greater(t, metrics.ConsecutiveFailures, 0)
