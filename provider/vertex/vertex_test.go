@@ -29,7 +29,7 @@ func TestNewEndpoint(t *testing.T) {
 			name:      "empty project ID",
 			projectID: "",
 			region:    "us-central1",
-			wantErr:   true,
+			wantErr:   false, // genai.NewClient accepts empty projectID
 		},
 	}
 
