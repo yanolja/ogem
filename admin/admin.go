@@ -1,14 +1,13 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	"html/template"
 	"net/http"
 	"time"
 
 	"github.com/yanolja/ogem/auth"
-	"github.com/yanolja/ogem/cost"
-	"github.com/yanolja/ogem/state"
 )
 
 type AdminServer struct {
@@ -75,7 +74,11 @@ func (a *AdminServer) handleAPIStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *AdminServer) handleAPIKeys(w http.ResponseWriter, r *http.Request) {
-	keys := (*a.virtualKeyManager).ListKeys()
+	keys, err := (*a.virtualKeyManager).ListKeys(context.Background())
+	if err != nil {
+		http.Error(w, "Failed to list keys: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 	
 	type KeyInfo struct {
 		VirtualKey   string    `json:"virtual_key"`
@@ -88,13 +91,17 @@ func (a *AdminServer) handleAPIKeys(w http.ResponseWriter, r *http.Request) {
 
 	var keyInfos []KeyInfo
 	for _, key := range keys {
+		var used float64
+		if key.UsageStats != nil {
+			used = key.UsageStats.TotalCost
+		}
 		info := KeyInfo{
-			VirtualKey:  key.VirtualKey,
+			VirtualKey:  key.Key,
 			Budget:      key.Budget,
-			Used:        key.Used,
-			Permissions: key.Permissions,
+			Used:        used,
+			Permissions: key.Models, // Using Models as permissions
 			CreatedAt:   key.CreatedAt,
-			LastUsed:    key.LastUsed,
+			LastUsed:    nil, // VirtualKey doesn't have LastUsed field
 		}
 		keyInfos = append(keyInfos, info)
 	}
@@ -123,7 +130,14 @@ func (a *AdminServer) handleCreateKey(w http.ResponseWriter, r *http.Request) {
 		req.Permissions = []string{"chat", "embeddings", "images", "audio", "moderations"}
 	}
 
-	key, err := (*a.virtualKeyManager).CreateKey(req.Budget, req.Permissions)
+	keyReq := &auth.KeyRequest{
+		Name:        "API Key",
+		Description: "Generated via admin UI",
+		Models:      req.Permissions,
+		Budget:      req.Budget,
+	}
+
+	virtualKey, err := (*a.virtualKeyManager).CreateKey(context.Background(), keyReq)
 	if err != nil {
 		http.Error(w, "Failed to create key: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -131,10 +145,10 @@ func (a *AdminServer) handleCreateKey(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"virtual_key": key.VirtualKey,
-		"budget":      key.Budget,
-		"permissions": key.Permissions,
-		"created_at":  key.CreatedAt,
+		"virtual_key": virtualKey.Key,
+		"budget":      virtualKey.Budget,
+		"permissions": virtualKey.Models,
+		"created_at":  virtualKey.CreatedAt,
 	})
 }
 
@@ -150,7 +164,7 @@ func (a *AdminServer) handleDeleteKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := (*a.virtualKeyManager).DeleteKey(virtualKey); err != nil {
+	if err := (*a.virtualKeyManager).DeleteKey(context.Background(), virtualKey); err != nil {
 		http.Error(w, "Failed to delete key: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -160,14 +174,19 @@ func (a *AdminServer) handleDeleteKey(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *AdminServer) getDashboardData() (*DashboardData, error) {
-	keys := (*a.virtualKeyManager).ListKeys()
+	keys, err := (*a.virtualKeyManager).ListKeys(context.Background())
+	if err != nil {
+		return nil, err
+	}
 	
 	totalCost := 0.0
 	activeKeys := 0
 	
 	for _, key := range keys {
-		totalCost += key.Used
-		if key.LastUsed != nil && time.Since(*key.LastUsed) < 24*time.Hour {
+		if key.UsageStats != nil {
+			totalCost += key.UsageStats.TotalCost
+		}
+		if key.IsActive {
 			activeKeys++
 		}
 	}
