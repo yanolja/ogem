@@ -92,6 +92,34 @@ func main() {
 		}
 	})
 
+	// Fine-tuning API endpoints
+	mux.HandleFunc("/v1/fine_tuning/jobs", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			proxy.HandleAuthentication(proxy.HandleFineTuningJobCreate)(w, r)
+		case http.MethodGet:
+			proxy.HandleAuthentication(proxy.HandleFineTuningJobList)(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/v1/fine_tuning/jobs/", func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/cancel") {
+			if r.Method == http.MethodPost {
+				proxy.HandleAuthentication(proxy.HandleFineTuningJobCancel)(w, r)
+			} else {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			proxy.HandleAuthentication(proxy.HandleFineTuningJobGet)(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	// Virtual key management endpoints (only available if virtual keys are enabled)
 	if config.EnableVirtualKeys {
 		mux.HandleFunc("/v1/keys", func(w http.ResponseWriter, r *http.Request) {

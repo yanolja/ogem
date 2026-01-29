@@ -1809,6 +1809,197 @@ func (s *ModelProxy) HandleFilesContent(httpResponse http.ResponseWriter, httpRe
 	httpResponse.Write(content)
 }
 
+// HandleFineTuningJobCreate handles creating a new fine-tuning job
+func (s *ModelProxy) HandleFineTuningJobCreate(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	defer httpRequest.Body.Close()
+
+	bodyBytes, err := io.ReadAll(httpRequest.Body)
+	if err != nil {
+		s.logger.Warnw("Failed to read request body", "error", err)
+		http.Error(httpResponse, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	var request openai.FineTuningJobRequest
+	if err := json.Unmarshal(bodyBytes, &request); err != nil {
+		s.logger.Warnw("Failed to decode request", "error", err)
+		http.Error(httpResponse, "Invalid request format", http.StatusBadRequest)
+		return
+	}
+
+	// Validate training file exists
+	if _, err := s.retrieveFile(httpRequest.Context(), request.TrainingFile); err != nil {
+		s.logger.Warnw("Training file not found", "file_id", request.TrainingFile, "error", err)
+		http.Error(httpResponse, "Training file not found", http.StatusBadRequest)
+		return
+	}
+
+	// Select endpoint
+	endpoint, err := s.selectFineTuningEndpoint(httpRequest.Context(), request.Model)
+	if err != nil {
+		s.logger.Warnw("Failed to select endpoint for fine-tuning", "model", request.Model, "error", err)
+		handleError(httpResponse, err)
+		return
+	}
+
+	// Create fine-tuning job
+	job, err := endpoint.CreateFineTuningJob(httpRequest.Context(), &request)
+	if err != nil {
+		s.logger.Warnw("Failed to create fine-tuning job", "error", err)
+		handleError(httpResponse, err)
+		return
+	}
+
+	httpResponse.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(httpResponse).Encode(job); err != nil {
+		s.logger.Errorw("Failed to encode response", "error", err)
+		http.Error(httpResponse, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+// HandleFineTuningJobGet retrieves a fine-tuning job by ID
+func (s *ModelProxy) HandleFineTuningJobGet(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	// Extract job ID from URL path
+	pathParts := strings.Split(httpRequest.URL.Path, "/")
+	if len(pathParts) < 5 {
+		http.Error(httpResponse, "Job ID required", http.StatusBadRequest)
+		return
+	}
+	jobID := pathParts[4]
+
+	// Try all endpoints until we find the job
+	job, err := s.getFineTuningJob(httpRequest.Context(), jobID)
+	if err != nil {
+		s.logger.Warnw("Failed to get fine-tuning job", "job_id", jobID, "error", err)
+		handleError(httpResponse, err)
+		return
+	}
+
+	httpResponse.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(httpResponse).Encode(job); err != nil {
+		s.logger.Errorw("Failed to encode response", "error", err)
+		http.Error(httpResponse, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+// HandleFineTuningJobList lists fine-tuning jobs
+func (s *ModelProxy) HandleFineTuningJobList(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	// Parse query parameters
+	query := httpRequest.URL.Query()
+	var after *string
+	var limit *int32
+
+	if afterParam := query.Get("after"); afterParam != "" {
+		after = &afterParam
+	}
+
+	if limitParam := query.Get("limit"); limitParam != "" {
+		var limitInt int32
+		if _, err := fmt.Sscanf(limitParam, "%d", &limitInt); err == nil {
+			limit = &limitInt
+		}
+	}
+
+	// List jobs from first available endpoint
+	jobList, err := s.listFineTuningJobs(httpRequest.Context(), after, limit)
+	if err != nil {
+		s.logger.Warnw("Failed to list fine-tuning jobs", "error", err)
+		handleError(httpResponse, err)
+		return
+	}
+
+	httpResponse.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(httpResponse).Encode(jobList); err != nil {
+		s.logger.Errorw("Failed to encode response", "error", err)
+		http.Error(httpResponse, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+// HandleFineTuningJobCancel cancels a fine-tuning job
+func (s *ModelProxy) HandleFineTuningJobCancel(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	// Extract job ID from URL path
+	pathParts := strings.Split(httpRequest.URL.Path, "/")
+	if len(pathParts) < 6 {
+		http.Error(httpResponse, "Job ID required", http.StatusBadRequest)
+		return
+	}
+	jobID := pathParts[4]
+
+	// Cancel the job
+	job, err := s.cancelFineTuningJob(httpRequest.Context(), jobID)
+	if err != nil {
+		s.logger.Warnw("Failed to cancel fine-tuning job", "job_id", jobID, "error", err)
+		handleError(httpResponse, err)
+		return
+	}
+
+	httpResponse.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(httpResponse).Encode(job); err != nil {
+		s.logger.Errorw("Failed to encode response", "error", err)
+		http.Error(httpResponse, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+// Helper methods for fine-tuning operations
+
+func (s *ModelProxy) selectFineTuningEndpoint(ctx context.Context, model string) (provider.AiEndpoint, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	// Find endpoint that supports the model
+	for _, endpoint := range s.endpoints {
+		if endpoint.Provider() == "openai" {
+			return endpoint, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no endpoint supports fine-tuning for model: %s", model)
+}
+
+func (s *ModelProxy) getFineTuningJob(ctx context.Context, jobID string) (*openai.FineTuningJob, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	// Try each endpoint until we find the job
+	for _, endpoint := range s.endpoints {
+		job, err := endpoint.GetFineTuningJob(ctx, jobID)
+		if err == nil {
+			return job, nil
+		}
+	}
+
+	return nil, fmt.Errorf("fine-tuning job not found: %s", jobID)
+}
+
+func (s *ModelProxy) listFineTuningJobs(ctx context.Context, after *string, limit *int32) (*openai.FineTuningJobList, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	// Use first OpenAI endpoint
+	for _, endpoint := range s.endpoints {
+		if endpoint.Provider() == "openai" {
+			return endpoint.ListFineTuningJobs(ctx, after, limit)
+		}
+	}
+
+	return nil, fmt.Errorf("no OpenAI endpoint available for listing fine-tuning jobs")
+}
+
+func (s *ModelProxy) cancelFineTuningJob(ctx context.Context, jobID string) (*openai.FineTuningJob, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	// Try each endpoint until we can cancel the job
+	for _, endpoint := range s.endpoints {
+		job, err := endpoint.CancelFineTuningJob(ctx, jobID)
+		if err == nil {
+			return job, nil
+		}
+	}
+
+	return nil, fmt.Errorf("failed to cancel fine-tuning job: %s", jobID)
+}
+
 func (s *ModelProxy) isMasterKeyRequest(httpRequest *http.Request) bool {
 	if s.config.MasterApiKey == "" {
 		return false
