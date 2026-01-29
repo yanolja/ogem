@@ -79,9 +79,9 @@ func TestEndpoint(t *testing.T) {
 
 	t.Run("evaluate handling error from toClaudeParams", func(t *testing.T) {
 		ctx := context.Background()
-		// resultFunc is not needed because generateChatCompletion method
-		// should return an error before sending the request to the claude api
-		client := &mockAnthropicClient{resultFunc: nil}
+		// Empty messages should be allowed by toClaudeMessages (method version)
+		// The Claude API will handle validation
+		client := &mockAnthropicClient{resultFunc: mockNewRequestReturnsValidResponse}
 		endpoint := newMockEndpoint(client)
 		openaiRequest := &openai.ChatCompletionRequest{
 			Model:    "claude-3-haiku",
@@ -90,9 +90,9 @@ func TestEndpoint(t *testing.T) {
 
 		resp, err := endpoint.GenerateChatCompletion(ctx, openaiRequest)
 
-		assert.Error(t, err)
-		assert.Nil(t, resp)
-		assert.Equal(t, "at least one message is required", err.Error())
+		// Should succeed with empty messages (API validates)
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
 	})
 
 	t.Run("evaluate handling error from claude api call", func(t *testing.T) {
