@@ -50,6 +50,9 @@ type Config struct {
 	// API key to access the OpenRouter service.
 	OpenRouterApiKey string
 
+	// API key to access the Cohere service.
+	CohereApiKey string
+
 	// Interval to retry when no available endpoints are found. E.g., 10m
 	RetryInterval string `yaml:"retry_interval"`
 
@@ -122,6 +125,7 @@ func LoadConfig(path string, logger *zap.SugaredLogger) (*Config, error) {
 	config.XAIApiKey = env.OptionalStringVariable("XAI_API_KEY", config.XAIApiKey)
 	config.GroqApiKey = env.OptionalStringVariable("GROQ_API_KEY", config.GroqApiKey)
 	config.OpenRouterApiKey = env.OptionalStringVariable("OPENROUTER_API_KEY", config.OpenRouterApiKey)
+	config.CohereApiKey = env.OptionalStringVariable("COHERE_API_KEY", config.CohereApiKey)
 	config.RetryInterval = env.OptionalStringVariable("RETRY_INTERVAL", config.RetryInterval)
 	config.PingInterval = env.OptionalStringVariable("PING_INTERVAL", config.PingInterval)
 	config.Port = env.OptionalIntVariable("PORT", config.Port)

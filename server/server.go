@@ -28,6 +28,7 @@ import (
 	"github.com/yanolja/ogem/openai"
 	"github.com/yanolja/ogem/provider"
 	"github.com/yanolja/ogem/provider/claude"
+	"github.com/yanolja/ogem/provider/cohere"
 	"github.com/yanolja/ogem/provider/groq"
 	"github.com/yanolja/ogem/provider/mistral"
 	openaiProvider "github.com/yanolja/ogem/provider/openai"
@@ -131,6 +132,11 @@ func newEndpoint(provider string, region string, config *config.Config) (provide
 			return nil, fmt.Errorf("region is not supported for groq provider")
 		}
 		return groq.NewEndpoint(region, "", config.GroqApiKey)
+	case "cohere":
+		if region != "cohere" {
+			return nil, fmt.Errorf("region is not supported for cohere provider")
+		}
+		return cohere.NewEndpoint(region, "", config.CohereApiKey)
 	case "openrouter":
 		if region != "openrouter" {
 			return nil, fmt.Errorf("region is not supported for openrouter provider")
@@ -254,11 +260,7 @@ func NewProxyServer(stateManager state.Manager, cleanup func(), config *config.C
 	// Initialize admin server
 	var adminServer *admin.AdminServer
 	if authManager != nil {
-		vkm, ok := authManager.(*auth.VirtualKeyManager)
-		if ok {
-			calculator := cost.NewCalculator()
-			adminServer = admin.NewAdminServer(vkm, stateManager, calculator)
-		}
+		adminServer = admin.NewAdminServer(authManager)
 	}
 
 	// Initialize file manager for fine-tuning support
