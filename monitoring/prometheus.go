@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -17,7 +18,7 @@ type PrometheusMonitor struct {
 	config   *PrometheusConfig
 	registry *prometheus.Registry
 	logger   *zap.SugaredLogger
-	
+
 	// Standard metrics
 	requestsTotal       *prometheus.CounterVec
 	requestDuration     *prometheus.HistogramVec
@@ -28,8 +29,9 @@ type PrometheusMonitor struct {
 	providerLatency     *prometheus.HistogramVec
 	activeConnections   prometheus.Gauge
 	queueSize          prometheus.Gauge
-	
-	// Custom metrics map
+
+	// Custom metrics map with mutex protection for concurrent access
+	mu            sync.RWMutex
 	customMetrics map[string]prometheus.Collector
 }
 
@@ -194,15 +196,30 @@ func (p *PrometheusMonitor) RecordMetric(metric *Metric) error {
 
 // recordCounter records a counter metric
 func (p *PrometheusMonitor) recordCounter(metric *Metric) error {
-	// Check if custom counter exists
+	p.mu.RLock()
+	collector, exists := p.customMetrics[metric.Name]
+	p.mu.RUnlock()
+
+	if exists {
+		if counter, ok := collector.(*prometheus.CounterVec); ok {
+			counter.With(metric.Labels).Add(metric.Value)
+			return nil
+		}
+	}
+
+	// Double-check locking pattern to prevent duplicate registration
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// Check again after acquiring write lock
 	if collector, exists := p.customMetrics[metric.Name]; exists {
 		if counter, ok := collector.(*prometheus.CounterVec); ok {
 			counter.With(metric.Labels).Add(metric.Value)
 			return nil
 		}
 	}
-	
-	// Create new counter if it doesn't exist
+
+	// Create new counter
 	counter := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: p.config.Namespace,
@@ -212,28 +229,43 @@ func (p *PrometheusMonitor) recordCounter(metric *Metric) error {
 		},
 		getLabelNames(metric.Labels),
 	)
-	
+
 	if err := p.registry.Register(counter); err != nil {
 		return fmt.Errorf("failed to register counter %s: %v", metric.Name, err)
 	}
-	
+
 	p.customMetrics[metric.Name] = counter
 	counter.With(metric.Labels).Add(metric.Value)
-	
+
 	return nil
 }
 
 // recordGauge records a gauge metric
 func (p *PrometheusMonitor) recordGauge(metric *Metric) error {
-	// Check if custom gauge exists
+	p.mu.RLock()
+	collector, exists := p.customMetrics[metric.Name]
+	p.mu.RUnlock()
+
+	if exists {
+		if gauge, ok := collector.(*prometheus.GaugeVec); ok {
+			gauge.With(metric.Labels).Set(metric.Value)
+			return nil
+		}
+	}
+
+	// Double-check locking pattern to prevent duplicate registration
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// Check again after acquiring write lock
 	if collector, exists := p.customMetrics[metric.Name]; exists {
 		if gauge, ok := collector.(*prometheus.GaugeVec); ok {
 			gauge.With(metric.Labels).Set(metric.Value)
 			return nil
 		}
 	}
-	
-	// Create new gauge if it doesn't exist
+
+	// Create new gauge
 	gauge := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: p.config.Namespace,
@@ -243,28 +275,43 @@ func (p *PrometheusMonitor) recordGauge(metric *Metric) error {
 		},
 		getLabelNames(metric.Labels),
 	)
-	
+
 	if err := p.registry.Register(gauge); err != nil {
 		return fmt.Errorf("failed to register gauge %s: %v", metric.Name, err)
 	}
-	
+
 	p.customMetrics[metric.Name] = gauge
 	gauge.With(metric.Labels).Set(metric.Value)
-	
+
 	return nil
 }
 
 // recordHistogram records a histogram metric
 func (p *PrometheusMonitor) recordHistogram(metric *Metric) error {
-	// Check if custom histogram exists
+	p.mu.RLock()
+	collector, exists := p.customMetrics[metric.Name]
+	p.mu.RUnlock()
+
+	if exists {
+		if histogram, ok := collector.(*prometheus.HistogramVec); ok {
+			histogram.With(metric.Labels).Observe(metric.Value)
+			return nil
+		}
+	}
+
+	// Double-check locking pattern to prevent duplicate registration
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// Check again after acquiring write lock
 	if collector, exists := p.customMetrics[metric.Name]; exists {
 		if histogram, ok := collector.(*prometheus.HistogramVec); ok {
 			histogram.With(metric.Labels).Observe(metric.Value)
 			return nil
 		}
 	}
-	
-	// Create new histogram if it doesn't exist
+
+	// Create new histogram
 	histogram := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: p.config.Namespace,
@@ -275,28 +322,43 @@ func (p *PrometheusMonitor) recordHistogram(metric *Metric) error {
 		},
 		getLabelNames(metric.Labels),
 	)
-	
+
 	if err := p.registry.Register(histogram); err != nil {
 		return fmt.Errorf("failed to register histogram %s: %v", metric.Name, err)
 	}
-	
+
 	p.customMetrics[metric.Name] = histogram
 	histogram.With(metric.Labels).Observe(metric.Value)
-	
+
 	return nil
 }
 
 // recordSummary records a summary metric
 func (p *PrometheusMonitor) recordSummary(metric *Metric) error {
-	// Check if custom summary exists
+	p.mu.RLock()
+	collector, exists := p.customMetrics[metric.Name]
+	p.mu.RUnlock()
+
+	if exists {
+		if summary, ok := collector.(*prometheus.SummaryVec); ok {
+			summary.With(metric.Labels).Observe(metric.Value)
+			return nil
+		}
+	}
+
+	// Double-check locking pattern to prevent duplicate registration
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// Check again after acquiring write lock
 	if collector, exists := p.customMetrics[metric.Name]; exists {
 		if summary, ok := collector.(*prometheus.SummaryVec); ok {
 			summary.With(metric.Labels).Observe(metric.Value)
 			return nil
 		}
 	}
-	
-	// Create new summary if it doesn't exist
+
+	// Create new summary
 	summary := prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
 			Namespace: p.config.Namespace,
@@ -306,14 +368,14 @@ func (p *PrometheusMonitor) recordSummary(metric *Metric) error {
 		},
 		getLabelNames(metric.Labels),
 	)
-	
+
 	if err := p.registry.Register(summary); err != nil {
 		return fmt.Errorf("failed to register summary %s: %v", metric.Name, err)
 	}
-	
+
 	p.customMetrics[metric.Name] = summary
 	summary.With(metric.Labels).Observe(metric.Value)
-	
+
 	return nil
 }
 

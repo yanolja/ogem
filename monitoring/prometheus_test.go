@@ -481,6 +481,30 @@ func TestPrometheusMonitor_MetricRegistration(t *testing.T) {
 	monitor, err := NewPrometheusMonitor(config, logger)
 	require.NoError(t, err)
 
+	// Record some metrics to ensure they appear in Gather()
+	err = monitor.RecordRequestMetrics(&RequestMetrics{
+		Provider:     "test",
+		Model:        "test-model",
+		Endpoint:     "/test",
+		Method:       "POST",
+		StatusCode:   200,
+		Duration:     100 * time.Millisecond,
+		InputTokens:  100,
+		OutputTokens: 200,
+		Cost:         0.05,
+		CacheHit:     true,
+	})
+	require.NoError(t, err)
+
+	err = monitor.RecordError("test_error", map[string]string{
+		"provider": "test",
+		"model":    "test-model",
+		"endpoint": "/test",
+	})
+	require.NoError(t, err)
+
+	monitor.UpdateSystemMetrics(10, 5)
+
 	// Test that standard metrics are registered
 	standardMetrics := []string{
 		"requests_total",
