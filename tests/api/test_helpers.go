@@ -33,18 +33,17 @@ func setupTestServer(t *testing.T) {
 	cfg := &config.Config{
 		OgemApiKey: testAPIKey,
 		Port:       8080,
-		// Add minimal provider config for testing
-		Providers: map[string]interface{}{},
 	}
 
 	// Create test state manager
-	stateManager := state.NewMemoryManager()
+	stateManager, cleanup := state.NewMemoryManager(1000)
+	t.Cleanup(cleanup)
 
 	// Create test auth manager
 	authManager := auth.NewMemoryManager()
 
 	// Create test proxy
-	proxy, err := server.NewModelProxy(cfg, stateManager, authManager)
+	proxy, err := server.NewProxyServer(stateManager, cleanup, cfg, authManager, nil)
 	if err != nil {
 		t.Fatalf("Failed to create test proxy: %v", err)
 	}

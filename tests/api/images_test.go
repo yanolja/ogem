@@ -199,12 +199,6 @@ func TestImageGeneration_RateLimiting(t *testing.T) {
 
 // Helper functions
 
-func generateImage(ctx context.Context, request *openai.ImageGenerationRequest) (*openai.ImageGenerationResponse, error) {
-	// This will be implemented to call the actual server endpoint
-	// For now, return error to make tests fail
-	return nil, assert.AnError
-}
-
 func strPtr(s string) *string {
 	return &s
 }

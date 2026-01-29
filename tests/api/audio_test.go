@@ -326,19 +326,3 @@ func TestAudio_Caching(t *testing.T) {
 	t.Skip("Audio caching test not yet implemented")
 }
 
-// Helper functions
-
-func transcribeAudio(ctx context.Context, request *openai.AudioTranscriptionRequest) (*openai.AudioTranscriptionResponse, error) {
-	// This will be implemented to call the actual server endpoint
-	return nil, assert.AnError
-}
-
-func translateAudio(ctx context.Context, request *openai.AudioTranslationRequest) (*openai.AudioTranslationResponse, error) {
-	// This will be implemented to call the actual server endpoint
-	return nil, assert.AnError
-}
-
-func generateSpeech(ctx context.Context, request *openai.TextToSpeechRequest) (*openai.TextToSpeechResponse, error) {
-	// This will be implemented to call the actual server endpoint
-	return nil, assert.AnError
-}

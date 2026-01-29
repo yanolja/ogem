@@ -190,10 +190,3 @@ func TestModeration_CustomGuardrails(t *testing.T) {
 	t.Skip("Custom guardrails not yet implemented")
 }
 
-// Helper function
-
-func moderateContent(ctx context.Context, request *openai.ModerationRequest) (*openai.ModerationResponse, error) {
-	// This will be implemented to call the actual server endpoint
-	// For now, return error to make tests fail
-	return nil, assert.AnError
-}
