@@ -472,20 +472,21 @@ func TestTenantManager_CheckAccess(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := manager.CheckAccess(ctx, tt.tenantID, tt.userID, tt.resource, tt.action)
-			
+
 			if tt.tenantID == "non-existent" {
 				assert.Error(t, err)
+				assert.NotNil(t, result)
+				assert.False(t, result.Allowed)
 			} else {
 				assert.NoError(t, err)
+				assert.NotNil(t, result)
+				assert.Equal(t, tt.allowed, result.Allowed)
+				assert.Equal(t, tt.tenantID, result.TenantID)
+				assert.Equal(t, tt.userID, result.UserID)
+				assert.Equal(t, tt.resource, result.Resource)
+				assert.Equal(t, tt.action, result.Action)
 			}
-			
-			assert.NotNil(t, result)
-			assert.Equal(t, tt.allowed, result.Allowed)
-			assert.Equal(t, tt.tenantID, result.TenantID)
-			assert.Equal(t, tt.userID, result.UserID)
-			assert.Equal(t, tt.resource, result.Resource)
-			assert.Equal(t, tt.action, result.Action)
-			
+
 			if tt.reasonContains != "" {
 				assert.Contains(t, result.Reason, tt.reasonContains)
 			}

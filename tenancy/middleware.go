@@ -180,7 +180,7 @@ func (tm *TenantMiddleware) extractTenantContext(r *http.Request) (*TenantContex
 	// Return early if no tenant identified and not required
 	if tenantID == "" {
 		if tm.config.RequireTenant {
-			return nil, fmt.Errorf("tenant identification required but not found")
+			return nil, fmt.Errorf("tenant identification required")
 		}
 		return nil, nil
 	}
